@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { rename, rm } from "node:fs/promises";
 import type {
+  AccountConfig,
   ApprovalDecision,
   ArchiveRecord,
   CategorizedTxn,
@@ -15,9 +16,8 @@ import type {
   ExcelMap,
   RawArtifact,
   RunContext,
-  StoreConfig,
 } from "./types";
-import { getStore, loadCsvProfile, loadExcelMap } from "./config";
+import { loadAccount, loadCsvProfile, loadExcelMap } from "./config";
 import { loadDbaMapping } from "./categorize/rules";
 import { categorize } from "./categorize/Categorizer";
 import { makeSource } from "./ingest/TransactionSource";
@@ -33,7 +33,7 @@ import { resolvePath } from "./util/paths";
 export interface PlanResult {
   changeSet: ChangeSet;
   rawArtifact: RawArtifact;
-  store: StoreConfig;
+  account: AccountConfig;
   vektonceMap: ExcelMap;
   liquiditaetMap: ExcelMap;
   mapping: DbaMapping;
@@ -46,32 +46,35 @@ export interface CommitResult {
   liquiditaetOut: string;
 }
 
-function makeRunId(ctx: RunContext): string {
+function makeRunId(ctx: RunContext, accountId: string): string {
   const stamp = ctx.now.utc.replace(/[:.]/g, "-");
-  return `${ctx.storeId}-${stamp}-${randomBytes(3).toString("hex")}`;
+  return `${accountId}-${stamp}-${randomBytes(3).toString("hex")}`;
 }
 
 /** Plan a run against a Commerzbank CSV. Produces the ChangeSet for review — writes NOTHING. */
 export async function runPlan(ctx: RunContext, csvPath: string): Promise<PlanResult> {
-  const store = await getStore(ctx.pluginRoot, ctx.storeId);
-  const profile = await loadCsvProfile(ctx.pluginRoot, store.csvProfile);
-  const vektonceMap = await loadExcelMap(ctx.pluginRoot, store.vektonceMap);
-  const liquiditaetMap = await loadExcelMap(ctx.pluginRoot, store.liquiditaetMap);
-  const mapping = await loadDbaMapping(ctx.pluginRoot, store.dbaMapping);
+  const account = await loadAccount(ctx.pluginRoot);
+  const profile = await loadCsvProfile(ctx.pluginRoot, account.csvProfile);
+  const vektonceMap = await loadExcelMap(ctx.pluginRoot, account.vektonceMap);
+  const liquiditaetMap = await loadExcelMap(ctx.pluginRoot, account.liquiditaetMap);
+  const mapping = await loadDbaMapping(ctx.pluginRoot, account.dbaMapping);
 
   const source = makeSource(profile, resolvePath(ctx.pluginRoot, csvPath));
   const rawArtifact = await source.fetch();
   const txns = source.parse(rawArtifact);
   const categorized = categorize(mapping, txns);
 
+  // The Kapitalflusstabelle takes EVERY movement: each credit → Einnahmen, each debit → Ausgaben.
+  // With the sign-based split nothing falls to review in normal operation; the review path stays
+  // as a safety net (e.g. a stray zero-amount row that escaped the CSV info-row filter).
   const reviewItems = categorized.filter((txn) => txn.needsReview);
   const writes = [
-    ...planVektonceWrites(store, categorized, vektonceMap),
-    ...planLiquiditaetWrites(store, categorized, liquiditaetMap),
+    ...planVektonceWrites(categorized, vektonceMap),
+    ...planLiquiditaetWrites(categorized, liquiditaetMap),
   ];
 
-  const changeSet = buildChangeSet(makeRunId(ctx), ctx.now.utc, writes, reviewItems);
-  return { changeSet, rawArtifact, store, vektonceMap, liquiditaetMap, mapping, categorized };
+  const changeSet = buildChangeSet(makeRunId(ctx, account.id), ctx.now.utc, writes, reviewItems);
+  return { changeSet, rawArtifact, account, vektonceMap, liquiditaetMap, mapping, categorized };
 }
 
 /**
@@ -81,12 +84,12 @@ export async function runPlan(ctx: RunContext, csvPath: string): Promise<PlanRes
  */
 export async function runCommit(ctx: RunContext, plan: PlanResult, decision: ApprovalDecision): Promise<CommitResult> {
   const workRoot = ctx.workRoot ?? ctx.pluginRoot;
-  const { changeSet, store, vektonceMap, rawArtifact, mapping } = plan;
-  const vektonceIn = resolvePath(ctx.pluginRoot, store.vektonceWorkbook);
-  const liquiditaetIn = resolvePath(ctx.pluginRoot, store.liquiditaetWorkbook);
+  const { changeSet, account, vektonceMap, rawArtifact, mapping } = plan;
+  const vektonceIn = resolvePath(ctx.pluginRoot, account.vektonceWorkbook);
+  const liquiditaetIn = resolvePath(ctx.pluginRoot, account.liquiditaetWorkbook);
   const outDir = join(workRoot, "out", changeSet.runId);
-  const vektonceOut = join(outDir, `${store.id}-vektonce.xlsx`);
-  const liquiditaetOut = join(outDir, `${store.id}-liquiditaet.xlsx`);
+  const vektonceOut = join(outDir, `${account.id}-vektonce.xlsx`);
+  const liquiditaetOut = join(outDir, `${account.id}-liquiditaet.xlsx`);
 
   // Snapshot + fingerprint the existing Vektonce file BEFORE any write (the no-alter guard).
   const beforeFp = await structureFingerprint(vektonceIn);

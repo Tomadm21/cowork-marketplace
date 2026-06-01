@@ -41,7 +41,7 @@
     <div class="card">
       <h2 style="font-size:15px;margin:0 0 10px">Geplante Schreibvorgänge</h2>
       <table>
-        <thead><tr><th>Store</th><th>Blatt</th><th>Zelle</th><th>Bisher</th><th>Neu</th><th>DBA-Kategorie</th><th>Quelle</th></tr></thead>
+        <thead><tr><th>Blatt</th><th>Zelle</th><th>Bisher</th><th>Neu</th><th>Kategorie</th><th>Quelle</th></tr></thead>
         <tbody id="writes"></tbody>
       </table>
     </div>
@@ -67,7 +67,7 @@
   <script>
     // RUN_DATA is injected by render_change_overview (the plan_run payload). Demo fallback below.
     const RUN_DATA = window.RUN_DATA || {
-      runId: "demo", changesetHash: "demo", store: "McDonald's Linde",
+      runId: "demo", changesetHash: "demo", account: "Commerzbank Geschäftskonto",
       summary: { txnCount: 0, changedCount: 0, newRowCount: 0, reviewCount: 0 },
       writes: [], reviewItems: [],
       notice: ""
@@ -77,7 +77,7 @@
     const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
     const fmt = (v) => v === null || v === undefined ? "—" : (typeof v === "number" ? v.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}) : esc(v));
 
-    document.getElementById("title").textContent = `Kapitalfluss-Lauf — ${RUN_DATA.store}`;
+    document.getElementById("title").textContent = `Kapitalfluss-Lauf — ${RUN_DATA.account}`;
     document.getElementById("subtitle").textContent = `Lauf ${RUN_DATA.runId}`;
 
     const s = RUN_DATA.summary;
@@ -88,7 +88,7 @@
 
     document.getElementById("writes").innerHTML = RUN_DATA.writes.map((w) => `
       <tr>
-        <td>${esc(w.store)}</td><td>${esc(w.workbook)} · ${esc(w.sheet)}</td><td>${esc(w.cell)}</td>
+        <td>${esc(w.workbook)} · ${esc(w.sheet)}</td><td>${esc(w.cell)}</td>
         <td class="num">${fmt(w.old)}</td>
         <td class="num">${fmt(w.new)} ${w.isNew ? '<span class="neu">NEU</span>' : ''}</td>
         <td><span class="tag">${esc(w.bucket)}</span></td>

@@ -8,7 +8,7 @@
 
 ## 1. Allgemeine Beschreibung
 
-**Zweck.** Automatisierte, **freigabe-gebundene** Übertragung der monatlichen Commerzbank-Geschäftskonto-Bewegungen in (a) die bestehende Vektonce-Kapitalflusstabelle und (b) die McDonald's-Liquiditätsplanung — pro Store. Die manuelle Übertragung wird zur Freigabe-Prüfung. **Es wird nichts gebucht und nichts versendet.**
+**Zweck.** Automatisierte, **freigabe-gebundene** Übertragung der monatlichen Commerzbank-Geschäftskonto-Bewegungen in (a) die bestehende Vektonce-Kapitalflusstabelle und (b) die McDonald's-Liquiditätsplanung. Jede Ein- und Auszahlung des Kontos wird nach Vorzeichen einsortiert (Gutschrift → Einnahmen, Lastschrift → Ausgaben); die Tabelle ist kontoweit, nicht pro Store. Die manuelle Übertragung wird zur Freigabe-Prüfung. **Es wird nichts gebucht und nichts versendet.**
 
 **Beteiligte.** Betreiber/Verantwortlicher: ⟦TODO: Jan Theobald, Theobald-JCPT-Hospitality⟧. Ersteller der Software: Tom Adomeit (Command Center). Steuerberater (Gegenzeichnung): Dennis Freudsheim.
 
@@ -25,7 +25,7 @@
 4. Freigeben (`commit_writes`) oder Verwerfen. Nur bei Freigabe wird geschrieben + archiviert.
 5. Ergebnis prüfen; Review-Posten ggf. nacharbeiten.
 
-**Einrichtung pro Store (Skill `liquiditaet-setup`):** siehe `skills/liquiditaet-setup/SKILL.md`. ⟦TODO: reale Dateinamen, Sheet-/Zell-Maps, DBA-Mapping⟧
+**Einrichtung (einmalig, Skill `liquiditaet-setup`):** siehe `skills/liquiditaet-setup/SKILL.md`. ⟦TODO: reale Dateinamen, Sheet-/Zell-Maps, Einnahme/Ausgabe-Anker⟧
 
 ## 3. Technische Systemdokumentation
 

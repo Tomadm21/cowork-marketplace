@@ -1,8 +1,7 @@
-import type { CategorizedTxn, ExcelMap, PlannedWrite, StoreConfig } from "../types";
+import type { CategorizedTxn, ExcelMap, PlannedWrite } from "../types";
 import { WorkbookWriter } from "./WorkbookWriter";
 
 export function planVektonceWrites(
-  store: StoreConfig,
   categorized: CategorizedTxn[],
   map: ExcelMap,
 ): PlannedWrite[] {
@@ -25,7 +24,6 @@ export function planVektonceWrites(
     const row = nextRows[sheetName] ?? table.startRow;
     nextRows[sheetName] = row + 1;
     writes.push({
-      store: store.id,
       workbook: "vektonce",
       sheet: sheetName,
       cell: `${table.anchorCol}${row}`,

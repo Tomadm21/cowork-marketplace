@@ -1,19 +1,11 @@
 /** Config loaders — the workshop swap-seam, read as data. */
-import type { CsvProfile, ExcelMap, StoreConfig, StoresRegistry } from "./types";
+import type { AccountConfig, CsvProfile, ExcelMap } from "./types";
 import { underRoot } from "./util/paths";
 import { readJsonFile } from "./util/json";
 
-export async function loadStores(root: string): Promise<StoresRegistry> {
-  return (await readJsonFile(underRoot(root, "config", "stores.json"))) as StoresRegistry;
-}
-
-export async function getStore(root: string, id: string): Promise<StoreConfig> {
-  const registry = await loadStores(root);
-  const store = registry.stores.find((entry) => entry.id === id);
-  if (!store) {
-    throw new Error(`Unknown store "${id}" — known: ${registry.stores.map((s) => s.id).join(", ")}`);
-  }
-  return store;
+/** Load THE account config. There is exactly one — no store/account selector. */
+export async function loadAccount(root: string): Promise<AccountConfig> {
+  return (await readJsonFile(underRoot(root, "config", "account.json"))) as AccountConfig;
 }
 
 export async function loadCsvProfile(root: string, stem: string): Promise<CsvProfile> {

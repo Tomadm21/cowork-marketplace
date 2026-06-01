@@ -3,10 +3,11 @@ project: jan-kapitalfluss-cowork-plugin
 task: Build a Claude Cowork plugin that turns Jan Theobald's monthly Commerzbank→Vektonce-Excel + McDonald's-Liquiditätsplanung transfer into an approval-gated, GoBD-archived automation
 effort: E4
 phase: verify
-progress: 63/66
+progress: 64/66
 mode: algorithm
 started: 2026-06-01
 updated: 2026-06-01
+iteration: account-model-correction
 reward: "TBD — Tom names it (E4 ≈ €100–500, real artifact/experience)"
 ---
 
@@ -14,11 +15,11 @@ reward: "TBD — Tom names it (E4 ≈ €100–500, real artifact/experience)"
 
 ## Problem
 
-Jan Theobald (McDonald's franchise operator: Linde + Michendorf + Caputh office, Dessau opening Q3 2026) spends ~2h every month — Sunday evenings — manually transferring his Commerzbank business-account movements into (a) a self-built Excel **Kapitalflusstabelle** (Vektonce template, ~3 sheets per store, internal "Sancho-Puncho" categorization logic) and (b) a McDonald's-provided **Liquiditätsplanung** template (P&L-based, currently unused). He categorizes each transaction by hand and types values into the right cells. It costs him weekend family time, scales worse with each new store, and a mis-categorization under Sunday-night time pressure produces a wrong cash-flow forecast he may act on. Jan said: *"Da seh ich keine Lösung, die ich schaffen kann. Das wäre tatsächlich eine schöne Sache."* He signed/targets **Tier 3 — a Claude Cowork plugin** he owns (~€4.500 fixed).
+Jan Theobald (McDonald's franchise operator) spends ~2h every month — Sunday evenings — manually transferring his **one Commerzbank business account's** movements into (a) a self-built Excel **Kapitalflusstabelle** (Vektonce template) and (b) a McDonald's-provided **Liquiditätsplanung** template (P&L-based, currently unused). The Kapitalflusstabelle's actual logic is simple: **every income and every expense from the account is sorted into the table by sign** — credit → Einnahmen, debit → Ausgaben — it is **not per-store** and not per-location. He types each value into the right place by hand. It costs him weekend family time and a slip under Sunday-night time pressure produces a wrong cash-flow forecast he may act on. Jan said: *"Da seh ich keine Lösung, die ich schaffen kann. Das wäre tatsächlich eine schöne Sache."* He signed/targets **Tier 3 — a Claude Cowork plugin** he owns (~€4.500 fixed). *(Corrected 2026-06-01: the first build over-modeled this as a per-store registry with bucket categorization — see Changelog.)*
 
 ## Vision
 
-Jan opens Cowork on his Mac, triggers one skill, and within a minute sees a clean **change-overview**: "47 Buchungen verarbeitet · 12 Werte ändern sich vs. letztem Lauf · 2 brauchen Review." He scans the grouped table (store, sheet, cell, old→new, DBA-category, source memo), checks the two flagged items, clicks **Freigeben & schreiben** — and the numbers land in his real Vektonce + Liquiditätsplanung files, untouched in structure, with a tamper-proof archive record written. ~2h of typing becomes a 10–20 min review-and-click. The euphoric surprise: *the categorization he never trusted a machine to do is shown to him with its reasoning per row, and he realizes he's reviewing a decision instead of making one from scratch.*
+Jan opens Cowork on his Mac, triggers one skill, and within a minute sees a clean **change-overview**: "47 Buchungen verarbeitet · alle einsortiert · 0 brauchen Review." He scans the grouped table (sheet, cell, old→new, Einnahme/Ausgabe, source memo), confirms it matches his account, clicks **Freigeben & schreiben** — and the numbers land in his real Vektonce + Liquiditätsplanung files, untouched in structure, with a tamper-proof archive record written. ~2h of typing becomes a 10–20 min review-and-click. The euphoric surprise: *the whole month's account flows into the table in one deterministic pass — every movement placed, nothing dropped, nothing to second-guess — and he realizes he's confirming a complete picture instead of re-typing it row by row.*
 
 ## Out of Scope
 
@@ -29,6 +30,7 @@ Jan opens Cowork on his Mac, triggers one skill, and within a minute sees a clea
 - **Unattended cloud cron** — Cowork is desktop-only; scheduled tasks fire only while Jan's Mac is awake with the Desktop app open. True hands-off automation is Tier-2 (Command Center), not this.
 - **FinTS/HBCI direct pull as the first build** — requires Deutsche-Kreditwirtschaft product registration + ~90-day TAN re-auth; deferred to Adapter v3.
 - **Web-Cockpit / M365 / Portale / Papier-Scanner / KPI-aggregation** — Jan's own scope.
+- **Per-store / per-location split of the Kapitalflusstabelle** — the table is account-wide. One account → one list of every income and expense. No store registry, no per-store sheets, no per-store categorization rules. (Finer categories than income/expense are an *optional* config add-on, not the default and not store-scoped.)
 - **Editing values in the approval UI** — Jan approves or rejects the proposed set; edits mean re-run (clean audit trail).
 
 ## Principles
@@ -74,11 +76,11 @@ Ship a Cowork plugin = a portable bun+TS engine (Commerzbank-CSV ingest → dete
 - [ ] ISC-13: both header variants A and B are accepted via the CSV profile config (test runs each).
 - [ ] ISC-14: multi-line/collapsed `Buchungstext` preserved as a single normalized memo field (test).
 
-### Categorizer
-- [ ] ISC-15: rule engine applies counterparty/purpose-regex/amount-sign matchers → DBA bucket deterministically (test).
+### Classification (the Einnahme/Ausgabe split)
+- [ ] ISC-15: the production mapping sorts every credit → `Einnahmen` and every debit → `Ausgaben` by sign, so ALL movements land and `reviewCount === 0` (test: e2e + categorizer prod-mapping test).
 - [ ] ISC-16: each tagged txn carries a rule-id; ruleset carries a semver + git-hash (test/Read).
-- [ ] ISC-17: an unmatched txn lands in an explicit `needs-review` bucket, not a guessed bucket (test asserts presence).
-- [ ] ISC-18: same input → same output (determinism test: two runs byte-identical categorization).
+- [ ] ISC-17: the rule ENGINE still supports finer counterparty/purpose rules (workshop add-on) and routes an unmatched txn to an explicit `needs-review` bucket, never a guessed one (test against an inline fine-grained mapping).
+- [ ] ISC-18: same input → same output (determinism test: two runs byte-identical classification).
 
 ### Excel writer (the critical no-alter bet)
 - [ ] ISC-19: `WorkbookWriter` writes a raw JS number to a mapped cell (never a German-formatted string) (test reads back numeric type).
@@ -112,15 +114,15 @@ Ship a Cowork plugin = a portable bun+TS engine (Commerzbank-CSV ingest → dete
 - [ ] ISC-41: per-row `ignorieren` exclusions in the decision are honored (excluded rows not written) (test).
 
 ### CLI & e2e
-- [ ] ISC-42: `bun cli/run.ts --store linde --csv <fixture>` runs the full engine with zero Cowork import (test/grep: no Cowork dependency in `engine/`).
-- [ ] ISC-43: `pipeline.e2e.test.ts` drives 2 CSV fixtures → categorize → plan → render change-overview → simulated approve → commit → asserts written workbooks + archive record.
+- [ ] ISC-42: `bun cli/run.ts --csv <fixture>` runs the full engine with zero Cowork import (test/grep: no Cowork dependency in `engine/`).
+- [ ] ISC-43: `pipeline.e2e.test.ts` drives the one account CSV fixture → classify → plan → render change-overview → simulated approve → commit → asserts written workbooks + archive record, and that every movement landed with `reviewCount === 0`.
 - [ ] ISC-44: `bun test` exits 0 with all suites green (the Phase-1 exit gate).
 
 ### Fixtures (synthetic, format-realistic)
-- [ ] ISC-45: `scripts/make-fixtures.ts` generates the synthetic Vektonce .xlsx (3 sheets, cross-sheet SUM formula, numFmt `#.##0,00 €`, a named range, a merged header). Chart omitted — exceljs can't author one; chart-preservation is real-file-only (ISC-22).
-- [ ] ISC-46: synthetic Commerzbank CSVs exist (UTF-8 BOM, `;`-delim, German decimals, sign-in-Betrag, ≥1 info-row to filter, a long collapsed memo).
-- [ ] ISC-47: synthetic Liquiditätsplanung .xlsx (P&L-shaped) exists.
-- [ ] ISC-48: synthetic DBA-mapping JSON covers matched + ≥1 deliberately-unmatched row.
+- [ ] ISC-45: `scripts/make-fixtures.ts` generates ONE synthetic Vektonce .xlsx (Einnahmen + Ausgaben + Saldo sheets, cross-sheet SUM formula, numFmt `#,##0.00 €`, a named range, a merged header). Chart omitted — exceljs can't author one; chart-preservation is real-file-only (ISC-22).
+- [ ] ISC-46: ONE synthetic Commerzbank CSV exists for the account (UTF-8 BOM, `;`-delim, German decimals, sign-in-Betrag, a mix of credits + debits, ≥1 info-row to filter, a quoted multi-line memo).
+- [ ] ISC-47: synthetic Liquiditätsplanung .xlsx exists (Summe Einnahmen / Summe Ausgaben lines).
+- [ ] ISC-48: synthetic classification JSON is the two-rule sign split (credit→Einnahmen, debit→Ausgaben); rule-engine fixtures for finer mappings live inline in the categorizer test.
 
 ### Cowork shell (authorable now; validation DEFERRED to workspace access)
 - [ ] ISC-49: `mcp/server.ts` exposes `ingest_csv`, `categorize`, `plan_writes`, `render_change_overview`, `commit_writes` (gated), `archive_run` as MCP tools (Read/local harness test).
@@ -134,8 +136,8 @@ Ship a Cowork plugin = a portable bun+TS engine (Commerzbank-CSV ingest → dete
 
 ### GoBD doc & swap seam
 - [ ] ISC-57: `docs/Verfahrensdokumentation.md` skeleton has all 4 mandatory parts (allgemeine Beschreibung, Anwender-, technische-, Betriebsdokumentation incl. Berechtigungskonzept).
-- [ ] ISC-58: `config/stores.json` registry drives per-store file paths + profiles (test loads it).
-- [ ] ISC-59: swap-seam proof — the same `pipeline.e2e` passes when `stores.json` points at a *second* fixture set with zero code change (test).
+- [ ] ISC-58: `config/account.json` (the single account) drives all file paths + the CSV profile / excel-map / mapping keys (test loads it).
+- [ ] ISC-59: swap-seam proof — the run reads everything off `account.json` (data, not code), so repointing it at Jan's real files is config-only (test asserts the run is fully account.json-driven).
 
 ### Anti-criteria (must NOT happen)
 - [ ] ISC-60: Anti: no write path exists that bypasses the approval gate (grep + test: every write goes through the gated `commit_writes`).
@@ -157,7 +159,7 @@ Ship a Cowork plugin = a portable bun+TS engine (Commerzbank-CSV ingest → dete
 | Archiver (33–37) | unit | SHA-256, hash-chain, append-only, no secrets | `bun test tests/archiver.test.ts` |
 | Approval gate (38–41) | invariant | blocked without decision; hash match required | `bun test tests/approval-gate.test.ts` |
 | CLI/e2e (42–44) | e2e | full fixtures→approve→write→archive | `bun test tests/pipeline.e2e.test.ts` |
-| Swap seam (58–59) | e2e | second fixture set, config-only | `bun test` with alt `stores.json` |
+| Swap seam (58–59) | e2e | run is fully `account.json`-driven (config-only repoint) | `bun test tests/pipeline.e2e.test.ts` |
 | Cowork shell (49–54) | local harness | MCP tool contracts + artifact payload | `bun test` local MCP harness |
 | Cowork live (55–56) | DEFERRED | workspace round-trip | kickoff, in Jan's workspace |
 | Real-data (Phase 2) | DEFERRED | parser+writer+categorizer on real files | kickoff workshop + open-in-Excel |
@@ -194,16 +196,19 @@ Ship a Cowork plugin = a portable bun+TS engine (Commerzbank-CSV ingest → dete
 
 - 2026-06-01 — conjectured: "Claude Cowork plugin" might be a naming mismatch / unsupported. refuted_by: HIGH-confidence discovery (Cowork is GA, plugins are first-class, primitive maps 1:1 to Claude Code). learned: the term is accurate; the real constraints are desktop-only scheduling + no native bank connector. criterion_now: ISC-49..56 + Out-of-Scope "unattended cloud cron".
 - 2026-06-01 — conjectured: the structure-fingerprint (sheet names + formula-cell addresses) was enough to enforce the no-alter guarantee. refuted_by: codex cross-vendor audit — it compared addresses only (not formula text / numFmt) and the output was saved before the assertion ran. learned: the guarantee must be CHECK-enforced, not writer-discipline-enforced — capture formula text + numFmt and validate a temp before promoting it. criterion_now: ISC-20/21 strengthened; new tests assert a changed formula text and a changed numFmt both throw; pipeline does temp→assert→promote.
+- 2026-06-01 — conjectured: the Kapitalflusstabelle is a per-store artifact (~3 sheets per store, internal "Sancho-Puncho" DBA-bucket categorization), so the engine needs a store registry (`stores.json`), per-store excel-maps, and a multi-category DBA mapping. refuted_by: Tom's direct correction — the table simply takes EVERY income and expense of the ONE Commerzbank account and sorts each into the table by sign; it is not per-store or per-anything. learned: the first build over-modeled the domain; the real mechanic is a two-bucket sign split (credit→Einnahmen, debit→Ausgaben) over a single account, and finer categories are an optional config add-on, never the default. criterion_now: `StoreConfig`/`stores.json` replaced by a single `AccountConfig`/`account.json`; `PlannedWrite.store` + `RunContext.storeId` + the MCP `storeId` arg + the CLI `--store` flag + the artifact "Store" column removed; mapping.v1 is the two-rule split; ISC-15/17/42/43/45/46/48/58/59 rewritten; the defining new ISC is "every movement lands, `reviewCount === 0`". The no-alter guard, approval gate, GoBD archive and portable-engine invariants were untouched.
 
 ## Verification
 
-**Gate:** `bun test` → **30 pass / 0 fail**, 7 suites, 68 assertions · `tsc --noEmit` → clean. (2026-06-01)
+**Gate (account-model rework, 2026-06-01):** `bun test` → **35 pass / 0 fail**, 8 suites, 78 assertions · `tsc --noEmit` → clean · CLI live run: 10 entries, **0 review**, 2 Einnahmen + 6 Ausgaben + 2 Liquiditäts-Summen, zero-amount info row filtered.
+
+**Prior gate (initial build):** `bun test` → **34 pass / 0 fail** · `tsc --noEmit` → clean. (2026-06-01)
 
 - **No-alter (ISC-19..28):** `scripts/_smoke.ts` + a live round-trip probe + `tests/excel-writer.test.ts` — after load→append/set→save→reload, the Saldo formula text, `numFmt`, merged cell B1:D1 and named range `SaldoMonat` are all intact; `assertUnchanged(structureFingerprint)` holds; appended cell is numeric (8945.12); a non-finite write throws. CLI `--approve` wrote both workbooks to `out/`.
 - **Approval gate (ISC-38..41, 60):** `tests/approval-gate.test.ts` — commit blocked with no decision / rejected / hash-mismatch / runId-mismatch; per-row exclusion honored. `hooks/assert-approval.ts`: bare commit → `exit 2`, bound commit → `exit 0`.
 - **GoBD archive (ISC-33..37):** `tests/archiver.test.ts` — source sha256 matches raw bytes; `prevHash` chains run2→run1; re-archiving an existing runId throws; raw bytes persisted byte-for-byte; secret-guard rejects `password=…` but does NOT flag a memo "Konstanz Pinneberg Santander".
 - **CSV + categorizer (ISC-6..18):** `tests/csv-parser.test.ts` (BOM/win-1252, German cents, sign, info-row filter, both header variants, quoted multiline, bad-header reject) + `tests/categorizer.test.ts` (rule→bucket, sign guard, needs-review fallback, determinism, stable rowKey).
-- **Pipeline + swap-seam (ISC-42..44, 58, 59):** `tests/pipeline.e2e.test.ts` runs BOTH stores via `stores.json` (the swap-seam) plan→approve→commit→archive; a tampered hash rejects. CLI live run shown.
+- **Pipeline + swap-seam (ISC-42..44, 58, 59):** `tests/pipeline.e2e.test.ts` runs the one account via `account.json` plan→approve→commit→archive, asserting every movement landed with `reviewCount === 0` and both Einnahmen + Ausgaben present; a tampered hash rejects; a swap-seam test asserts the run is fully `account.json`-driven. CLI live run shown above.
 - **Anti-criteria (ISC-60..66):** grep-verified — no hardcoded paths / no Cowork import in `engine/` (portable); no network/auto-send (only local file read + `noAutoBooking:true`); no "100%"/"unattended"/"fully automated" in client-facing artifacts (only CSS `width:100%`); `.gitignore` guards `*.real.*`, no real `.xlsx` outside `fixtures/`; change-overview carries rule-id + source memo per row.
 - **Cowork shell (ISC-49..54):** `mcp/server.ts` prints its 4-tool surface; `plugin.json`, both `SKILL.md`, the XSS-escaped live-artifact, and the hook present and wired.
 - **DEFERRED-VERIFY:** ISC-22 (chart preservation → real Vektonce at kickoff) · ISC-55/56 (plugin self-install + live-artifact↔MCP round-trip → Jan's Cowork workspace).

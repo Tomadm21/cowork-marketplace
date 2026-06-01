@@ -30,12 +30,12 @@ describe("MCP server over the real stdio transport", () => {
 
       const res = await client.callTool({
         name: "plan_run",
-        arguments: { storeId: "linde", csvPath: "fixtures/commerzbank/linde-2026-05.csv" },
+        arguments: { csvPath: "fixtures/commerzbank/commerzbank-2026-05.csv" },
       });
       const text = (res.content as Array<{ type: string; text: string }>)[0]!.text;
       const payload = JSON.parse(text) as { runId: string; summary: { reviewCount: number }; notice: string };
-      expect(payload.runId.startsWith("linde-")).toBe(true);
-      expect(payload.summary.reviewCount).toBeGreaterThanOrEqual(1);
+      expect(payload.runId.startsWith("commerzbank-")).toBe(true);
+      expect(payload.summary.reviewCount).toBe(0);
       expect(payload.notice).toContain("NICHTS gebucht");
     } finally {
       await client.close();

@@ -1,7 +1,7 @@
 {
   "name": "jan-kapitalfluss",
-  "version": "0.1.0",
-  "description": "Approval-gated Commerzbank -> Kapitalflusstabelle + Liquiditätsplanung automation for a McDonald's franchise. Plans monthly writes from a CSV export, shows a change-overview live artifact, and writes into the existing Excel files ONLY after explicit approval. No auto-booking, no auto-send. GoBD-archived.",
+  "version": "0.2.0",
+  "description": "Approval-gated Commerzbank -> Kapitalflusstabelle + Liquiditätsplanung automation. Sorts every income and expense of one Commerzbank business account into the table by sign (account-wide, not per-store). Plans monthly writes from a CSV export, shows a change-overview live artifact, and writes into the existing Excel files ONLY after explicit approval. No auto-booking, no auto-send. GoBD-archived.",
   "author": { "name": "Tom Adomeit", "email": "tomadomeit05@gmail.com" },
   "license": "UNLICENSED",
   "keywords": ["finance", "excel", "commerzbank", "gobd", "liquidity", "approval-gated", "cowork"],

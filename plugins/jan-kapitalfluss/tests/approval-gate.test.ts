@@ -4,14 +4,13 @@ import type { ApprovalDecision, ChangeSet, PlannedWrite } from "../engine/types"
 
 function write(rowKey: string): PlannedWrite {
   return {
-    store: "linde",
     workbook: "vektonce",
     sheet: "Einnahmen",
     cell: "B5",
     kind: "append",
     oldValue: null,
     newValue: 1,
-    bucket: "Umsatzerloese",
+    bucket: "Einnahmen",
     sourceMemo: "m",
     ruleId: null,
     rowKey,

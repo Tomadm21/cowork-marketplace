@@ -1,0 +1,11 @@
+{
+  "_note": "THE account. One Commerzbank business account → one Kapitalflusstabelle (Vektonce) + one Liquiditätsplanung. The table is not per-store: every income and every expense from this account is sorted into it. At the kickoff workshop, repoint vektonceWorkbook / liquiditaetWorkbook to Jan's REAL files in his Cowork-granted folder — data-only, no code change.",
+  "id": "commerzbank",
+  "name": "Commerzbank Geschäftskonto (FIXTURE)",
+  "csvProfile": "commerzbank-default",
+  "vektonceWorkbook": "fixtures/vektonce/vektonce.fixture.xlsx",
+  "vektonceMap": "vektonce",
+  "liquiditaetWorkbook": "fixtures/liquiditaet/liquiditaet.fixture.xlsx",
+  "liquiditaetMap": "liquiditaet.template",
+  "dbaMapping": "mapping.v1"
+}

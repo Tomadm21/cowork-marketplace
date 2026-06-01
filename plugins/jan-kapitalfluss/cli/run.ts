@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
  * CLI driver — proves the engine is portable (zero Cowork dependency) and drives Tier-1/Tier-2 + dev.
- *   bun cli/run.ts --store linde --csv fixtures/commerzbank/linde-2026-05.csv            # PLAN only (no write)
- *   bun cli/run.ts --store linde --csv <path> --approve "Jan Theobald"                   # plan + commit
- *   bun cli/run.ts --store linde --csv <path> --root <pluginRoot> --work <outRoot>
+ *   bun cli/run.ts --csv fixtures/commerzbank/commerzbank-2026-05.csv                    # PLAN only (no write)
+ *   bun cli/run.ts --csv <path> --approve "Jan Theobald"                                 # plan + commit
+ *   bun cli/run.ts --csv <path> --root <pluginRoot> --work <outRoot>
  */
 import { runPlan, runCommit } from "../engine/pipeline";
 import { resolveRoot } from "../engine/util/paths";
@@ -24,10 +24,9 @@ function berlinIso(date: Date): string {
   return `${g("year")}-${g("month")}-${g("day")}T${g("hour")}:${g("minute")}:${g("second")}+02:00`;
 }
 
-const storeId = arg("store");
 const csv = arg("csv");
-if (!storeId || !csv) {
-  console.error("usage: bun cli/run.ts --store <id> --csv <path> [--root <dir>] [--work <dir>] [--approve <approver>]");
+if (!csv) {
+  console.error("usage: bun cli/run.ts --csv <path> [--root <dir>] [--work <dir>] [--approve <approver>]");
   process.exit(1);
 }
 
@@ -36,14 +35,13 @@ const now = new Date();
 const ctx: RunContext = {
   pluginRoot: resolveRoot(arg("root")),
   workRoot: arg("work"),
-  storeId,
   approver: approver ?? "operator",
   now: { utc: now.toISOString(), berlin: berlinIso(now) },
 };
 
 const plan = await runPlan(ctx, csv);
 const cs = plan.changeSet;
-console.log(`\nLauf ${cs.runId} — ${plan.store.name}`);
+console.log(`\nLauf ${cs.runId} — ${plan.account.name}`);
 console.log(`${cs.summary.txnCount} Posten · ${cs.summary.newRowCount} neue Zeilen · ${cs.summary.changedCount} gesetzte Werte · ${cs.summary.reviewCount} Review`);
 for (const w of cs.writes) {
   console.log(`  ${w.workbook}/${w.sheet} ${w.cell.padEnd(5)} ${String(w.newValue).padStart(12)}  [${w.bucket}]  ${w.sourceMemo.slice(0, 48)}`);

@@ -13,7 +13,7 @@ describe("xlsx-populate no-alter round-trip (the trust-critical guarantee)", () 
   });
 
   test("formula, numFmt, merge, named range preserved; only targeted cells change; values numeric", async () => {
-    const fixture = join(repoRoot(), "fixtures", "vektonce", "vektonce-linde.fixture.xlsx");
+    const fixture = join(repoRoot(), "fixtures", "vektonce", "vektonce.fixture.xlsx");
     const out = join(await freshWorkRoot(), "vektonce.xlsx");
 
     const before = await structureFingerprint(fixture);
@@ -50,7 +50,7 @@ describe("xlsx-populate no-alter round-trip (the trust-critical guarantee)", () 
   });
 
   test("setCell refuses a non-finite number", async () => {
-    const fixture = join(repoRoot(), "fixtures", "vektonce", "vektonce-linde.fixture.xlsx");
+    const fixture = join(repoRoot(), "fixtures", "vektonce", "vektonce.fixture.xlsx");
     const writer = new WorkbookWriter();
     await writer.open(fixture);
     expect(() => writer.setCell("Einnahmen", "C5", Number.POSITIVE_INFINITY)).toThrow();

@@ -1,8 +1,7 @@
-import type { CategorizedTxn, ExcelMap, PlannedWrite, StoreConfig } from "../types";
+import type { CategorizedTxn, ExcelMap, PlannedWrite } from "../types";
 import { WorkbookWriter } from "./WorkbookWriter";
 
 export function planLiquiditaetWrites(
-  store: StoreConfig,
   categorized: CategorizedTxn[],
   map: ExcelMap,
 ): PlannedWrite[] {
@@ -22,7 +21,6 @@ export function planLiquiditaetWrites(
       throw new Error(`Bucket ${bucket} is configured for set without sheet/cell`);
     }
     writes.push({
-      store: store.id,
       workbook: "liquiditaet",
       sheet: target.sheet,
       cell: target.cell,
@@ -32,7 +30,7 @@ export function planLiquiditaetWrites(
       bucket,
       sourceMemo: `Summe ${bucket}`,
       ruleId: null,
-      rowKey: `liquiditaet:${store.id}:${bucket}`,
+      rowKey: `liquiditaet:${bucket}`,
       isNew: false,
     });
   }

@@ -1,6 +1,6 @@
 # Kapitalfluss — Cowork Plugin (Jan Theobald)
 
-Approval-gated automation: **Commerzbank CSV → Vektonce-Kapitalflusstabelle + McDonald's-Liquiditätsplanung**, packaged as a Claude Cowork plugin. The system **proposes**; the operator **disposes**. No auto-booking, no auto-send, ever. Every run is GoBD-archived.
+Approval-gated automation: **Commerzbank CSV → Vektonce-Kapitalflusstabelle + McDonald's-Liquiditätsplanung**, packaged as a Claude Cowork plugin. One Commerzbank business account; **every income and expense is sorted into the table by sign** (credit → Einnahmen, debit → Ausgaben) — the table is account-wide, not per-store. The system **proposes**; the operator **disposes**. No auto-booking, no auto-send, ever. Every run is GoBD-archived.
 
 > **System of record:** [`ISA.md`](./ISA.md) — goal, criteria (ISCs), test strategy, decisions.
 > **Compliance:** [`docs/Verfahrensdokumentation.md`](./docs/Verfahrensdokumentation.md).
@@ -12,7 +12,7 @@ Approval-gated automation: **Commerzbank CSV → Vektonce-Kapitalflusstabelle + 
 - **`skills/`** — `liquiditaet-run` (monthly, stops at approval) + `liquiditaet-setup` (workshop activation).
 - **`artifacts/change-overview.template.html`** — the live-artifact approval UI.
 - **`hooks/pre-write.hook.json`** — blocks any `commit_writes` not bound to an approval.
-- **`config/`** — the workshop **swap-seam** (store registry, CSV profile, Excel cell-maps, DBA rules). Synthetic→real is config-only.
+- **`config/`** — the workshop **swap-seam** (`account.json`, CSV profile, Excel cell-maps, the Einnahme/Ausgabe split). Synthetic→real is config-only.
 - **`fixtures/`** — synthetic, format-realistic test data. No real Jan data is ever committed.
 
 ## Develop
@@ -20,9 +20,9 @@ Approval-gated automation: **Commerzbank CSV → Vektonce-Kapitalflusstabelle + 
 ```bash
 bun install
 PLUGIN_ROOT="$PWD" bun run make-fixtures   # generate synthetic fixtures
-PLUGIN_ROOT="$PWD" bun test                # 30 tests, incl. the no-alter round-trip + the approval gate
+PLUGIN_ROOT="$PWD" bun test                # 35 tests, incl. the no-alter round-trip + the approval gate
 bun run typecheck
-PLUGIN_ROOT="$PWD" bun cli/run.ts --store linde --csv fixtures/commerzbank/linde-2026-05.csv   # plan (no write)
+PLUGIN_ROOT="$PWD" bun cli/run.ts --csv fixtures/commerzbank/commerzbank-2026-05.csv   # plan (no write)
 ```
 
 ## Status

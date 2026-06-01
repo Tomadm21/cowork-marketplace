@@ -38,11 +38,10 @@ function berlinIso(date: Date): string {
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}+02:00`;
 }
 
-function makeCtx(storeId: string): RunContext {
+function makeCtx(): RunContext {
   const now = new Date();
   return {
     pluginRoot: resolveRoot(),
-    storeId,
     approver: process.env.COWORK_APPROVER ?? "operator",
     now: { utc: now.toISOString(), berlin: berlinIso(now) },
   };
@@ -51,9 +50,9 @@ function makeCtx(storeId: string): RunContext {
 export const TOOLS = [
   {
     name: "plan_run",
-    input: "{ storeId, csvPath }",
+    input: "{ csvPath }",
     description:
-      "Ingest a Commerzbank CSV for a store, categorize transactions, and PLAN the writes. Writes NOTHING. Returns the change-overview: runId, changesetHash, summary, the planned writes, and the needs-review items.",
+      "Ingest a Commerzbank CSV for the account, sort every movement into the Kapitalflusstabelle (credit → Einnahmen, debit → Ausgaben), and PLAN the writes. Writes NOTHING. Returns the change-overview: runId, changesetHash, summary, the planned writes, and any needs-review items.",
   },
   {
     name: "render_change_overview",
@@ -76,9 +75,8 @@ export const TOOLS = [
 export async function dispatch(name: string, args: Record<string, unknown>): Promise<unknown> {
   switch (name) {
     case "plan_run": {
-      const storeId = String(args.storeId);
       const csvPath = String(args.csvPath);
-      const ctx = makeCtx(storeId);
+      const ctx = makeCtx();
       const plan = await runPlan(ctx, csvPath);
       sessions.set(plan.changeSet.runId, { plan, ctx, committed: false });
       return changeOverviewPayload(plan);
@@ -125,10 +123,9 @@ function changeOverviewPayload(plan: PlanResult): Record<string, unknown> {
   return {
     runId: plan.changeSet.runId,
     changesetHash: plan.changeSet.changesetHash,
-    store: plan.store.name,
+    account: plan.account.name,
     summary: plan.changeSet.summary,
     writes: plan.changeSet.writes.map((w) => ({
-      store: w.store,
       workbook: w.workbook,
       sheet: w.sheet,
       cell: w.cell,
@@ -166,7 +163,7 @@ export function buildServer(): McpServer {
 
   server.registerTool(
     "plan_run",
-    { description: TOOLS[0].description, inputSchema: { storeId: z.string(), csvPath: z.string() } },
+    { description: TOOLS[0].description, inputSchema: { csvPath: z.string() } },
     wrap("plan_run"),
   );
   server.registerTool(

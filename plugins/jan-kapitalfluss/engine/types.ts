@@ -100,26 +100,27 @@ export interface BucketTarget {
 export interface ExcelMap {
   workbook: "vektonce" | "liquiditaet";
   sheets: Record<string, ExcelCellMap>; // real sheet name -> map
-  bucketTargets?: Record<string, BucketTarget>; // DBA bucket -> where it lands
+  bucketTargets?: Record<string, BucketTarget>; // classification bucket -> where it lands
 }
 
 // ---------------------------------------------------------------------------
-// Store registry
+// Account config (ONE Commerzbank business account → ONE Kapitalflusstabelle)
 // ---------------------------------------------------------------------------
 
-export interface StoreConfig {
-  id: string;
-  name: string;
+/**
+ * There is a single account. The Kapitalflusstabelle takes EVERY income and expense
+ * from this account and sorts it into the table by sign — it is not per-store and not
+ * per-anything. The synthetic→real flip stays config-only via this single object.
+ */
+export interface AccountConfig {
+  id: string; // stable id used in runId + archive (e.g. "commerzbank")
+  name: string; // display name (e.g. "Commerzbank Geschäftskonto")
   csvProfile: string; // key under config/csv-profiles/
   vektonceWorkbook: string; // path (resolved relative to plugin root unless absolute)
   vektonceMap: string; // key under config/excel-maps/
   liquiditaetWorkbook: string;
   liquiditaetMap: string;
-  dbaMapping: string; // key under config/dba-mapping/
-}
-
-export interface StoresRegistry {
-  stores: StoreConfig[];
+  dbaMapping: string; // key under config/dba-mapping/ (the Einnahme/Ausgabe split)
 }
 
 // ---------------------------------------------------------------------------
@@ -127,7 +128,6 @@ export interface StoresRegistry {
 // ---------------------------------------------------------------------------
 
 export interface PlannedWrite {
-  store: string;
   workbook: "vektonce" | "liquiditaet";
   sheet: string;
   cell: string; // A1 for set; resolved append cell for append
@@ -197,7 +197,6 @@ export interface ArchiveRecord {
 export interface RunContext {
   pluginRoot: string; // where config/ + fixtures/ live
   workRoot?: string; // where out/ + archive/ are written; defaults to pluginRoot (tests use a temp dir)
-  storeId: string;
   approver: string;
   now: { utc: string; berlin: string };
 }

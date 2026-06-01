@@ -28,7 +28,6 @@ export function buildChangeSet(
 
 function compareWrites(left: PlannedWrite, right: PlannedWrite): number {
   return (
-    left.store.localeCompare(right.store) ||
     left.workbook.localeCompare(right.workbook) ||
     left.sheet.localeCompare(right.sheet) ||
     left.cell.localeCompare(right.cell)

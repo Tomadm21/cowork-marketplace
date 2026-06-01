@@ -1,43 +1,10 @@
 {
-  "_note": "FIXTURE mapping. The REAL DBA rules are authored live with Jan in the 1h kickoff workshop and dropped in as mapping.v1.json (real) with version bumped. reviewBucket catches everything unmatched — never silently bucketed.",
-  "version": "0.1.0-fixture",
+  "_note": "The Kapitalflusstabelle works by a SIMPLE sign split: every credit is an Einnahme, every debit is an Ausgabe. ALL transactions land in the table — nothing is dropped and (with the CSV info-row filter) nothing falls to review. A matcher-less rule matches everything of its sign, so no counterparty/purpose rules are needed. If Jan's real table later wants finer categories (Wareneinkauf, Personal, …), add higher-priority rules ABOVE these two and a matching bucketTarget in the excel-map — still config-only, no engine change.",
+  "version": "1.0.0",
   "gitHash": null,
   "reviewBucket": "NEEDS_REVIEW",
   "rules": [
-    {
-      "id": "umsatz-mcd",
-      "bucket": "Umsatzerloese",
-      "matchAny": [{ "field": "purpose", "regex": "McDonalds|Tagesumsatz|Sammelgutschrift" }],
-      "amountSign": "credit",
-      "priority": 10
-    },
-    {
-      "id": "wareneinkauf-havi",
-      "bucket": "Wareneinkauf",
-      "matchAny": [{ "field": "purpose", "regex": "HAVI|Logistics|Warenlieferung" }],
-      "amountSign": "debit",
-      "priority": 10
-    },
-    {
-      "id": "miete-pacht",
-      "bucket": "Raumkosten",
-      "matchAny": [{ "field": "purpose", "regex": "Miete|Pacht|Immobilien" }],
-      "amountSign": "debit",
-      "priority": 20
-    },
-    {
-      "id": "personal",
-      "bucket": "Personalkosten",
-      "matchAny": [{ "field": "purpose", "regex": "Lohn|Gehalt|Personal|SV-Beitrag" }],
-      "amountSign": "debit",
-      "priority": 20
-    },
-    {
-      "id": "energie",
-      "bucket": "Energie",
-      "matchAny": [{ "field": "purpose", "regex": "Stadtwerke|Energie|Strom|E\\.ON|Gasversorgung" }],
-      "amountSign": "debit",
-      "priority": 30
-    }
+    { "id": "einnahme", "bucket": "Einnahmen", "amountSign": "credit", "priority": 100 },
+    { "id": "ausgabe", "bucket": "Ausgaben", "amountSign": "debit", "priority": 100 }
   ]
 }

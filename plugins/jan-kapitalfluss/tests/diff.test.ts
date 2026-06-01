@@ -4,14 +4,13 @@ import type { CategorizedTxn, PlannedWrite } from "../engine/types";
 
 function write(p: Partial<PlannedWrite>): PlannedWrite {
   return {
-    store: "linde",
     workbook: "vektonce",
     sheet: "Einnahmen",
     cell: "B5",
     kind: "append",
     oldValue: null,
     newValue: 1,
-    bucket: "Umsatzerloese",
+    bucket: "Einnahmen",
     sourceMemo: "memo",
     ruleId: "r",
     rowKey: "k",

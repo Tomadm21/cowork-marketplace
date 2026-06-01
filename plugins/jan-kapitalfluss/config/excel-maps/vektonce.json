@@ -1,0 +1,22 @@
+{
+  "_note": "FIXTURE map for the synthetic Vektonce Kapitalflusstabelle. The table is account-wide (not per-store). bucketTargets routes the two sign-buckets: every Einnahme (credit) is appended to the Einnahmen sheet, every Ausgabe (debit) to the Ausgaben sheet. At kickoff: open Jan's REAL Vektonce.xlsx, read off the real sheet names + append-anchors, fill this map. No writer code changes. If Jan's real table wants finer categories than income/expense, add rules to dba-mapping AND a bucketTarget here — still config-only.",
+  "workbook": "vektonce",
+  "sheets": {
+    "Einnahmen": {
+      "cells": {},
+      "appendTable": { "anchorCol": "B", "startRow": 5, "columns": ["B", "C", "D", "E"] }
+    },
+    "Ausgaben": {
+      "cells": {},
+      "appendTable": { "anchorCol": "B", "startRow": 5, "columns": ["B", "C", "D", "E"] }
+    },
+    "Saldo": {
+      "cells": { "saldoMonat": "C3" }
+    }
+  },
+  "bucketTargets": {
+    "Einnahmen": { "sheet": "Einnahmen", "mode": "append" },
+    "Ausgaben": { "sheet": "Ausgaben", "mode": "append" },
+    "NEEDS_REVIEW": { "mode": "review" }
+  }
+}

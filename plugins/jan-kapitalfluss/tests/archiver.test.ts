@@ -53,7 +53,6 @@ describe("GobdArchiver", () => {
     const root = await freshWorkRoot();
     const inp = input(root, "memo-run");
     const w: PlannedWrite = {
-      store: "linde",
       workbook: "vektonce",
       sheet: "Ausgaben",
       cell: "B5",
@@ -76,7 +75,6 @@ describe("GobdArchiver", () => {
     const inp = input(root, "leak-run");
     inp.changeSet.writes = [
       {
-        store: "linde",
         workbook: "vektonce",
         sheet: "Ausgaben",
         cell: "B5",
@@ -98,7 +96,6 @@ describe("GobdArchiver", () => {
     const inp = input(root, "leak-apikey");
     inp.changeSet.writes = [
       {
-        store: "linde",
         workbook: "vektonce",
         sheet: "Ausgaben",
         cell: "B5",
