@@ -1,0 +1,15 @@
+{
+  "name": "jan-kapitalfluss",
+  "version": "0.1.0",
+  "description": "Approval-gated Commerzbank -> Kapitalflusstabelle + Liquiditätsplanung automation for a McDonald's franchise. Plans monthly writes from a CSV export, shows a change-overview live artifact, and writes into the existing Excel files ONLY after explicit approval. No auto-booking, no auto-send. GoBD-archived.",
+  "author": { "name": "Tom Adomeit", "email": "tomadomeit05@gmail.com" },
+  "license": "UNLICENSED",
+  "keywords": ["finance", "excel", "commerzbank", "gobd", "liquidity", "approval-gated", "cowork"],
+  "mcpServers": {
+    "kapitalfluss": {
+      "command": "bun",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.ts"],
+      "env": { "PLUGIN_ROOT": "${CLAUDE_PLUGIN_ROOT}" }
+    }
+  }
+}

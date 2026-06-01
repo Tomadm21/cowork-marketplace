@@ -1,0 +1,26 @@
+{
+  "_note": "Commerzbank business online-banking CSV. The brittle surface, deliberately externalized. Reconcile against a REAL Jan export at kickoff. Encoding 'auto' = sniff BOM, fall back to windows-1252.",
+  "delimiter": ";",
+  "encoding": "auto",
+  "dateFormat": "DD.MM.YYYY",
+  "decimal": "de",
+  "amountColumn": "Betrag",
+  "signInAmount": true,
+  "columns": {
+    "Buchungstag": "bookingDate",
+    "Wertstellung": "valueDate",
+    "Umsatzart": "type",
+    "Buchungstext": "purpose",
+    "Betrag": "amount",
+    "Währung": "currency",
+    "IBAN Kontoinhaber": "ownerIban",
+    "IBAN Auftraggeberkonto": "ownerIban",
+    "Auftraggeberkonto": "ownerAccount",
+    "Kategorie": "bankCategory"
+  },
+  "infoRowFilters": [{ "field": "amount", "amountZero": true }],
+  "headerVariants": [
+    ["Buchungstag","Wertstellung","Umsatzart","Buchungstext","Betrag","Währung","Auftraggeberkonto","Bankleitzahl Auftraggeberkonto","IBAN Auftraggeberkonto"],
+    ["Buchungstag","Wertstellung","Umsatzart","Buchungstext","Betrag","Währung","IBAN Kontoinhaber","Kategorie"]
+  ]
+}

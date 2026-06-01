@@ -1,0 +1,14 @@
+# dependencies / build / runtime output
+**/node_modules/
+plugins/*/out/
+plugins/*/dist/
+plugins/*/archive/
+
+# real client data — NEVER commit
+**/*.real.*
+**/secrets/
+**/.env
+**/.env.*
+
+# OS
+.DS_Store

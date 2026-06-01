@@ -1,0 +1,25 @@
+{
+  "_note": "FIXTURE map for the synthetic Vektonce workbook. Structure mirrors what scripts/make-fixtures.ts generates. At kickoff: open Jan's REAL Vektonce.xlsx, read off the real sheet names + cells/anchors, fill this map. No writer code changes. bucketTargets routes each DBA bucket to a sheet/cell.",
+  "workbook": "vektonce",
+  "sheets": {
+    "Einnahmen": {
+      "cells": {},
+      "appendTable": { "anchorCol": "B", "startRow": 5, "columns": ["B", "C", "D", "E"] }
+    },
+    "Ausgaben": {
+      "cells": {},
+      "appendTable": { "anchorCol": "B", "startRow": 5, "columns": ["B", "C", "D", "E"] }
+    },
+    "Saldo": {
+      "cells": { "saldoMonat": "C3" }
+    }
+  },
+  "bucketTargets": {
+    "Umsatzerloese": { "sheet": "Einnahmen", "mode": "append" },
+    "Wareneinkauf": { "sheet": "Ausgaben", "mode": "append" },
+    "Raumkosten": { "sheet": "Ausgaben", "mode": "append" },
+    "Personalkosten": { "sheet": "Ausgaben", "mode": "append" },
+    "Energie": { "sheet": "Ausgaben", "mode": "append" },
+    "NEEDS_REVIEW": { "mode": "review" }
+  }
+}

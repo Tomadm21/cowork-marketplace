@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kapitalfluss-Lauf — Vorschau & Freigabe</title>
+  <style>
+    :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --txt:#e7eaf0; --muted:#9aa3b2; --new:#1f6feb; --review:#d9822b; --ok:#2ea043; --bad:#cf3b3b; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
+    .wrap { max-width:1040px; margin:0 auto; padding:24px; }
+    h1 { font-size:20px; margin:0 0 4px; }
+    .sub { color:var(--muted); margin:0 0 18px; }
+    .summary { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+    .pill { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
+    .pill b { font-size:20px; display:block; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+    table { width:100%; border-collapse:collapse; font-size:13.5px; }
+    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:var(--muted); font-weight:600; }
+    .neu { color:var(--new); font-weight:700; }
+    .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .review td { background:rgba(217,130,43,.08); }
+    .tag { font-size:11px; padding:2px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
+    .notice { background:rgba(46,160,67,.08); border:1px solid rgba(46,160,67,.4); border-radius:10px; padding:12px 14px; color:#bfe6c8; margin:16px 0; }
+    .actions { display:flex; gap:12px; position:sticky; bottom:0; background:linear-gradient(transparent,var(--bg) 30%); padding:16px 0; }
+    button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:12px 20px; cursor:pointer; }
+    .approve { background:var(--ok); color:#fff; }
+    .reject { background:transparent; color:var(--bad); border:1px solid var(--bad); }
+    .muted { color:var(--muted); }
+    #result { margin-top:12px; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 id="title">Kapitalfluss-Lauf</h1>
+    <p class="sub" id="subtitle"></p>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="card">
+      <h2 style="font-size:15px;margin:0 0 10px">Geplante Schreibvorgänge</h2>
+      <table>
+        <thead><tr><th>Store</th><th>Blatt</th><th>Zelle</th><th>Bisher</th><th>Neu</th><th>DBA-Kategorie</th><th>Quelle</th></tr></thead>
+        <tbody id="writes"></tbody>
+      </table>
+    </div>
+
+    <div class="card" id="reviewCard" hidden>
+      <h2 style="font-size:15px;margin:0 0 10px;color:var(--review)">Review nötig — nicht eindeutig zugeordnet</h2>
+      <p class="muted" style="margin-top:0">Diese Buchungen wurden NICHT automatisch verbucht. Haken = bei diesem Lauf ignorieren.</p>
+      <table>
+        <thead><tr><th>Ignorieren</th><th>Datum</th><th>Betrag</th><th>Buchungstext</th></tr></thead>
+        <tbody id="review"></tbody>
+      </table>
+    </div>
+
+    <div class="notice">Es wird <b>NICHTS gebucht</b> und <b>NICHTS versendet</b>. Geschrieben wird nur nach deinem Klick auf „Freigeben &amp; schreiben".</div>
+
+    <div class="actions">
+      <button class="approve" id="approve">Freigeben &amp; schreiben</button>
+      <button class="reject" id="reject">Verwerfen</button>
+    </div>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    // RUN_DATA is injected by render_change_overview (the plan_run payload). Demo fallback below.
+    const RUN_DATA = window.RUN_DATA || {
+      runId: "demo", changesetHash: "demo", store: "McDonald's Linde",
+      summary: { txnCount: 0, changedCount: 0, newRowCount: 0, reviewCount: 0 },
+      writes: [], reviewItems: [],
+      notice: ""
+    };
+
+    // Escape ALL data-derived strings — bank memos are untrusted input (XSS guard on a trust-critical UI).
+    const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+    const fmt = (v) => v === null || v === undefined ? "—" : (typeof v === "number" ? v.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}) : esc(v));
+
+    document.getElementById("title").textContent = `Kapitalfluss-Lauf — ${RUN_DATA.store}`;
+    document.getElementById("subtitle").textContent = `Lauf ${RUN_DATA.runId}`;
+
+    const s = RUN_DATA.summary;
+    document.getElementById("summary").innerHTML = [
+      ["Buchungen", s.txnCount], ["Werte geändert", s.changedCount],
+      ["Neue Zeilen", s.newRowCount], ["Review nötig", s.reviewCount],
+    ].map(([k,v]) => `<div class="pill"><b>${v}</b><span class="muted">${k}</span></div>`).join("");
+
+    document.getElementById("writes").innerHTML = RUN_DATA.writes.map((w) => `
+      <tr>
+        <td>${esc(w.store)}</td><td>${esc(w.workbook)} · ${esc(w.sheet)}</td><td>${esc(w.cell)}</td>
+        <td class="num">${fmt(w.old)}</td>
+        <td class="num">${fmt(w.new)} ${w.isNew ? '<span class="neu">NEU</span>' : ''}</td>
+        <td><span class="tag">${esc(w.bucket)}</span></td>
+        <td class="muted">${esc(w.memo ?? "")}</td>
+      </tr>`).join("");
+
+    if ((RUN_DATA.reviewItems || []).length) {
+      document.getElementById("reviewCard").hidden = false;
+      document.getElementById("review").innerHTML = RUN_DATA.reviewItems.map((r) => `
+        <tr class="review">
+          <td><input type="checkbox" class="ignore" data-key="${esc(r.rowKey)}"></td>
+          <td>${esc(r.date)}</td><td class="num">${fmt(r.amount)}</td><td>${esc(r.memo)}</td>
+        </tr>`).join("");
+    }
+
+    function excluded() {
+      return Array.from(document.querySelectorAll(".ignore:checked")).map((c) => c.dataset.key);
+    }
+
+    // Cowork exposes the plugin MCP tools to the artifact; fall back to a no-op for preview.
+    async function callTool(name, args) {
+      if (window.cowork && typeof window.cowork.callTool === "function") return window.cowork.callTool(name, args);
+      console.log("[preview] would call", name, args);
+      return { preview: true };
+    }
+
+    document.getElementById("approve").onclick = async () => {
+      const decision = {
+        runId: RUN_DATA.runId,
+        changesetHash: RUN_DATA.changesetHash,
+        approver: (window.cowork && window.cowork.user) || "operator",
+        excludedRowKeys: excluded(),
+      };
+      document.getElementById("result").textContent = "Schreibe…";
+      try {
+        const res = await callTool("commit_writes", decision);
+        document.getElementById("result").innerHTML = `<span style="color:var(--ok)">Freigegeben &amp; geschrieben.</span> ${res.preview ? "(Vorschau)" : "Archiv: " + res.archived}`;
+      } catch (e) {
+        document.getElementById("result").innerHTML = `<span style="color:var(--bad)">Fehler: ${e.message || e}</span>`;
+      }
+    };
+
+    document.getElementById("reject").onclick = () => {
+      document.getElementById("result").innerHTML = `<span class="muted">Verworfen — nichts geschrieben.</span>`;
+    };
+  </script>
+</body>
+</html>

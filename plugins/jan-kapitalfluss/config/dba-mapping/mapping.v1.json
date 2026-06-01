@@ -1,0 +1,43 @@
+{
+  "_note": "FIXTURE mapping. The REAL DBA rules are authored live with Jan in the 1h kickoff workshop and dropped in as mapping.v1.json (real) with version bumped. reviewBucket catches everything unmatched — never silently bucketed.",
+  "version": "0.1.0-fixture",
+  "gitHash": null,
+  "reviewBucket": "NEEDS_REVIEW",
+  "rules": [
+    {
+      "id": "umsatz-mcd",
+      "bucket": "Umsatzerloese",
+      "matchAny": [{ "field": "purpose", "regex": "McDonalds|Tagesumsatz|Sammelgutschrift" }],
+      "amountSign": "credit",
+      "priority": 10
+    },
+    {
+      "id": "wareneinkauf-havi",
+      "bucket": "Wareneinkauf",
+      "matchAny": [{ "field": "purpose", "regex": "HAVI|Logistics|Warenlieferung" }],
+      "amountSign": "debit",
+      "priority": 10
+    },
+    {
+      "id": "miete-pacht",
+      "bucket": "Raumkosten",
+      "matchAny": [{ "field": "purpose", "regex": "Miete|Pacht|Immobilien" }],
+      "amountSign": "debit",
+      "priority": 20
+    },
+    {
+      "id": "personal",
+      "bucket": "Personalkosten",
+      "matchAny": [{ "field": "purpose", "regex": "Lohn|Gehalt|Personal|SV-Beitrag" }],
+      "amountSign": "debit",
+      "priority": 20
+    },
+    {
+      "id": "energie",
+      "bucket": "Energie",
+      "matchAny": [{ "field": "purpose", "regex": "Stadtwerke|Energie|Strom|E\\.ON|Gasversorgung" }],
+      "amountSign": "debit",
+      "priority": 30
+    }
+  ]
+}

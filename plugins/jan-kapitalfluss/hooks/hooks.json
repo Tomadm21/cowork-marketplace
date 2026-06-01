@@ -1,0 +1,13 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "mcp__kapitalfluss__commit_writes",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bun ${CLAUDE_PLUGIN_ROOT}/hooks/assert-approval.ts"
+        }
+      ]
+    }
+  ]
+}

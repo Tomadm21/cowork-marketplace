@@ -1,0 +1,17 @@
+{
+  "name": "command-center",
+  "owner": {
+    "name": "Tom Adomeit",
+    "email": "tomadomeit05@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "jan-kapitalfluss",
+      "source": "./plugins/jan-kapitalfluss",
+      "description": "Approval-gated Commerzbank -> Kapitalflusstabelle + Liquiditätsplanung automation for a McDonald's franchise (Jan Theobald). Plans monthly writes from a CSV export, shows a change-overview, writes into the existing Excel files only after explicit approval. GoBD-archived.",
+      "version": "0.1.0",
+      "author": { "name": "Tom Adomeit" },
+      "keywords": ["finance", "excel", "commerzbank", "gobd", "liquidity", "cowork"]
+    }
+  ]
+}

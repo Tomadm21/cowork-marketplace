@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# build / run output — ANCHORED to plugin root (leading /) so engine/archive source is NOT ignored
+/out/
+/dist/
+*.tsbuildinfo
+
+# GoBD run archive — runtime output at the plugin root, NOT the engine/archive/ source dir
+/archive/
+
+# real client data — NEVER commit (only synthetic fixtures live in fixtures/)
+*.real.*
+config/**/*.real.json
+config/**/*.local.json
+secrets/
+*.secret
+.env
+.env.*
+
+# OS
+.DS_Store

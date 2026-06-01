@@ -1,0 +1,6 @@
+﻿Buchungstag;Wertstellung;Umsatzart;Buchungstext;Betrag;Währung;IBAN Kontoinhaber;Kategorie
+29.05.2026;29.05.2026;Gutschrift;McDonalds Deutschland LLC Tagesumsatz-Sammelgutschrift Store 0532;7.654,00;EUR;DE12500400000999888700;Umsatz
+27.05.2026;27.05.2026;Lastschrift;HAVI Logistics GmbH Warenlieferung KW21 Michendorf;-8.120,40;EUR;DE12500400000999888700;
+05.05.2026;05.05.2026;Dauerauftrag;Miete Pacht Objekt Michendorf Mai;-3.500,00;EUR;DE12500400000999888700;
+02.05.2026;02.05.2026;Hinweis;AGB Hinweis Info Nutzungsbedingungen;0,00;EUR;DE12500400000999888700;
+01.05.2026;01.05.2026;Entgelt;Sonderposten unklar Michendorf nicht zuordenbar;-44,00;EUR;DE12500400000999888700;

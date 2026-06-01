@@ -1,0 +1,11 @@
+﻿Buchungstag;Wertstellung;Umsatzart;Buchungstext;Betrag;Währung;IBAN Kontoinhaber;Kategorie
+28.05.2026;28.05.2026;Lastschrift;HAVI Logistics GmbH Warenlieferung KW21 RG-Nr 884201 Filiale Linde;-12.480,55;EUR;DE12500400000123456700;
+30.05.2026;31.05.2026;Gutschrift;McDonalds Deutschland LLC Tagesumsatz-Sammelgutschrift 27.05.-29.05. Store 0421;8.945,12;EUR;DE12500400000123456700;Umsatz
+03.05.2026;03.05.2026;Dauerauftrag;Miete Immobilien GmbH Objekt Linde Mai;-4.200,00;EUR;DE12500400000123456700;
+28.05.2026;28.05.2026;Lastschrift;Lohn und Gehalt SV-Beitrag Mai Personal;-9.870,30;EUR;DE12500400000123456700;
+15.05.2026;15.05.2026;Lastschrift;Stadtwerke Energie Strom Linde Mai;-1.250,00;EUR;DE12500400000123456700;
+20.05.2026;20.05.2026;Lastschrift;"HAVI Logistics GmbH
+Warenlieferung KW20
+RG-Nr 884100";-5.000,00;EUR;DE12500400000123456700;
+01.05.2026;01.05.2026;Entgelt;Kontofuehrungsentgelt Sonderposten XYZ unbekannt;-19,90;EUR;DE12500400000123456700;
+01.05.2026;01.05.2026;Hinweis;Information Nutzungsbedingungen geaendert AGB Hinweis;0,00;EUR;DE12500400000123456700;

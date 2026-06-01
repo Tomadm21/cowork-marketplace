@@ -1,0 +1,23 @@
+{
+  "_note": "FIXTURE map for the synthetic McDonald's Liquiditaetsplanung (P&L-shaped) template. At kickoff: map the real P&L rows to DBA buckets via bucketTargets (each bucket -> the cell of its P&L line for the current month column).",
+  "workbook": "liquiditaet",
+  "sheets": {
+    "Liquiditaet": {
+      "cells": {
+        "umsatzerloese": "C5",
+        "wareneinkauf": "C6",
+        "raumkosten": "C7",
+        "personalkosten": "C8",
+        "energie": "C9"
+      }
+    }
+  },
+  "bucketTargets": {
+    "Umsatzerloese": { "sheet": "Liquiditaet", "cell": "C5", "mode": "set" },
+    "Wareneinkauf": { "sheet": "Liquiditaet", "cell": "C6", "mode": "set" },
+    "Raumkosten": { "sheet": "Liquiditaet", "cell": "C7", "mode": "set" },
+    "Personalkosten": { "sheet": "Liquiditaet", "cell": "C8", "mode": "set" },
+    "Energie": { "sheet": "Liquiditaet", "cell": "C9", "mode": "set" },
+    "NEEDS_REVIEW": { "mode": "review" }
+  }
+}
