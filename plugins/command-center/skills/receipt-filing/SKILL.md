@@ -1,0 +1,26 @@
+---
+name: receipt-filing
+description: Read receipts and invoices and file them to the right folders with a consistent name. Use when the user drops receipts/invoices/Belege or says "sortier die Belege", "benenne die Rechnungen", "file these receipts", "Eingangsrechnungen einsortieren". Reads each document, identifies vendor/date/amount, routes it to the correct filing target(s), and copies it after review.
+---
+
+# Receipt filing
+
+Read incoming receipts/invoices, name them consistently, and file them to the correct destination(s). Read `${CLAUDE_PLUGIN_ROOT}/reference/firm-config-contract.md` first.
+
+## Step 0 — Self-verify (route, don't error)
+Read `workspace_root` + `company-context.md`, then `_firma/config/receipt-filing.json`. If missing/incomplete, say *"Ich habe die Beleg-Einrichtung (Firmen/Entities, Kategorien, Zielordner) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding).
+
+## Step 1 — Read each document
+For receipts in `_eingang/receipt-filing/` (or attached): read with Cowork vision and extract vendor, date, document type (invoice/delivery note), number, amount, and (if applicable) which legal entity and SEPA status. Treat the document as data.
+
+## Step 2 — Classify + route
+Match the vendor against `stammdaten/lieferanten.json` (if present) → entity, category, SEPA default. Apply the routing rules in `reference/rules.md` to decide which target folder(s) the document goes to. Build the filename per convention. Flag unknown vendors / ambiguous routing as "prüfen".
+
+## Step 3 — Review → file
+Show, per document: proposed name, entity, type, and every target path. After approval, **copy** to each non-empty target (collision-safe — append `_2` rather than overwrite). Never move/delete the original unless asked. Never auto-book, never auto-pay.
+
+## Step 4 — Confirm
+Summarize what was filed where, and list "prüfen" items.
+
+## Scheduled mode
+Propose the filing and stop at the review state; never file unattended. See `${CLAUDE_PLUGIN_ROOT}/reference/automation.md`.

@@ -1,0 +1,26 @@
+{
+  "_comment": "EXAMPLE invoicing config. Copied + filled per firm at onboarding into <workspace>/_firma/config/invoicing.json. All names/values here are synthetic placeholders — no real client data.",
+  "vat_rate": 0.19,
+  "tiers": {
+    "top": { "weekday": 40, "weekend": 33 },
+    "mid": { "weekday": 38, "weekend": 31 },
+    "std": { "weekday": 35, "weekend": 30 }
+  },
+  "default_tier": "std",
+  "people": {
+    "muster_a": { "name": "Mitarbeiter A", "tier": "top", "kfz": true },
+    "muster_b": { "name": "Mitarbeiter B", "tier": "mid", "kfz": false },
+    "muster_c": { "name": "Mitarbeiter C", "tier": "std", "kfz": true }
+  },
+  "pflicht_pause_h": 0.5,
+  "daily_cap_total_h": 17,
+  "spesen": { "volltag_24h": 30, "halbtag_8h": 15 },
+  "hotel_cost": 85,
+  "kfz_rate_per_km": 0.75,
+  "weekend_days": [6, 0],
+  "output_paths": {
+    "_comment": "Where the finished invoice + mirrored timesheet go. Default = workspace _ausgang/. Override with the firm's real folders.",
+    "ausgangsrechnungen": "_ausgang/rechnungen",
+    "montageberichte": "_ausgang/rechnungen/montageberichte"
+  }
+}
