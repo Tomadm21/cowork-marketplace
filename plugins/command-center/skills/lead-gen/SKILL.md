@@ -8,7 +8,7 @@ description: Find contact details from company websites and score how well each 
 Enrich a list of company websites with contact info and an ICP fit score. Read `${CLAUDE_PLUGIN_ROOT}/reference/firm-config-contract.md` first.
 
 ## Step 0 — Self-verify (route, don't error)
-Read `workspace_root` + `company-context.md`, then `_firma/config/lead-gen.json`. If missing/incomplete, say *"Ich habe die Lead-Gen-Einrichtung (ICP-Kriterien, Ausgabeziel) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding). The ICP draws on the firm's `cc:business` customer type.
+Read `workspace_root` + `company-context.md`, then `_firma/config/lead-gen.json`. If missing/incomplete, say *"Ich habe die Lead-Gen-Einrichtung (ICP-Kriterien, Ausgabeziel) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding, asking per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`). The ICP draws on the firm's `cc:business` customer type.
 
 ## Step 1 — Get the input list
 Accept URLs by: pasted list, an uploaded Excel/CSV (ask which column), or a public sheet link. Confirm the count and warn it takes time (~seconds per URL).

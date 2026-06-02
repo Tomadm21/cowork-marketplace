@@ -20,9 +20,19 @@ Default: `<datum>_<site-slug>_<taetigkeit>_<lfd:02d>.<ext>`. `lfd` is a per-day,
 Default `_ausgang/bilder`. If the firm mirrors into project folders, use `<base>/<kunde>/<ordner_name>/<bilder_subfolder>` from config.
 
 ## Onboarding (run once per firm)
-Collect into `_firma/config/photo-sorting.json`:
-- `activities` — the list of activity tags used.
-- `naming_pattern` (default above), `morning_heuristic` (default true).
-- `output_base` + optional `project_subpath_pattern` + `bilder_subfolder`.
-- (Sites come from `stammdaten/projekte.json` — offer to create it if absent.)
+**Ask per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`** (detect-first, numbered options + ✏️ + ⏭️, path-picker). Collect into `_firma/config/photo-sorting.json`:
+
+1. **Activity catalog** `activities` — options: `1. Bau-Standardset übernehmen` (the generic Tiefbau starter below, editable) · `2. eigene Liste eingeben` · `3. später / frei lassen` · ✏️. A fixed catalog keeps filenames consistent (the model picks from it, not free text).
+2. **Naming pattern** `naming_pattern` — default `{datum}_{baustelle}_{taetigkeit}_{lfd}` · ✏️. `lfd` = per day+site+activity running number, zero-padded.
+3. **Umlauts** `umlaut_map` — default `ä→ae, ö→oe, ü→ue, ß→ss` (cross-platform) · „Umlaute behalten" · ✏️.
+4. **Morning heuristic** `morning_heuristic` — default `an` (a photo taken 07:00–10:59 documents the previous day) · `aus` · ✏️.
+5. **Fallback activity** `fallback` — default `Uebersicht` · ✏️.
+6. **Zielordner** 🔍 — path-picker; propose a detected `Bauvorhaben`/`Baustellen` folder; capture the per-project pattern `Bauvorhaben ‹Jahr›/‹Kunde›/‹Baustelle›/` (resolve `‹Kunde›`/`‹Baustelle›` per run — match-or-create, never duplicate). Default `_ausgang/bilder`. *(gespeichert als `output_base` + `project_subpath_pattern`)*
+
+(Sites come from `stammdaten/projekte.json` — propose its entries; offer to create it if absent.)
 Then set `photo-sorting` under `cc:processes` to `onboarded`.
+
+## Activity starter catalog (generic Tiefbau — editable per firm)
+A neutral construction set the firm can adopt and edit; spaces become `-` in filenames:
+
+Baustelleneinrichtung · Verkehrsabsicherung · Materialanlieferung · Geraete-Maschineneinsatz · Aufraeumen · Oberbodenabtrag · Auskoffern · Aushub-Fundament · Kabelgraben-herstellen · Baugrube-herstellen · Aushub-seitlich-lagern · Schotter-seitlich-lagern · Regenwasserleitung-legen · Kabel-verlegen · Kabel-absanden · Leitungen-verfuellen · Baugrube-anfuellen · Fundament-herstellen · Fundament-setzen · Poller-setzen · Markierungsplatten-legen · Schotter-einbauen · Splitt-einbauen · Sand-einbauen · Planum-herstellen · Splitt-abziehen · Verdichten · Borde-setzen · Pflastern · Einschlaemmen · Anfahrpfosten-anschneiden · Trafolieferung · Trafosetzung · Asphalt-stemmen · Lastplattendruckversuch · Restarbeiten · Feinreinigung · Endzustand

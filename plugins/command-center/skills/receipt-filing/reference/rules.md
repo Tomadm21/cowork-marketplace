@@ -15,12 +15,20 @@ The firm's `config` decides which targets exist and their base paths; routing ke
 Match vendor against `stammdaten/lieferanten.json` (`match` → `firma`/entity, `kategorie`, `sepa` default). Multi-entity firms (e.g. an operating + a second GmbH): the matched entity selects the Buchhaltung path. Unknown vendor → ask; don't guess the entity.
 
 ## Onboarding (run once per firm)
-Collect into `_firma/config/receipt-filing.json`:
-- `entities` — legal entities + their Buchhaltung base paths.
-- `targets` — which of {buchhaltung, projekt, offene, lager} are active + base paths.
-- `categories` — the category list used for routing.
-- `naming_pattern` (default above).
-- (Vendors live in `stammdaten/lieferanten.json` — offer to create it; it can grow as new vendors appear.)
+**Ask per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`** (detect-first, numbered options + ✏️ + ⏭️, path-picker, multi-target). Collect into `_firma/config/receipt-filing.json`:
+
+1. **Entities** 🔍 `entities` — propose detected top-level company folders (e.g. two GmbHs) + each one's Buchhaltung base (path-picker). The matched entity selects the Buchhaltung path.
+2. **Filing targets** `targets` — which are active (multi-select) + base path each (path-picker):
+   - `buchhaltung` (always) → pattern `…/Buchhaltung/‹Jahr›/‹Monat›/Ausgaben`
+   - `offene_rechnungen` → payables with **no SEPA mandate**
+   - `baustelle` → if the doc links to a site; split `Baustoffe` vs `Container`, each with `Eingangsrechnungen` / `Lieferscheine`
+   - `lager` → delivery notes with no site; optional per-vendor subfolders (a Händler-style folder)
+3. **Document schemas** `naming` — defaults, each ✏️-editable: RG `{firma} RG {nr} von {datum} - {summe}` · LF `{firma} LF {nr} von {datum}` · LS `{firma} LS von {datum}`.
+4. **Month-folder format** `month_format` — `04-26` (MM-YY) · `2026-04` (YYYY-MM) · ✏️.
+5. **Date format** `date_format` — `DD.MM.YYYY` · `YYYY-MM-DD` · ✏️.
+6. **SEPA-Logik** — Vorschlag: ohne Mandat → zusätzlich in „Offene Rechnungen"; mit Mandat → wird eingezogen, nicht dorthin. Optionen: `Vorschlag übernehmen` · ✏️ anders · ⏭️. *(gespeichert als `sepa`)*
+
+(Vendors live in `stammdaten/lieferanten.json` — propose detected vendor folders; offer to create it; it grows as new vendors appear.)
 Then set `receipt-filing` under `cc:processes` to `onboarded`.
 
 ## Safety

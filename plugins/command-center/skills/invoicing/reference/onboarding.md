@@ -1,20 +1,24 @@
 # Invoicing — onboarding (run once per firm)
 
-Collects the firm's invoicing settings into `<workspace>/_firma/config/invoicing.json`. Ask in chat; copy `scripts/config.example.json` as the shape. Write **only** invoicing settings here — firm-level facts (name, addresses, VAT-ID) stay in `company-context.md` (inheritance rule).
+Collects the firm's invoicing settings into `<workspace>/_firma/config/invoicing.json`. **Ask per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`** — detect-first, numbered options + ✏️ free-text + ⏭️ skip, and the path-picker for folders. Copy `scripts/config.example.json` as the shape. Write **only** invoicing settings here — firm-level facts stay in `company-context.md` (inheritance rule).
 
-Ask for:
+Confirm in bulk where you can; ask one-at-a-time only for the numbers you can't detect (rates, thresholds). Present each as options with a sensible default. The keys the math script consumes are marked **[math]** — get those right; the rest are used by the skill for the document, the email, and filing.
 
-1. **VAT rate** (default from `company-context` `cc:business` if set, else ask; e.g. 0.19).
-2. **Rate tiers** — how many pay tiers, and the weekday + weekend €/hour for each. Default three: top / mid / std.
-3. **People** — for each person who appears on timesheets: a match keyword (how their name shows up), their tier, and whether they have a company vehicle (`kfz`). (May reuse `stammdaten/personen.json` if it exists.)
-4. **Statutory break** per worked day (default 0.5h).
-5. **Daily cap** on arbeit+reise per day (default 17h).
-6. **Spesen** — Volltag (24h) and Halbtag (8h) per-diem amounts.
-7. **Hotel cost** per night.
-8. **KFZ rate** per km.
-9. **Weekend days** (default Sat+Sun).
-10. **Output paths** — where finished invoices + mirrored timesheets go (default `_ausgang/rechnungen`, or the firm's real folders).
+1. **[math] Accounting client / Mandant** 🔍 — the exact client/Mandant name in the accounting software. A frequent, costly mix-up is a "Montage" entity vs. the main GmbH — if the scan found several entities, propose them; ✏️.
+2. **[math] VAT rate** — `19%` (default) · `7%` · ✏️. Default from `cc:business` if set.
+3. **[math] Rate tiers** — €/h per tier, **weekday and weekend**. Default three tiers `top / mid / std`. Offer „3 Stufen übernehmen und Sätze eingeben" · „andere Anzahl" · ✏️.
+   - *Weekend handling:* one **weekend €/h per tier** applies on weekend days. If the firm works with uplifts (e.g. Sa +25 % / So +50 % on the weekday rate), compute the weekend rate from that and store it. *(Different rates for Saturday vs. Sunday aren't supported yet — if the firm needs that, flag it; never silently approximate.)*
+4. **[math] People** — for each person on timesheets: match keyword, tier (pick from the tiers above), company vehicle `kfz`? (`ja/nein`). Reuse `stammdaten/personen.json` if present (propose those names to confirm).
+5. **[math] Statutory break** per worked day — default `0,5h`; the timesheet's own pause is used if it's larger. Options: `0,5h` · `0,75h` · ✏️. *(ArbZG context: > 6–9h → 30 min, > 9h → 45 min. The script uses one floor value — set it to the firm's normal case.)*
+6. **[math] Spesen / per-diem** — `Halbtag (≤8h)` and `Volltag (>8h)` amounts. Default `15 € / 30 €`. Options: `Standard übernehmen` · ✏️.
+7. **[math] Daily cap** on arbeit+reise per day — default `17h` · ✏️.
+8. **[math] Hotel / night** — default `85 €` · ✏️.
+9. **[math] KFZ rate / km** — default `0,75 €` · ✏️.
+10. **[math] Weekend days** — default `Sa+So` · ✏️.
+11. **Per-site overrides** ◦ — some sites pay no hotel (client covers it) or have a fixed invoice recipient. For each such site: `match` keyword, `hotel: ja/nein`, recipient name + email. Skippable — otherwise ask per case at run time.
+12. **Invoice filename schema** — default `{jahr} KW{kw} {baustelle} {monteure}` · ✏️.
+13. **Output paths** 🔍 — where finished invoices + mirrored timesheets go. Use the **path-picker**; propose a detected `Rechnungsausgang`/`Ausgangsrechnung` folder; capture as a **pattern** if it nests by KW (`…/Ausgangsrechnung/KW‹x› bis ‹y›/`). Mirror path for the source timesheets too (often `…/Baustellen/‹KW›_‹Baustelle›/Montageberichte/`). Default `_ausgang/rechnungen`.
 
-Write the result to `_firma/config/invoicing.json` (keyed JSON → idempotent on re-run). Then add/update the `invoicing` line under `cc:processes` in `company-context.md` with status `onboarded`.
+Write to `_firma/config/invoicing.json` (keyed JSON → idempotent on re-run). Then set the `invoicing` line under `cc:processes` in `company-context.md` to `onboarded`.
 
-Confirm the captured tiers + people back to the user before finishing — wrong rates are the costliest drift.
+**Confirm the captured tiers + people + Mandant back before finishing — wrong rates and the wrong Mandant are the costliest drift.**

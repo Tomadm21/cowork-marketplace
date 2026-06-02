@@ -7,6 +7,8 @@ description: Show the available Command Center processes and help the user choos
 
 Help the firm pick which processes to activate, then onboard each one. Requires firm onboarding to have run (read `_firma/company-context.md`); if it hasn't, run the `firm-onboarding` skill first.
 
+Present every choice per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md` — numbered options, a ✏️ free-text escape, and (here) multi-select.
+
 ## The catalog
 
 | Process | What it does | Onboards |
@@ -19,7 +21,7 @@ Help the firm pick which processes to activate, then onboard each one. Requires 
 
 ## Flow
 
-1. Present the catalog (multi-select). Note which are already `onboarded` in `cc:processes`.
+1. Present the catalog as a **numbered multi-select** (*„mehrere möglich, z.B. `1,3`"* · ✏️ etwas anderes). Mark any already `onboarded` in `cc:processes` as ✅ and offer them for re-config rather than re-listing as new.
 2. For each newly chosen process: invoke that process's skill — it self-verifies, finds no config, and runs its own onboarding (which writes `_firma/config/<process>.json` and creates the matching `_eingang/<process>/` drop folder).
 3. After each is onboarded, update its line under `cc:processes` in `company-context.md` (status `onboarded`).
 4. Offer to set up automation for any onboarded process (point to `${CLAUDE_PLUGIN_ROOT}/reference/automation.md`); be honest about the app-open caveat.

@@ -8,7 +8,7 @@ description: Fill the firm's daily/weekly site report (Bautagesbericht / Tagesbe
 Produce a filled report document from per-day hours + site metadata. Read `${CLAUDE_PLUGIN_ROOT}/reference/firm-config-contract.md` first.
 
 ## Step 0 — Self-verify (route, don't error)
-Read `workspace_root` + `company-context.md`, then `_firma/config/daily-report.json`. If missing/incomplete, say *"Ich habe die Tagesbericht-Einrichtung (Vorlage, Felder) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding). Don't proceed without the template path.
+Read `workspace_root` + `company-context.md`, then `_firma/config/daily-report.json`. If missing/incomplete, say *"Ich habe die Tagesbericht-Einrichtung (Vorlage, Felder) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding, asking per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`). Don't proceed without the template path.
 
 ## Step 1 — Gather
 Collect site/project, week (KW), people present, and per-day hours (Mon–Sun) + notes — from the user or a provided form. Don't guess missing days; ask.

@@ -8,7 +8,7 @@ description: Rename and file site/job photos by date and activity. Use when the 
 Rename + file photos into the firm's structure with a consistent convention. Read `${CLAUDE_PLUGIN_ROOT}/reference/firm-config-contract.md` first.
 
 ## Step 0 — Self-verify (route, don't error)
-Read `workspace_root` + `company-context.md`, then `_firma/config/photo-sorting.json`. If missing/incomplete, say *"Ich habe die Foto-Einrichtung (Tätigkeiten, Namensschema, Zielordner) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding).
+Read `workspace_root` + `company-context.md`, then `_firma/config/photo-sorting.json`. If missing/incomplete, say *"Ich habe die Foto-Einrichtung (Tätigkeiten, Namensschema, Zielordner) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding, asking per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`).
 
 ## Step 1 — Read each photo
 For photos in `_eingang/photo-sorting/` (or attached): determine the **date** (parse the filename first per `reference/rules.md`; apply the morning heuristic; else read the image / ask). Infer **site/project** (match against `stammdaten/projekte.json` if present, else ask) and **activity** (from the configured list / image).

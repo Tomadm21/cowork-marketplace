@@ -9,18 +9,22 @@ Goal: capture the firm's full context **once**, scaffold a clean workspace, and 
 
 This runs in interactive chat. Be warm, plain, and non-technical. The user should never edit a file or open a terminal.
 
-## Step 0 — Workspace
+**Read `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md` first** — it defines how to ask: detect-first, numbered selectable options with a ✏️ free-text escape on every question, bulk confirm-by-exception, and the path-picker. Follow it for every question below.
 
-Confirm which folder is the firm's workspace (in Cowork, the granted "Work in a Folder" folder). If unclear, ask the user to pick/confirm it. Record its path as `workspace_root`. Everything below is created **inside** the workspace, never inside the plugin.
+## Step 0 — Workspace + scan
 
-If `_firma/company-context.md` already exists, this is a **re-run**: load it and treat the interview as an update — overwrite each section in place by its anchor (see contract §2), never append duplicates. Tell the user what you already have and ask only what's missing or what they want to change.
+Confirm the workspace (in Cowork, the granted "Work in a Folder" folder) using the path-picker; record it as `workspace_root`. Everything below is created **inside** the workspace, never inside the plugin.
 
-## Step 1 — Interview (chat GUI, in batches)
+Then **scan it** (bounded — onboarding-ux §1: top-level first, names not contents, ignore image/archive dumps): infer what the firm already has — legal entities (multiple top-level company folders), accounting folder, projects/sites, output folders. You'll propose these as defaults instead of asking the user to type them.
 
-Ask the questions in `reference/question-bank.md`, grouped into the batches listed there. Use structured multiple-choice questions (the AskUserQuestion affordance) where options are knowable; use open questions otherwise. Rules:
-- Ask **one batch at a time**; confirm before moving on.
-- Mark clearly which answers are optional. The firm must be able to finish even if they skip optional registers.
-- Mirror the firm's language (German default; switch if they answer in another language) and store it in `cc:meta`.
+If `_firma/company-context.md` already exists, this is a **re-run**: load it, re-offer only the values marked *detected* for a quick re-confirm, and overwrite each section in place by its anchor (contract §2) — never append duplicates.
+
+## Step 1 — Interview (detect-first, in batches)
+
+Walk `reference/question-bank.md` batch by batch. For each batch, **lead with what you detected and confirm in bulk** (onboarding-ux §3), then ask only the gaps — every question as numbered options with a ✏️ free-text escape; optional ones also offer ⏭️ skip. Rules:
+- One batch at a time; bulk-confirm detected values, edit by exception. Present detections as **labeled guesses** ("ich vermute … weil"), never as fact.
+- Optional answers are clearly skippable — the firm must be able to finish without any register.
+- Mirror the firm's language (German default; switch if they answer in another) and store it in `cc:meta`.
 - Don't ask for anything a later process can collect itself — that belongs in the process's own onboarding (inheritance rule, contract §5).
 
 ## Step 2 — Scaffold the workspace

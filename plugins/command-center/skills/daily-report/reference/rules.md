@@ -8,12 +8,16 @@ This arithmetic (cap + break subtraction) is intentionally done inline by the sk
 - **Filename**: `KW<KW>-<Projekt>-<Jahr>` (configurable). Collision-safe: if the target exists, append `_2`, `_3`… — never overwrite.
 
 ## Onboarding (run once per firm)
-Collect into `_firma/config/daily-report.json` (keyed JSON; firm-level facts stay in `company-context.md`):
-- `template_path` — the firm's report template (DOCX). Ask them to place it in the workspace; store the path.
-- `fields` — which fields the template needs (Standort, PLZ, Straße, Projekt, KW, Bauleiter, roles like Meister/Fachmonteure/Monteure). Map them to template placeholders.
-- `day_labels` — day names (default Montag…Sonntag).
-- `daily_cap_total_h` (default 17), `pflicht_pause_h` (default 0.5).
-- `output_path` (default `_ausgang/berichte`).
-Then set the `daily-report` line under `cc:processes` to `onboarded`.
+**Ask per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`** (detect-first, numbered options + ✏️ + ⏭️, path-picker). Collect into `_firma/config/daily-report.json` (keyed JSON; firm-level facts stay in `company-context.md`). Present each with a default:
 
-If the firm has no template yet, offer to generate a simple one; note it's a starter they can replace.
+1. **Template** 🔍 `template_path` — scan for a `*Vorlage*` / `*Bautagebuch*` / `*Tagesbericht*` DOCX and propose it (path-picker); else offer „eine einfache Vorlage anlegen" (starter, replaceable).
+2. **Time cap** `cap_time` — default `17:00` (the „Bis"-Zeit is capped to it and netto recomputed). Options: `17:00` · `keine Kappung` · ✏️.
+3. **Whose hours** `roles_in_report` — default `nur Vorarbeiter` (others on the source are ignored). Options: `nur Vorarbeiter` · `alle` · ✏️.
+4. **Project-title parsing** `title_parts` — how the project title splits into fields. Default order `Ort · Netzbetreiber · GU · Nummer · Bauleiter` (e.g. „Musterstadt M-Netz Musterbau 1234 Vorname"). Confirm/reorder; ✏️.
+5. **Template fields** 🔍 `fields` — read the template's placeholders and propose the mapping (Standort, PLZ, Straße, Projekt, KW, Bauleiter, roles) in bulk to confirm.
+6. **Day labels** `day_labels` — default `Montag…Sonntag` · ✏️.
+7. **Pause & Tages-Obergrenze** — Pflichtpause pro Tag (Vorschlag 0,5h) und Obergrenze Arbeit+Reise pro Tag (Vorschlag 17h). Optionen: `Vorschläge übernehmen` · ✏️. *(gespeichert als `pflicht_pause_h`, `daily_cap_total_h`)*
+8. **Filename schema** `filename_schema` — default `{standort} Bautagesbericht KW {kw}` · tagesbasiert `{standort}_Bautagesbericht_{datum}` · ✏️.
+9. **Output path** 🔍 `output_path` — path-picker; propose a detected `*Bautagesberichte*` folder; capture as a pattern if it nests per project (`Bauvorhaben ‹Jahr›/‹Kunde›/‹Baustelle›/8.Bautagesberichte`). Default `_ausgang/berichte`.
+
+Then set the `daily-report` line under `cc:processes` to `onboarded`. If the firm has no template, offer to generate a simple starter they can replace.

@@ -17,9 +17,11 @@ Score each company 0–100 against the firm's ICP criteria (industry, size signa
 - Cowork's built-in Chrome automation can be slow; for large lists, warn the user and consider batching.
 
 ## Onboarding (run once per firm)
-Collect into `_firma/config/lead-gen.json`:
-- `icp_criteria` — industry/size/region/keywords that define a good customer (seed from `cc:business` customer type).
-- `score_threshold` (default 40).
-- `output_path` (default `_ausgang/leads`).
-- `default_workers` (parallelism, default modest), `respect_robots` (default true).
+**Ask per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`** (numbered options + ✏️ + ⏭️, path-picker). Collect into `_firma/config/lead-gen.json`:
+
+1. **ICP criteria** 🔍 `icp_criteria` — seed from `cc:business` customer type and propose it back to edit: industry, size signals, region, keywords (✏️ per field).
+2. **Score threshold** `score_threshold` — default `40` · options `25 / 40 / 60` · ✏️.
+3. **Output path** `output_path` — path-picker; default `_ausgang/leads`.
+4. **Höflichkeit** — robots.txt respektieren (Vorschlag: ja) und moderate Geschwindigkeit. Optionen: `übernehmen` · ✏️. *(gespeichert als `respect_robots`, `default_workers`)*
+
 Then set `lead-gen` under `cc:processes` to `onboarded`.

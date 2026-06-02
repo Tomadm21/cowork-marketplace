@@ -1,5 +1,6 @@
 {
-  "_comment": "EXAMPLE invoicing config. Copied + filled per firm at onboarding into <workspace>/_firma/config/invoicing.json. All names/values here are synthetic placeholders — no real client data.",
+  "_comment": "EXAMPLE invoicing config. Copied + filled per firm at onboarding into <workspace>/_firma/config/invoicing.json. All names/values here are synthetic placeholders — no real client data. Keys read by compute.ts: vat_rate, tiers, default_tier, people, pflicht_pause_h, daily_cap_total_h, spesen, hotel_cost, kfz_rate_per_km, weekend_days. The rest (mandant, sites, filename_schema, output_paths) are used by the skill, not the math.",
+  "mandant": "Muster Montage GmbH",
   "vat_rate": 0.19,
   "tiers": {
     "top": { "weekday": 40, "weekend": 33 },
@@ -18,8 +19,13 @@
   "hotel_cost": 85,
   "kfz_rate_per_km": 0.75,
   "weekend_days": [6, 0],
+  "sites": {
+    "_comment": "OPTIONAL per-site overrides. Omit a site to use the defaults + ask hotel per run. 'match' = how the site appears on timesheets.",
+    "musterstrasse": { "match": "musterstr", "hotel": false, "recipient_name": "Max Muster", "recipient_email": "rechnung@example.com" }
+  },
+  "filename_schema": "{jahr} KW{kw} {baustelle} {monteure}",
   "output_paths": {
-    "_comment": "Where the finished invoice + mirrored timesheet go. Default = workspace _ausgang/. Override with the firm's real folders.",
+    "_comment": "Where the finished invoice + mirrored timesheet go. Default = workspace _ausgang/. Override with the firm's real folders (path-picker). Patterns may use <KW>/<Jahr>.",
     "ausgangsrechnungen": "_ausgang/rechnungen",
     "montageberichte": "_ausgang/rechnungen/montageberichte"
   }

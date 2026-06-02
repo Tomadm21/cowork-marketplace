@@ -12,7 +12,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/firm-config-contract.md` for the workspace
 ## Step 0 — Self-verify (route, don't error)
 
 1. Locate `workspace_root` and read `_firma/company-context.md`.
-2. Read `_firma/config/invoicing.json`. **If missing or incomplete**, say (in the firm's language): *"Ich habe die Rechnungs-Einrichtung (Sätze, Personen, Spesen) noch nicht. Wollen wir das jetzt einrichten?"* and run `reference/onboarding.md`. Do not proceed without it.
+2. Read `_firma/config/invoicing.json`. **If missing or incomplete**, say (in the firm's language): *"Ich habe die Rechnungs-Einrichtung (Sätze, Personen, Spesen) noch nicht. Wollen wir das jetzt einrichten?"* and run `reference/onboarding.md` (asking per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`). Do not proceed without it.
 
 ## Step 1 — Gather the hours
 
@@ -36,7 +36,7 @@ Write the gathered rows to a temp `input.json` in **exactly** this shape (the ke
 > **HARD RULE: never calculate hours, tiers, per-diems, KFZ, hotel, or VAT yourself.** Run:
 >
 > ```
-> bun ${CLAUDE_SKILL_DIR}/scripts/compute.ts <workspace>/_firma/config/invoicing.json /tmp/input.json
+> bun ${CLAUDE_PLUGIN_ROOT}/skills/invoicing/scripts/compute.ts <workspace>/_firma/config/invoicing.json /tmp/input.json
 > ```
 >
 > Use the script's JSON output **verbatim**. If you find yourself adding numbers in your head, stop — that is the exact error class this script exists to prevent. (Runtime: `bun`, consistent with this marketplace; `npx tsx` works as a fallback.)

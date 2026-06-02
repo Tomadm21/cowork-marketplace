@@ -69,7 +69,7 @@ User: *"Erstelle die Rechnung für KW 21, Baustelle Musterstraße."*
 The user drops a timesheet photo in `_eingang/invoicing/`. Claude reads it (Cowork vision) into rows, writes them to a temp `input.json`, and runs **the script — never inline math**:
 
 ```
-bun ${CLAUDE_SKILL_DIR}/scripts/compute.ts \
+bun ${CLAUDE_PLUGIN_ROOT}/skills/invoicing/scripts/compute.ts \
     /Users/muster/MusterBau-Cowork/_firma/config/invoicing.json \
     /tmp/input.json
 ```

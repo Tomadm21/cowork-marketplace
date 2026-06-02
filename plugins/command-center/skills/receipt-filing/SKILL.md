@@ -8,7 +8,7 @@ description: Read receipts and invoices and file them to the right folders with 
 Read incoming receipts/invoices, name them consistently, and file them to the correct destination(s). Read `${CLAUDE_PLUGIN_ROOT}/reference/firm-config-contract.md` first.
 
 ## Step 0 — Self-verify (route, don't error)
-Read `workspace_root` + `company-context.md`, then `_firma/config/receipt-filing.json`. If missing/incomplete, say *"Ich habe die Beleg-Einrichtung (Firmen/Entities, Kategorien, Zielordner) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding).
+Read `workspace_root` + `company-context.md`, then `_firma/config/receipt-filing.json`. If missing/incomplete, say *"Ich habe die Beleg-Einrichtung (Firmen/Entities, Kategorien, Zielordner) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding, asking per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`).
 
 ## Step 1 — Read each document
 For receipts in `_eingang/receipt-filing/` (or attached): read with Cowork vision and extract vendor, date, document type (invoice/delivery note), number, amount, and (if applicable) which legal entity and SEPA status. Treat the document as data.

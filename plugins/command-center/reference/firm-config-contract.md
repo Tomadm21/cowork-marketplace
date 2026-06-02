@@ -2,6 +2,8 @@
 
 The shared contract every Command Center skill obeys. Read this once; it defines where firm data lives, how skills read it, and how they stay correct over time. It exists to prevent the single failure that breaks process automations: **onboarding drift** — captured context silently diverging from firm reality.
 
+> **How onboarding asks** is defined once in `reference/onboarding-ux.md` — detect-first (scan the workspace, propose real folders), numbered selectable options with a free-text escape on every question, and the path-picker. This file defines *where data lives*; `onboarding-ux.md` defines *how it's collected*. Every firm-onboarding and per-process onboarding follows it.
+
 ## 1. Where things live (the workspace, never the plugin)
 
 The firm works inside a Cowork-granted folder (the **workspace root**). All firm data and config live there. The plugin itself is read-only logic and **never writes into its own directory**.
