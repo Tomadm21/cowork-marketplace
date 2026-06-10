@@ -14,4 +14,6 @@ Throughout, follow `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`: **look at
 
 3. **Automation (optional)** — for each onboarded process, offer to put it on a Cowork schedule per `${CLAUDE_PLUGIN_ROOT}/reference/automation.md`. State the app-open/awake caveat honestly and confirm consequential writes always wait for approval.
 
-End by summarizing: what context was captured, which processes are live, and what (if anything) was scheduled. Then tell the user they can now just say things like *"erstelle die Rechnung für KW 21"* or *"sortier die Belege"* and the matching process runs.
+4. **Dashboard** — finish by invoking the `dashboard` skill. It generates the firm's live overview as a **Live Artifact** (time saved, every workflow and how it works, what's been done, the next step). This is the home screen the firm returns to — they can refresh it anytime by saying *"zeig das Dashboard"*.
+
+End by summarizing: what context was captured, which processes are live, and what (if anything) was scheduled — and point them at the dashboard you just generated. Then tell the user they can now just say things like *"erstelle die Rechnung für KW 21"* or *"sortier die Belege"* and the matching process runs.

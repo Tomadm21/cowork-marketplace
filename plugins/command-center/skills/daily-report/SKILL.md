@@ -25,5 +25,8 @@ Fill the firm's template (DOCX via Cowork's document ability) with the approved 
 ## Step 5 — Confirm
 Report the file path and any unresolved "prüfen" items.
 
+## Step 6 — Log the run
+After approval + save, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „daily-report-<jahr>-KW<kw>" (so a correction updates the entry instead of double-counting), `process: daily-report`, `items` = number of reports produced (usually 1), `summary` like „Tagesbericht KW 21 · <Projekt>", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
+
 ## Scheduled mode
 Prepare the draft and stop at the review state; never finalize unattended. See `${CLAUDE_PLUGIN_ROOT}/reference/automation.md`.

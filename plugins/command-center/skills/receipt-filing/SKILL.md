@@ -22,5 +22,8 @@ Show, per document: proposed name, entity, type, and every target path. After ap
 ## Step 4 — Confirm
 Summarize what was filed where, and list "prüfen" items.
 
+## Step 5 — Log the run
+After approval + filing, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „receipt-filing-<YYYY-MM-DD>" (so a re-run updates the entry instead of double-counting), `process: receipt-filing`, `items` = number of receipts filed, `summary` like „<N> Belege abgelegt", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
+
 ## Scheduled mode
 Propose the filing and stop at the review state; never file unattended. See `${CLAUDE_PLUGIN_ROOT}/reference/automation.md`.

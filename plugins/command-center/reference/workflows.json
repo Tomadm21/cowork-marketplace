@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "_note": "Single source for workflow display + time-model. Read by dashboard.ts (cards + stats), process-catalog (beginner explainers) and the dashboard skill (on-demand 'wie funktioniert X'). Plain language only — no jargon in what/how/needs/gives/trigger. minutes_per_item lives ONLY here (anti-drift) and is a conservative under-estimate, shown as 'geschätzt' in the dashboard.",
+  "order": ["receipt-filing", "photo-sorting", "daily-report", "invoicing", "lead-gen"],
+  "processes": {
+    "invoicing": {
+      "emoji": "🧾",
+      "title": "Rechnungen",
+      "what": "Macht aus den Stundenzetteln einer Woche eine fertige Rechnung.",
+      "how": [
+        "Du gibst die Stundenzettel der Woche rein — als Foto oder PDF.",
+        "Ich lese die Stunden aus und rechne Sätze, Spesen und Mehrwertsteuer zusammen.",
+        "Du bekommst die fertige Rechnung zur Kontrolle — erst nach deinem OK wird sie gespeichert."
+      ],
+      "needs": "Die Stundenzettel der Woche",
+      "gives": "Eine prüffertige Rechnung (Excel)",
+      "trigger": "Erstelle die Rechnung für KW 21",
+      "unit": "Rechnung",
+      "unit_plural": "Rechnungen",
+      "minutes_per_item": 20,
+      "eingang": "invoicing",
+      "setup_effort": "mittel",
+      "starter": false
+    },
+    "daily-report": {
+      "emoji": "📋",
+      "title": "Tagesbericht",
+      "what": "Füllt euren Tagesbericht aus den Stunden und Notizen des Tages.",
+      "how": [
+        "Du sagst mir die Stunden pro Tag und ein paar kurze Notizen.",
+        "Ich fülle eure Vorlage aus und rechne die Netto-Stunden aus.",
+        "Du bekommst den fertigen Bericht zur Kontrolle, dann speichere ich ihn."
+      ],
+      "needs": "Stunden pro Tag + kurze Notizen",
+      "gives": "Der ausgefüllte Tagesbericht",
+      "trigger": "Mach den Tagesbericht für KW 21",
+      "unit": "Bericht",
+      "unit_plural": "Berichte",
+      "minutes_per_item": 8,
+      "eingang": "daily-report",
+      "setup_effort": "klein",
+      "starter": false
+    },
+    "photo-sorting": {
+      "emoji": "📷",
+      "title": "Fotos sortieren",
+      "what": "Benennt und sortiert die Baustellen-Fotos nach Datum und Tätigkeit.",
+      "how": [
+        "Du legst die Fotos vom Tag in den Eingang.",
+        "Ich benenne sie nach Datum und Tätigkeit und lege sie in den richtigen Ordner.",
+        "Du siehst die Vorschläge und gibst sie frei, bevor etwas verschoben wird."
+      ],
+      "needs": "Die Fotos vom Tag",
+      "gives": "Sauber benannte, einsortierte Fotos",
+      "trigger": "Sortier die Baustellen-Fotos",
+      "unit": "Foto",
+      "unit_plural": "Fotos",
+      "minutes_per_item": 0.5,
+      "eingang": "photo-sorting",
+      "setup_effort": "klein",
+      "starter": true
+    },
+    "receipt-filing": {
+      "emoji": "🗂️",
+      "title": "Belege ablegen",
+      "what": "Liest Belege und Eingangsrechnungen und legt sie am richtigen Ort ab.",
+      "how": [
+        "Du legst die Belege in den Eingang — als Foto oder PDF.",
+        "Ich lese sie aus und schlage den richtigen Ablage-Ordner vor.",
+        "Du gibst die Ablage frei, dann lege ich sie ab — dein Original bleibt unangetastet."
+      ],
+      "needs": "Belege oder Eingangsrechnungen",
+      "gives": "Belege richtig benannt und abgelegt",
+      "trigger": "Sortier die Belege",
+      "unit": "Beleg",
+      "unit_plural": "Belege",
+      "minutes_per_item": 2,
+      "eingang": "receipt-filing",
+      "setup_effort": "klein",
+      "starter": true
+    },
+    "lead-gen": {
+      "emoji": "🎯",
+      "title": "Kunden finden",
+      "what": "Sucht Kontaktdaten und bewertet, wie gut eine Firma zu dir passt.",
+      "how": [
+        "Du gibst mir eine Liste von Firmen oder Webseiten.",
+        "Ich suche die Kontaktdaten und bewerte jede Firma nach deinem Wunschkunden.",
+        "Du bekommst eine sortierte Liste — die besten Treffer zuerst."
+      ],
+      "needs": "Eine Liste von Firmen/Webseiten + dein Wunschkunde",
+      "gives": "Eine bewertete Kontaktliste",
+      "trigger": "Finde passende Kunden aus dieser Liste",
+      "unit": "Lead",
+      "unit_plural": "Leads",
+      "minutes_per_item": 4,
+      "eingang": "lead-gen",
+      "setup_effort": "mittel",
+      "starter": false
+    }
+  }
+}

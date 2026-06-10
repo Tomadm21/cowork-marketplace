@@ -22,6 +22,9 @@ Write an enriched spreadsheet (xlsx via Cowork) with one row per company: contac
 ## Step 4 — Confirm
 Report counts (processed / contacts found / above threshold) and the file path.
 
+## Step 5 — Log the run
+After the output file is produced, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „lead-gen-<YYYY-MM-DD>" (so a re-run updates the entry instead of double-counting), `process: lead-gen`, `items` = number of leads processed, `summary` like „<N> Leads bewertet", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
+
 ## Important
 Read-only research that produces a file. **Never** send outreach, never auto-email. Outbound messaging is a separate, human-approved step outside this skill.
 

@@ -57,6 +57,9 @@ On approval, build the invoice file (xlsx via Cowork's native spreadsheet abilit
 
 Report what was produced and where, and list any unresolved "prüfen" items.
 
+## Step 6 — Log the run
+After approval + save, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „invoicing-<jahr>-KW<kw>" (so a correction updates the entry instead of double-counting), `process: invoicing`, `items` = number of invoices produced, `summary` like „Rechnung KW 21 · <Baustelle> · <N> Personen", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
+
 ## Scheduled mode
 
 If run from a schedule: do Steps 0–2, then **stop at the review state** with the pro-forma prepared — never finalize an invoice unattended (see `${CLAUDE_PLUGIN_ROOT}/reference/automation.md`).
