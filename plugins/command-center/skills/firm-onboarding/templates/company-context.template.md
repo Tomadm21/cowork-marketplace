@@ -4,7 +4,7 @@
 # Firmenkontext — {{FIRM_NAME}}
 
 <!-- cc:meta -->
-- plugin: command-center v0.2.0
+- plugin: command-center v0.3.0
 - workspace_root: {{WORKSPACE_ROOT}}
 - onboarded: {{DATE}}
 - sprache: {{LANGUAGE}}   <!-- de | en | … -->

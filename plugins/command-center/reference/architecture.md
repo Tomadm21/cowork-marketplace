@@ -53,3 +53,18 @@ Galant onboards exactly this way — it is firm #1, with no special-casing in th
 ## Phase-2 (deterministic engines per process)
 
 For any process that later needs guaranteed determinism or true headless runs, follow the `jan-kapitalfluss` pattern: a portable, Cowork-free TS engine + a thin MCP adapter + an approval hook, with the skill driving it. The skill-first version and the engine version can coexist (Tier-3 Cowork / Tier-2 headless / Tier-1 CLI) because the engine has zero Cowork imports.
+
+## Self-improvement loop (v0.3.0)
+
+The plugin improves over time without ever self-modifying. Two roles, hard boundary:
+
+- **Daily users** use processes and write only to the workspace. Each process appends
+  best-effort friction signals to `_firma/_state/signals.jsonl` (schema: `reference/signals.md`).
+- **Operator (Tom)** pulls `/command-center:review` every 2–4 weeks. `review.ts` windows
+  signals by a watermark, clusters them, and gates candidates by **recurrence (≥3)** AND
+  **evidence** (`reference/patterns.md`), writing a Markdown report. Nothing auto-applies —
+  acting on a recommendation is a deliberate plugin edit by Tom.
+
+`patterns.md` is the operator-curated evidence library; curating it is how the review sharpens.
+The daily dashboard (`skills/dashboard/`) is deliberately unchanged — it stays the firm's clean,
+stable home screen.
