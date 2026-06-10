@@ -16,8 +16,8 @@ A block is only treated as a pattern if it has a `- keys:` line. `impact` ∈ ho
 - empfehlung: Ein `stammdaten/*.json`-Register anlegen oder erweitern, damit der Prozess den Treffer automatisch zuordnet statt jedes Mal nachzufragen.
 
 ## Heuristik → explizite Regel
-- keys: invoicing:spesen-heuristik, photo:low-confidence-date
-- beleg: Sobald eine wiederholt korrigierte Heuristik eine bekannte Regel hat, ersetzt eine explizite Config-Regel die Schätzung (etablierte Praxis: deterministische Regel schlägt wiederholtes Raten).
+- keys: invoicing:spesen-heuristik, photo:low-confidence-date, receipt:ambiguous-routing, lead-gen:low-quality-source
+- beleg: Sobald eine wiederholt korrigierte Heuristik eine bekannte Regel hat, ersetzt eine explizite Config-Regel die Schätzung (etablierte Praxis: deterministische Regel schlägt wiederholtes Raten). Gilt auch für wiederholt gleich aufgelöste Routing-Mehrdeutigkeit und wiederholt aussortierte Quellen — beides sind fehlende explizite Regeln (Tie-Break bzw. Quellen-Filter).
 - impact: mittel
 - aufwand: niedrig
 - empfehlung: Die Regel in der `reference/rules.md` des Prozesses bzw. in `config/<process>.json` explizit machen.
@@ -35,3 +35,17 @@ A block is only treated as a pattern if it has a `- keys:` line. `impact` ∈ ho
 - impact: mittel
 - aufwand: niedrig
 - empfehlung: Den betroffenen Prozess re-onboarden (nur die geänderten Felder), nicht das ganze Setup.
+
+## Immer-bestätigter Prüfhinweis → Regel kalibrieren
+- keys: invoicing:capped-day, daily-report:capped-day
+- beleg: Alarm-Fatigue (etabliert in Safety-/HCI-Forschung): Warnungen, die praktisch immer unverändert bestätigt werden, stumpfen ab und entwerten die echten Warnungen. Ein "prüfen", das jedes Mal durchgewunken wird, ist eine falsch kalibrierte Regel, kein Schutz.
+- impact: mittel
+- aufwand: niedrig
+- empfehlung: Die Schwelle/Regel kalibrieren oder den wiederkehrenden Fall explizit in der Config erlauben — damit "prüfen" wieder nur bei echten Ausnahmen feuert.
+
+## Daten-Lücke an der Quelle schließen
+- keys: daily-report:missing-day
+- beleg: Datenqualitäts-Praxis (1-10-100-Regel): Validierung bei der Erfassung ist um Größenordnungen billiger als nachgelagertes Nachfragen und Korrigieren. Eine wiederkehrend fehlende Angabe ist ein Erfassungs-Problem, kein Nachfrage-Problem.
+- impact: mittel
+- aufwand: niedrig
+- empfehlung: Die Lücke an der Quelle schließen — Vorlage/Erfassungsweg so anpassen, dass der fehlende Tag direkt miterfasst wird (z.B. alle 7 Tage im Formular vorgeben), statt jede Woche nachzufragen.
