@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { parsePatterns, loadSignals, windowSignals, gate } from "./review.ts";
+import { parsePatterns, loadSignals, windowSignals, gate, renderReport, maxTs } from "./review.ts";
 
 const MD = `# header
 ## Stammdaten-Register statt Wiederholungs-Eingabe
@@ -70,7 +70,7 @@ function sig(type: string, key: string, ts: string) {
 test("gate: passive friction needs recurrence ≥3 AND evidence → stapel", () => {
   const raw = [
     sig("correction", "receipt:unknown-vendor", "2026-06-01T00:00:00Z"),
-    sig("correction", "receipt:unknown-vendor", "2026-06-02T00:00:00Z"),
+    sig("recurring_check", "receipt:unknown-vendor", "2026-06-02T00:00:00Z"),
     sig("correction", "receipt:unknown-vendor", "2026-06-03T00:00:00Z"),
   ].join("\n");
   const r = gate(loadSignals(raw), PATTERNS, 3);
@@ -115,4 +115,32 @@ test("gate: facts listed individually, tech clustered by key", () => {
   expect(r.facts.length).toBe(2);   // each fact listed
   expect(r.tech.length).toBe(1);    // clustered by key
   expect(r.tech[0].count).toBe(2);
+});
+
+test("gate: mixed types on one key — first-seen type wins", () => {
+  const raw = [
+    sig("observation", "observation:neuer-ablauf", "2026-06-01T00:00:00Z"),
+    sig("correction", "observation:neuer-ablauf", "2026-06-02T00:00:00Z"),
+  ].join("\n");
+  const r = gate(loadSignals(raw), PATTERNS, 3);
+  expect(r.candidates.length).toBe(1); // first-seen "observation" wins → candidates
+  expect(r.candidates[0].count).toBe(2);
+});
+
+test("maxTs returns the latest ts or empty", () => {
+  expect(maxTs(loadSignals(sig("fact", "fact:a", "2026-06-01T00:00:00Z") + "\n" + sig("fact", "fact:a", "2026-06-09T00:00:00Z")))).toBe("2026-06-09T00:00:00Z");
+  expect(maxTs([])).toBe("");
+});
+
+test("renderReport: stapel item shows pattern + count; empty sections show a friendly line", () => {
+  const PATTERNS2 = parsePatterns("## Reg\n- keys: receipt:unknown-vendor\n- impact: hoch\n- empfehlung: Register anlegen.\n");
+  const raw = [0, 1, 2].map((i) => sig("correction", "receipt:unknown-vendor", `2026-06-0${i + 1}T00:00:00Z`)).join("\n");
+  const r = gate(loadSignals(raw), PATTERNS2, 3);
+  const md = renderReport("Galant Bau GmbH", "2026-06-01T00:00:00Z", r);
+  expect(md).toContain("Galant Bau GmbH");
+  expect(md).toContain("receipt:unknown-vendor");
+  expect(md).toContain("Reg");
+  expect(md).toContain("Register anlegen.");
+  expect(md).toContain("3×");
+  expect(md).toContain("Keine offenen Fakten");
 });

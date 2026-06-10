@@ -3,6 +3,7 @@
  * Command Center — operator review report generator (deterministic, dependency-free).
  * Mirrors dashboard.ts: best-effort, never crashes on missing/partial state.
  *   bun review.ts <workspace_root> [output.md]
+ * Note: sub-threshold friction is dropped per window (watermark) — a deliberate noise floor; counts do not accumulate across reviews.
  */
 
 export type SignalType = "correction" | "recurring_check" | "observation" | "fact" | "tech_change";
@@ -53,6 +54,7 @@ export function gate(signals: Signal[], patterns: Pattern[], threshold = 3): Gat
 
   const facts = signals.filter((s) => s.type === "fact");
 
+  // tech clusters are notices — rank stays 0, render order is insertion order.
   const techMap = new Map<string, Cluster>();
   for (const s of signals.filter((s) => s.type === "tech_change")) {
     const c = techMap.get(s.key) ?? { key: s.key, count: 0, type: "tech_change" as SignalType, details: [], rank: 0 };
@@ -61,6 +63,7 @@ export function gate(signals: Signal[], patterns: Pattern[], threshold = 3): Gat
   }
   const tech = [...techMap.values()];
 
+  // Contract (signals.md): one key → one type. If a producer violates it, first-seen wins.
   const clusterMap = new Map<string, Cluster>();
   for (const s of signals) {
     if (!(s.type === "correction" || s.type === "recurring_check" || s.type === "observation")) continue;
@@ -79,7 +82,7 @@ export function gate(signals: Signal[], patterns: Pattern[], threshold = 3): Gat
     if (!p) { geparkt.push(c); continue; }                // no evidence → parked
     if (isObservation) candidates.push(c); else stapel.push(c);
   }
-  const byRank = (a: Cluster, b: Cluster) => b.rank - a.rank;
+  const byRank = (a: Cluster, b: Cluster) => b.rank - a.rank || a.key.localeCompare(b.key);
   stapel.sort(byRank); candidates.sort(byRank); geparkt.sort(byRank);
   return { stapel, geparkt, candidates, facts, tech };
 }
@@ -102,3 +105,91 @@ export function parsePatterns(md: string): Pattern[] {
   }
   return out;
 }
+
+export function maxTs(signals: Signal[]): string {
+  return signals.reduce((m, s) => (s.ts > m ? s.ts : m), "");
+}
+
+function clusterLines(cs: Cluster[]): string {
+  return cs.map((c) => {
+    const head = `- **${c.key}** — ${c.count}×` + (c.pattern ? ` · Muster: *${c.pattern.name}* (Impact ${c.pattern.impact})` : "");
+    const emp = c.pattern?.empfehlung ? `\n  - Empfehlung: ${c.pattern.empfehlung}` : "";
+    const ex = c.details[0] ? `\n  - Beispiel: ${c.details[0]}` : "";
+    return head + emp + ex;
+  }).join("\n");
+}
+
+export function renderReport(firm: string, sinceTs: string, r: GateResult): string {
+  const since = sinceTs ? `seit ${sinceTs}` : "seit Beginn (erster Review)";
+  const sec = (title: string, body: string, empty: string) =>
+    `\n## ${title}\n\n${body.trim() ? body : `_${empty}_`}\n`;
+
+  const facts = r.facts.length
+    ? r.facts.map((f) => `- ${f.key}${f.detail ? ` — ${f.detail}` : ""}`).join("\n")
+    : "";
+
+  return `# Optimierungs-Bericht — ${firm}
+
+Fenster: ${since}.
+` +
+    sec("Getorter Stapel (Wiederholung + Beleg)", clusterLines(r.stapel),
+        "Nichts hat in diesem Fenster Wiederholung ≥3 und einen Beleg erreicht.") +
+    sec("Kontext-Vertiefung — Fakten bestätigen", facts,
+        "Keine offenen Fakten.") +
+    sec("Neue-Automatisierung-Kandidaten (baut nur Tom)", clusterLines(r.candidates),
+        "Keine belegten Automatisierungs-Kandidaten.") +
+    sec("Technik-Hinweise", clusterLines(r.tech),
+        "Keine technischen Änderungen erkannt.") +
+    sec("Geparkt (wiederkehrend, aber unbelegt)", clusterLines(r.geparkt),
+        "Nichts geparkt.") +
+    `\n---\n_Bericht ist eine Empfehlung. Jede Plugin-Änderung ist ein bewusster Schritt von Tom — nichts wendet sich selbst an._\n`;
+}
+
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+
+function readSafe(p: string): string | null { try { return fs.readFileSync(p, "utf8"); } catch { return null; } }
+
+function firmName(ws: string): string {
+  const md = readSafe(path.join(ws, "_firma", "company-context.md"));
+  const h = md?.match(/^#\s*Firmenkontext\s*[—–-]\s*(.+)\s*$/m);
+  if (h && h[1] && !h[1].includes("{{")) return h[1].trim();
+  return "Dein Betrieb";
+}
+
+function main() {
+  const ws = process.argv[2];
+  if (!ws) { console.error("usage: review.ts <workspace_root> [output.md]"); process.exit(1); }
+  const out = process.argv[3] || path.join(ws, "_firma", "optimierung-bericht.md");
+  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+
+  const patternsMd = readSafe(process.env.CC_PATTERNS_MD || path.join(scriptDir, "../../../reference/patterns.md")) || "";
+  const patterns = parsePatterns(patternsMd);
+
+  const signals = loadSignals(readSafe(path.join(ws, "_firma", "_state", "signals.jsonl")) || "");
+  const wmRaw = readSafe(path.join(ws, "_firma", "_state", "review-watermark.json"));
+  let watermark = "";
+  try { watermark = wmRaw ? String(JSON.parse(wmRaw).last_review_ts ?? "") : ""; } catch { watermark = ""; }
+
+  const windowed = windowSignals(signals, watermark);
+  const result = gate(windowed, patterns, 3);
+  const md = renderReport(firmName(ws), watermark, result);
+
+  try {
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, md, "utf8");
+    const newWm = maxTs(windowed) || watermark;
+    if (newWm) {
+      const wmPath = path.join(ws, "_firma", "_state", "review-watermark.json");
+      fs.mkdirSync(path.dirname(wmPath), { recursive: true });
+      fs.writeFileSync(wmPath, JSON.stringify({ last_review_ts: newWm }, null, 2), "utf8");
+    }
+  } catch (e) {
+    console.error(`review.ts: could not write ${out}: ${(e as Error).message}`);
+    process.exit(1);
+  }
+  console.log(path.resolve(out));
+}
+
+if (import.meta.main) main();
