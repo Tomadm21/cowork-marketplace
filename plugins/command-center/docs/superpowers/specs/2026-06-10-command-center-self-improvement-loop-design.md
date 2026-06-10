@@ -174,8 +174,21 @@ Fakten-Bestätigung in den Kontext, Rollen-Grenze als Konvention + Doku.
 - **Auto-Apply** — niemals; jede Plugin-Änderung ist ein bewusster Tom-Schritt.
 - **Schwere Observation-UI** — Start minimal über natürliche Sprache.
 
-## Open Decisions (für den Plan)
+## Locked Decisions (2026-06-10)
 
-- Default-Wiederholungsschwelle (Vorschlag: 3) — final im Plan/Config.
-- Bericht-Format: nur Markdown, oder zusätzlich HTML-Artefakt wie das Dashboard.
-- Seed-Inhalt von `patterns.md` (welche 3–5 belegten Muster zuerst).
+- **Wiederholungs-Schwelle = 3** (Config-Default, einzeilig änderbar).
+- **Bericht-Format = nur Markdown** (kein HTML-Artefakt).
+- **Seed von `patterns.md` (operator-gewählt)** — diese vier belegten Muster zuerst:
+  1. **Stammdaten-Register statt Wiederholungs-Eingabe** — Reibung: `receipt:unknown-vendor`,
+     `invoicing:unknown-person`, `photo:unknown-site` (wiederkehrend). Beleg: Master-Data /
+     Single-Source-of-Truth-Register senken wiederholte Hand-Eingabe (etablierte
+     Datenmanagement-Praxis). Impact hoch, Aufwand niedrig → `stammdaten/*.json` anlegen/erweitern.
+  2. **Heuristik → explizite Regel** — Reibung: ein „prüfen"-Heuristik-Cluster, der wiederholt
+     korrigiert wird (z.B. Spesen-Heuristik, Morgen-Datum-Heuristik). Beleg: sobald die Regel
+     bekannt ist, Schätzung durch Config ersetzen → Prozess-`reference/rules.md` schärfen.
+  3. **Wiederkehrender manueller Schritt → eigener Prozess** — Reibung: `observation`-Cluster zu
+     einer wiederholten, regelhaften Handarbeit ohne Abdeckung. Beleg: Automations-ROI-Filter
+     (automatisieren, was häufig **und** regelhaft ist — Toms ≥75%-deterministisch-Filter) →
+     Neue-Automatisierung-Kandidat (baut nur Tom).
+  4. **Vorlagen-/Pfad-Drift → Re-Detect statt Neu-Onboarding** — Reibung: `tech_change`. Beleg:
+     Detect-First-Onboarding (eigenes onboarding-ux-Prinzip) → Config anpassen statt neu aufsetzen.
