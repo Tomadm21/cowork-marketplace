@@ -4,7 +4,7 @@ Turn any firm into a Cowork-automated operation. Onboard the company **once**, a
 
 This is the productized version of the Command Center skeleton: a generic plugin that any firm installs and stands up itself, in chat, with no developer work.
 
-## The 3-step model
+## How it works (onboard once, then run, then watch)
 
 1. **Firm onboarding** (`firm-onboarding` skill / `/command-center:setup`)
    A friendly chat interview collects everything about the firm — identity, locations, team, tools, bank, accounting, file conventions, which processes they run. It then scaffolds a standardized workspace folder structure and writes one `company-context.md` that gives Cowork 100% context. Every process reads this.
@@ -19,6 +19,9 @@ This is the productized version of the Command Center skeleton: a generic plugin
 
 3. **Automation** (`reference/automation.md`)
    Put any process on a Cowork schedule (`/schedule`). Honest about the limits: Cowork scheduled tasks only run while the app is open and the machine is awake, and consequential writes always pause for your approval.
+
+4. **Dashboard** (`dashboard` skill / `/command-center:dashboard`)
+   A live overview — generated as a Cowork **Live Artifact** — showing how much time the firm has saved, every workflow *with plain steps for how it works*, what's already been done, and the one recommended next step. Built for someone using AI for the first time: it answers „bringt das was?", „was kann es?" and „was mache ich jetzt?" at a glance. Refresh anytime with *"zeig das Dashboard"*.
 
 ## Install (in Claude Cowork or Claude Code)
 
@@ -45,4 +48,13 @@ See `reference/architecture.md` for the design rationale and the Phase-2 path (p
 
 ## Status
 
-v0.1.0 — `firm-onboarding` + `invoicing` are built to full depth (invoicing includes the deterministic `compute.ts` and a dry-run walkthrough in `docs/`); the other four processes are structurally complete skills (frontmatter + onboarding + reference rules + I/O) ready for per-firm activation. See `docs/end-to-end-dry-run.md`.
+**v0.2.0** — onboarding, the live dashboard, and six business processes are installed and ready to run.
+
+| Capability | Depth |
+|---|---|
+| **Firm onboarding** | Full — detect-first interview, workspace scaffold, one source-of-truth context file |
+| **Invoicing** | Full — deterministic `compute.ts` for every figure (hours, tiers, per-diems, VAT) + a documented end-to-end dry-run |
+| **Dashboard** | Full — live time-saved artifact, workflow transparency, work log |
+| **Daily report · Photo sorting · Receipt filing · Lead-gen** | Skill-complete — self-onboarding, reference rules, review-gated output, running on Cowork's native vision/document abilities |
+
+Every process is review-gated (nothing is written, sent, or booked without your approval). Phase 2 adds a per-process deterministic engine where a process outgrows skill-level instructions — the path `jan-kapitalfluss` already follows. See `reference/architecture.md` and the walkthrough in `docs/end-to-end-dry-run.md`.
