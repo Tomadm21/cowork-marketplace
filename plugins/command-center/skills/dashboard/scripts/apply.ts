@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 /**
- * Command Center — review queue apply engine (TypeScript port of apply.py, semantics 1:1).
- * Dependency-free. Never crashes on missing/garbled queue files.
+ * Command Center — review queue apply engine (TypeScript port of apply.py). Dependency-free.
+ * Never crashes on missing/garbled queue files. One deliberate hardening vs. the original:
+ * tier:"prüfen" is never bulk-approved (apply.py only checked confidence) — matches
+ * reference/review-queue.md tier semantics.
  *
  *   bun apply.ts <workspace_root> list
  *   bun apply.ts <workspace_root> approve <runid> <id> [--dry]
@@ -78,6 +80,30 @@ export function collisionSafe(filePath: string): string {
   return `${base}_${i}${ext}`;
 }
 
+// ── Time helpers ──────────────────────────────────────────────────────────────
+
+/** Formats a Date as local "YYYY-MM-DD HH:MM" (mirrors apply.py list "Stand" display). */
+function localDateTime(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    ` ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  );
+}
+
+/**
+ * Formats a Date as local ISO-like "YYYY-MM-DDTHH:MM:SS" (mirrors apply.py
+ * datetime.now().isoformat() — local time, no Z suffix).
+ * Note: signals.md mandates UTC-Z for SIGNAL ts; journal follows apply.py's local convention.
+ */
+function localISOString(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 interface Queue {
@@ -111,11 +137,42 @@ function appendJournal(journDir: string, rec: object): void {
   fs.appendFileSync(fp, JSON.stringify(rec, null, 0) + "\n", "utf8");
 }
 
-/** Copies source to dest (collision-safe) and journals it. Returns workspace-relative filed path. */
-function applyAction(a: Action, wsRoot: string, journDir: string, dry: boolean): string[] {
-  const src = path.join(wsRoot, a.source ?? "");
+/** Returns true if `p` (resolved relative to `wsRoot`) stays inside the workspace tree. */
+function insideWorkspace(wsRoot: string, p: string): boolean {
+  const root = path.resolve(wsRoot);
+  const resolved = path.resolve(root, p);
+  return resolved === root || resolved.startsWith(root + path.sep);
+}
+
+/**
+ * Copies source to dest (collision-safe) and journals it.
+ * Returns { filed, skipped_unsafe }.
+ * Any target whose resolved dir escapes the workspace is refused and recorded in skipped_unsafe.
+ * If the source path itself escapes the workspace the whole action's copy is refused.
+ */
+function applyAction(
+  a: Action,
+  wsRoot: string,
+  journDir: string,
+  dry: boolean,
+): { filed: string[]; skipped_unsafe: string[] } {
   const filed: string[] = [];
+  const skipped_unsafe: string[] = [];
+
+  const srcRel = a.source ?? "";
+  if (srcRel && !insideWorkspace(wsRoot, srcRel)) {
+    // Source escapes workspace — refuse the whole action
+    skipped_unsafe.push(`source:${srcRel}`);
+    return { filed, skipped_unsafe };
+  }
+
+  const src = path.join(wsRoot, srcRel);
+
   for (const t of (a.targets ?? [])) {
+    if (!insideWorkspace(wsRoot, t)) {
+      skipped_unsafe.push(t);
+      continue;
+    }
     const d = path.join(wsRoot, t);
     const dest = collisionSafe(path.join(d, a.filename ?? ""));
     if (!dry) {
@@ -127,16 +184,16 @@ function applyAction(a: Action, wsRoot: string, journDir: string, dry: boolean):
         fs.writeFileSync(dest, "", "utf8");
       }
       appendJournal(journDir, {
-        ts: new Date().toISOString(),
+        ts: localISOString(),
         verb: a.verb ?? "kopieren",
-        source: a.source ?? "",
+        source: srcRel,
         target: path.relative(wsRoot, dest),
         reversible: true,
       });
     }
     filed.push(path.relative(wsRoot, dest));
   }
-  return filed;
+  return { filed, skipped_unsafe };
 }
 
 /** Rewrites the queue file if actions remain, or archives it to _erledigt/. */
@@ -166,16 +223,12 @@ function doList(revDir: string): void {
     for (const a of (q.actions ?? [])) {
       const ti = tierOf(a);
       const tg: string[] = a.targets ?? [];
+      // Show the full relative target path (not just basename) so traversal like ../../tmp/x
+      // is visible to the human reviewer rather than hidden behind a short basename.
       const disp =
         (a.filename ?? "") +
         (tg.length
-          ? "  →  " +
-            tg
-              .map((t) => {
-                const b = path.basename(t.replace(/\/$/, ""));
-                return b || t;
-              })
-              .join(" + ")
+          ? "  →  " + tg.join(" + ")
           : "");
       const entity = String((a.values as Record<string, unknown>)?.entity ?? "");
       const kategorie = String((a.values as Record<string, unknown>)?.kategorie ?? "");
@@ -199,7 +252,7 @@ function doList(revDir: string): void {
 
   const stand =
     total > 0
-      ? `Stand: ${new Date().toISOString().replace("T", " ").slice(0, 16)} · ${total} offene Posten`
+      ? `Stand: ${localDateTime()} · ${total} offene Posten`
       : "Nichts offen — alles freigegeben.";
 
   process.stdout.write(
@@ -218,6 +271,7 @@ function doOp(
   dry: boolean,
 ): void {
   const filed: string[] = [];
+  const skipped_unsafe: string[] = [];
   let touched = 0;
 
   for (const [fp, q] of runs(revDir)) {
@@ -230,7 +284,9 @@ function doOp(
       if (!sel) { keep.push(a); continue; }
       touched++;
       if (op === "approve" || op === "approve-safe") {
-        filed.push(...applyAction(a, wsRoot, journDir, dry));
+        const result = applyAction(a, wsRoot, journDir, dry);
+        filed.push(...result.filed);
+        skipped_unsafe.push(...result.skipped_unsafe);
       }
     }
     q.actions = keep;
@@ -238,7 +294,7 @@ function doOp(
   }
 
   process.stdout.write(
-    JSON.stringify({ ok: true, op, touched, filed, dry }, null, 0) + "\n",
+    JSON.stringify({ ok: true, op, touched, filed, skipped_unsafe, dry }, null, 0) + "\n",
   );
 }
 

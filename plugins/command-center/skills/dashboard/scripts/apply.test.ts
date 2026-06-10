@@ -189,7 +189,7 @@ test("list: correct total/ns/np/nf and item fields", async () => {
   expect(item.title).toBe("Heinz Wilmers GmbH RG 2605176 · 476,00 EUR");
   expect(item.vals).toBe("GB · Kfz/Fahrzeug");
   expect(item.why).toBe("Sicher but needs check");
-  expect(item.target).toContain(FILENAME.split(".pdf")[0] + ".pdf" || FILENAME);
+  expect(item.target).toContain(FILENAME.split(".pdf")[0] + ".pdf");
 });
 
 test("list: empty queue dir → ok:true, total:0, Nichts offen", async () => {
@@ -490,4 +490,94 @@ test("list: process not in ICON map → uses process name as group, receipt as i
   const g = result.groups[0];
   expect(g.group).toBe("custom-process");
   expect(g.icon).toBe("receipt");
+});
+
+// ── Fix 2: workspace containment guard tests ──────────────────────────────────
+
+test("traversal refused: unsafe target not copied, listed in skipped_unsafe", async () => {
+  // Use an absolute path that resolves outside the workspace
+  const unsafeTarget = "../../../tmp/cc-escape-test";
+  const actions = [{
+    id: 99,
+    verb: "kopieren",
+    tier: "sicher",
+    reason: "traversal attempt",
+    source: SOURCE_REL,
+    filename: FILENAME,
+    targets: [unsafeTarget],
+    values: {},
+  }];
+  writeQueue(RUNID_A, actions);
+  seedSourceFile(SOURCE_REL);
+
+  const { stdout } = await runApply(ws, "approve", RUNID_A, "99");
+  const result = JSON.parse(stdout);
+
+  expect(result.ok).toBe(true);
+  expect(result.touched).toBe(1);
+  // Nothing was filed (all targets were unsafe)
+  expect(result.filed).toEqual([]);
+  // The unsafe target is reported
+  expect(Array.isArray(result.skipped_unsafe)).toBe(true);
+  expect(result.skipped_unsafe.length).toBeGreaterThan(0);
+  expect(result.skipped_unsafe[0]).toContain("cc-escape-test");
+  // No file escaped the workspace
+  const escapePath = path.resolve(ws, unsafeTarget, FILENAME);
+  expect(fs.existsSync(escapePath)).toBe(false);
+});
+
+test("list shows full relative target path, not just basename", async () => {
+  const nestedTarget = "001 Galant/Buchhaltung/Eingang";
+  const actions = [{
+    id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
+    source: "_eingang/file.pdf", filename: "file.pdf",
+    targets: [nestedTarget],
+    values: {},
+  }];
+  writeQueue(RUNID_A, actions);
+  const { stdout } = await runApply(ws, "list");
+  const result = JSON.parse(stdout);
+  const item = result.groups[0].items[0];
+  // Must show the full relative path, not just "Eingang"
+  expect(item.target).toContain("001 Galant/Buchhaltung/Eingang");
+  expect(item.target).toContain("  →  ");
+});
+
+test("cross-queue isolation: approve in queue A leaves queue B untouched", async () => {
+  const actionsA = [{
+    id: 1, verb: "kopieren", tier: "sicher", reason: "queue A action",
+    source: SOURCE_REL, filename: "file-a.pdf",
+    targets: ["dest-a"],
+    values: {},
+  }];
+  const actionsB = [{
+    id: 2, verb: "kopieren", tier: "sicher", reason: "queue B action",
+    source: SOURCE_REL, filename: "file-b.pdf",
+    targets: ["dest-b"],
+    values: {},
+  }];
+  writeQueue(RUNID_A, actionsA);
+  writeQueue(RUNID_B, actionsB);
+  seedSourceFile(SOURCE_REL);
+
+  // Approve action 1 in queue A only
+  const { stdout } = await runApply(ws, "approve", RUNID_A, "1");
+  const result = JSON.parse(stdout);
+  expect(result.touched).toBe(1);
+
+  // Queue B's file must still exist on disk with its action intact
+  const qBPath = path.join(reviewDir(), `${RUNID_B}.json`);
+  expect(fs.existsSync(qBPath)).toBe(true);
+  const qB = JSON.parse(fs.readFileSync(qBPath, "utf8"));
+  expect(qB.actions.length).toBe(1);
+  expect(qB.actions[0].id).toBe(2);
+
+  // Queue B's destination file must not have been created
+  expect(fs.existsSync(path.join(ws, "dest-b", "file-b.pdf"))).toBe(false);
+
+  // Queue B still appears in list
+  const { stdout: listOut } = await runApply(ws, "list");
+  const listResult = JSON.parse(listOut);
+  expect(listResult.total).toBe(1);
+  expect(listResult.groups[0].items[0].id).toBe(2);
 });
