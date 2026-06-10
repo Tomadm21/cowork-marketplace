@@ -255,7 +255,7 @@ function buildHtml(
     if (enabledSchedules.length > 0) {
       const sch = enabledSchedules[0];
       const hours = sch.interval_hours ?? 6;
-      hint = `dein erster Scrape läuft alle ${hours}h — warte auf den nächsten Scheduler-Tick oder starte den Scrape manuell.`;
+      hint = `dein erster Scrape läuft alle ${esc(String(hours))}h — warte auf den nächsten Scheduler-Tick oder starte den Scrape manuell.`;
     } else if (schedules.length > 0) {
       hint = `du hast Zeitpläne, aber alle sind deaktiviert — aktiviere einen Zeitplan, um Trends zu sammeln.`;
     } else {
