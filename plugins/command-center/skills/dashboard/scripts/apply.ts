@@ -16,9 +16,9 @@ import * as path from "node:path";
 
 // ── ICON map (mirrors apply.py) ───────────────────────────────────────────────
 
-const ICON: Record<string, [string, string]> = {
+export const ICON: Record<string, [string, string]> = {
   "receipt-filing": ["Belege", "receipt"],
-  "invoicing":      ["Rechnung", "invoice"],
+  "invoicing":      ["Rechnungen", "invoice"],
   "photo-sorting":  ["Fotos", "photo"],
   "daily-report":   ["Tagesbericht", "doc"],
   "lead-gen":       ["Leads", "leads"],
@@ -106,15 +106,17 @@ function localISOString(d: Date = new Date()): string {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-interface Queue {
+export interface Queue {
   runid: string;
   process?: string;
+  headline?: string;
+  created?: string;
   actions: Action[];
   [k: string]: unknown;
 }
 
 /** Reads all *.json files from _review/ (except _erledigt/), silently skips garbled files. */
-function runs(revDir: string): Array<[string, Queue]> {
+export function runs(revDir: string): Array<[string, Queue]> {
   const out: Array<[string, Queue]> = [];
   let entries: string[];
   try { entries = fs.readdirSync(revDir); } catch { return out; }
