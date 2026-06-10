@@ -39,3 +39,5 @@ After approval + save, append one line to the activity log so the dashboard refl
 
 ## Scheduled mode
 Prepare the draft and stop at the review state; never finalize unattended. See `${CLAUDE_PLUGIN_ROOT}/reference/automation.md`.
+
+When a run is prepared but not reviewed inline (scheduled runs or any run where the user is not present to approve in chat), write one review-queue file per `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md` at `<workspace>/_firma/_review/R-<YYYY-MM-DD>-daily-report-KW<kw>.json`. Use `runid` matching the activity-log entry (e.g. `daily-report-<jahr>-KW<kw>`), `process: "daily-report"`. Each prepared report becomes one action with `verb: "erstellen"`, `tier: "prüfen"` (use `sicher` only when no day was capped and no "prüfen" flag fired), the inline review's justification as `reason`, `source` pointing to the temp draft, `filename` the collision-safe output name, `targets` the configured `_ausgang/berichte` path, and `values` carrying: `projekt`, `kw`, `stunden` (total netto hours), with any capped-day note added to `reason`. The activity-log entry stays `status: prepared`; writing the DOCX happens only via the cockpit / `apply.ts`.
