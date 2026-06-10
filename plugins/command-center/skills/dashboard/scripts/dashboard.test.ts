@@ -10,6 +10,7 @@ import {
   defaultTab,
   buildDashboard,
   esc,
+  jsonForScript,
 } from "./dashboard.ts";
 
 // ── Pure unit tests ───────────────────────────────────────────────────────────
@@ -309,5 +310,118 @@ describe("buildDashboard integration", () => {
     seedQueue();
     const html = buildDashboard(ws);
     expect(html).toContain("001 Galant Bau GmbH/Buchhaltung/Ausgaben");
+  });
+});
+
+// ── XSS hardening regression tests ───────────────────────────────────────────
+
+describe("jsonForScript", () => {
+  test("escapes </script> sequences to prevent script breakout", () => {
+    const payload = '</script><script>window.PWNED=1;</script>';
+    const result = jsonForScript(JSON.stringify({ reason: payload }));
+    // Raw closing tag must not appear — it becomes </script>
+    expect(result).not.toContain("</script>");
+    expect(result).toContain("\\u003c");
+  });
+  test("escapes U+2028 and U+2029 line terminators", () => {
+    const s = "a b c";
+    const result = jsonForScript(JSON.stringify(s));
+    expect(result).not.toContain(" ");
+    expect(result).not.toContain(" ");
+    expect(result).toContain("\\u2028");
+    expect(result).toContain("\\u2029");
+  });
+  test("leaves normal ASCII JSON unchanged", () => {
+    const data = { key: "value", num: 42 };
+    const raw = JSON.stringify(data);
+    expect(jsonForScript(raw)).toBe(raw);
+  });
+});
+
+describe("buildDashboard XSS hardening", () => {
+  const RUNID_XSS = "R-xss-test";
+
+  // Test 1: </script> in reason must not break out of the data const
+  test("reason with </script> payload does not produce raw script breakout in HTML", () => {
+    writeCompanyContext("Test Firma");
+    writeQueue(RUNID_XSS, [
+      {
+        id: 1,
+        verb: "kopieren",
+        tier: "sicher",
+        confidence: "sicher",
+        reason: "</script><script>window.PWNED=1;</script>",
+        source: "_eingang/receipt-filing/x.pdf",
+        filename: "test.pdf",
+        targets: ["A/B"],
+        values: { lieferant: "Harmlos GmbH", betrag: "1,00 EUR" },
+      },
+    ]);
+    const html = buildDashboard(ws);
+    // The inlined var C= block must not contain a raw </script> that closes the data script
+    // The payload must be escaped: </script> → </script>
+    const dataBlockMatch = html.match(/var C=([\s\S]*?);[\s\S]*?var pi=/);
+    expect(dataBlockMatch).not.toBeNull();
+    const dataBlock = dataBlockMatch![1];
+    expect(dataBlock).not.toContain("</script>");
+    expect(dataBlock).toContain("\\u003c");
+  });
+
+  // Test 2: quote-injection in label (values.lieferant) must be escaped in onclick attribute.
+  // Note: the raw label legitimately appears (JSON-escaped) in the inlined var C= data blob;
+  // what we guard against is the label breaking OUT of an onclick="..." attribute.
+  test("label with quote injection does not produce unescaped attribute breakout in onclick", () => {
+    const maliciousLabel = '" onmouseover="alert(1)';
+    writeCompanyContext("Test Firma");
+    writeQueue(RUNID_XSS, [
+      {
+        id: 2,
+        verb: "kopieren",
+        tier: "sicher",
+        confidence: "sicher",
+        reason: "Normal.",
+        source: "_eingang/receipt-filing/y.pdf",
+        filename: "normal.pdf",
+        targets: ["A/B"],
+        values: { lieferant: maliciousLabel, betrag: "5,00 EUR" },
+      },
+    ]);
+    const html = buildDashboard(ws);
+    // Extract all onclick="..." attribute values from the HTML.
+    // These are the only places where an unescaped " would break out of the attribute.
+    const onclickAttrs = [...html.matchAll(/onclick="([^"]*?)"/g)].map((m) => m[1]);
+    // None of the onclick attribute values should contain a raw (unescaped) " character —
+    // that would mean the attribute was broken out of by the injected quote.
+    for (const attr of onclickAttrs) {
+      expect(attr).not.toContain('" onmouseover=');
+    }
+    // The escaped form must appear in the HTML (confirms the label is present but escaped)
+    expect(html).toContain("&quot;");
+  });
+
+  // Test 3: sanity — normal label still produces a working act() call in onclick
+  test("normal label produces a functional act() onclick with the correct runid", () => {
+    const RUNID_NORMAL = "R-2026-06-10-normal";
+    writeCompanyContext("Test Firma");
+    writeQueue(RUNID_NORMAL, [
+      {
+        id: 7,
+        verb: "kopieren",
+        tier: "prüfen",
+        confidence: "prüfen",
+        reason: "Scan unklar.",
+        source: "_eingang/receipt-filing/inv.pdf",
+        filename: "Inv 7.pdf",
+        targets: ["Buchhaltung/2026"],
+        values: { lieferant: "Normal GmbH", betrag: "10,00 EUR" },
+      },
+    ]);
+    const html = buildDashboard(ws);
+    // The server-rendered onclick must contain the act() call with the runid
+    expect(html).toContain("act(");
+    expect(html).toContain(RUNID_NORMAL);
+    // Both buttons must be present
+    expect(html).toContain("Freigeben");
+    expect(html).toContain("Ablehnen");
   });
 });

@@ -37,6 +37,18 @@ export const esc = (s: unknown): string =>
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
+/**
+ * Escape a JSON string for safe inlining inside an HTML <script> element.
+ * JSON.stringify does NOT escape </script>, U+2028, or U+2029 — all of which
+ * can break out of a script block when the JSON is emitted verbatim into HTML.
+ */
+export const jsonForScript = (j: string): string =>
+  j
+    .replace(/</g, "\\u003c")
+    // U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH SEPARATOR) are JS line terminators;
+    // use RegExp constructor to avoid placing them as literal regex chars in source.
+    .replace(new RegExp("\u2028", "g"), "\\u2028")
+    .replace(new RegExp("\u2029", "g"), "\\u2029");
 function readFileSafe(p: string): string | null {
   try { return fs.readFileSync(p, "utf8"); } catch { return null; }
 }
@@ -396,7 +408,7 @@ export function buildDashboard(ws: string): string {
     };
   });
 
-  const dataJson = JSON.stringify({ stand, active: activeDefault, processes: cockpitProcesses });
+  const dataJson = jsonForScript(JSON.stringify({ stand, active: activeDefault, processes: cockpitProcesses }));
 
   // ── Server-side render helpers (mirror JS logic, produces static HTML) ───────
   function pillHtmlSS(tier: string): string {
@@ -414,7 +426,12 @@ export function buildDashboard(ws: string): string {
   }
 
   function renderItemSS(it: (typeof cockpitProcesses)[0]["items"][0], label: string, count: number, idx: number): string {
-    const labelJson = JSON.stringify(label);
+    // HTML-escape the JSON-encoded label so that any " chars inside it are
+    // encoded as &quot; and cannot terminate the onclick="..." attribute.
+    // The browser un-escapes attribute values before passing them to the JS
+    // engine, so act() receives the correct raw label string at runtime.
+    const labelAttr = esc(JSON.stringify(label));
+    const idAttr = esc(JSON.stringify(it.id));
     let rows = "";
     for (const [k, v] of Object.entries(it.values ?? {})) {
       rows += `<tr><td>${esc(k)}</td><td>${esc(String(v ?? ""))}</td></tr>`;
@@ -433,8 +450,8 @@ export function buildDashboard(ws: string): string {
         <div class="icard"><p class="ttl">Vorschlag</p><table class="vt"><tbody>${rows}</tbody></table></div>
         <div class="icard"><p class="ttl">Begründung</p><div class="begruendung">${esc(it.reason)}</div>
           <div class="actions">
-            <button class="ap" onclick="act('Freigeben','${esc(it.runid)}',${it.id},${labelJson})">Freigeben</button>
-            <button class="rj" onclick="act('Ablehnen','${esc(it.runid)}',${it.id},${labelJson})">Ablehnen</button>
+            <button class="ap" onclick="act('Freigeben','${esc(it.runid)}',${idAttr},${labelAttr})">Freigeben</button>
+            <button class="rj" onclick="act('Ablehnen','${esc(it.runid)}',${idAttr},${labelAttr})">Ablehnen</button>
           </div>
         </div>
       </div>
@@ -624,14 +641,19 @@ function renderProcess(proc){
   var targetsHtml=it.targets&&it.targets.length?it.targets.map(function(t){return '<div class="pathblock">'+e(t)+'</div>';}).join(''):'<span style="color:var(--mu)">—</span>';
   rows+='<tr><td>Ziel</td><td>'+targetsHtml+'</td></tr>';
   var prevHtml=it.thumb?'<div class="imgwrap"><img src="'+it.thumb+'" alt="Vorschau"></div>':'<div class="noprev">Keine Vorschau</div>';
-  var labelJson=JSON.stringify(label);
+  // HTML-escape the JSON-encoded label so that any " inside it becomes &quot;
+  // and cannot terminate the onclick="..." attribute string.
+  // The browser un-escapes the attribute before passing it to the JS engine,
+  // so act() receives the correct raw label value at runtime.
+  var labelAttr=e(JSON.stringify(label));
+  var idAttr=e(JSON.stringify(it.id));
   return '<div class="itemhead"><h2>'+e(it.title)+'</h2>'+pillHtml(it.tier)+pagerHtml(proc.items.length,idx)+'</div>'+
     '<div class="itemgrid"><div>'+prevHtml+'</div><div>'+
     '<div class="icard"><p class="ttl">Vorschlag</p><table class="vt"><tbody>'+rows+'</tbody></table></div>'+
     '<div class="icard"><p class="ttl">Begründung</p><div class="begruendung">'+e(it.reason)+'</div>'+
     '<div class="actions">'+
-    '<button class="ap" onclick="act(\'Freigeben\',\''+e(it.runid)+'\','+String(it.id)+','+labelJson+')">Freigeben</button>'+
-    '<button class="rj" onclick="act(\'Ablehnen\',\''+e(it.runid)+'\','+String(it.id)+','+labelJson+')">Ablehnen</button>'+
+    '<button class="ap" onclick="act(\'Freigeben\',\''+e(it.runid)+'\','+idAttr+','+labelAttr+')">Freigeben</button>'+
+    '<button class="rj" onclick="act(\'Ablehnen\',\''+e(it.runid)+'\','+idAttr+','+labelAttr+')">Ablehnen</button>'+
     '</div></div></div></div>';
 }
 
