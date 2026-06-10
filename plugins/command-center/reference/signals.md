@@ -11,7 +11,7 @@ Every Command Center process appends **friction signals** to
 { "ts": "2026-06-10T08:12:00Z", "process": "receipt-filing", "type": "correction", "key": "receipt:unknown-vendor", "detail": "Vendor 'Müller GmbH' nicht erkannt, manuell zugeordnet" }
 ```
 
-- `ts` — ISO 8601 timestamp.
+- `ts` — ISO 8601 timestamp, **UTC with `Z` suffix** (these compare correctly as strings; offsets like `+02:00` would break watermark windowing).
 - `process` — process key (`invoicing`, `receipt-filing`, …).
 - `type` — one of: `correction`, `recurring_check`, `observation`, `fact`, `tech_change`.
 - `key` — **stable cluster key**, lowercase, `process:slug` form. NO free text in the key —

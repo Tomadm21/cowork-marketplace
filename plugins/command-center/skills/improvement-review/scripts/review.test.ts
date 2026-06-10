@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { parsePatterns } from "./review.ts";
+import { parsePatterns, loadSignals, windowSignals, gate } from "./review.ts";
 
 const MD = `# header
 ## Stammdaten-Register statt Wiederholungs-Eingabe
@@ -36,8 +36,6 @@ test("parsePatterns: empty keys value does not swallow the next line", () => {
   expect(ps.length).toBe(0); // empty keys → not a pattern
 });
 
-import { loadSignals, windowSignals } from "./review.ts";
-
 test("loadSignals: skips blank and garbled lines, keeps valid", () => {
   const raw = [
     '{"ts":"2026-06-01T08:00:00Z","process":"receipt-filing","type":"correction","key":"receipt:unknown-vendor","detail":"x"}',
@@ -61,4 +59,60 @@ test("windowSignals: keeps only ts strictly after the watermark", () => {
   );
   expect(windowSignals(sigs, "2026-06-03T00:00:00Z").length).toBe(1);
   expect(windowSignals(sigs, "").length).toBe(2); // empty watermark → all
+});
+
+const PATTERNS = parsePatterns(`## Reg\n- keys: receipt:unknown-vendor\n- impact: hoch\n## Auto\n- keys: observation:neuer-ablauf\n- impact: hoch\n`);
+
+function sig(type: string, key: string, ts: string) {
+  return `{"ts":"${ts}","process":"p","type":"${type}","key":"${key}"}`;
+}
+
+test("gate: passive friction needs recurrence ≥3 AND evidence → stapel", () => {
+  const raw = [
+    sig("correction", "receipt:unknown-vendor", "2026-06-01T00:00:00Z"),
+    sig("correction", "receipt:unknown-vendor", "2026-06-02T00:00:00Z"),
+    sig("correction", "receipt:unknown-vendor", "2026-06-03T00:00:00Z"),
+  ].join("\n");
+  const r = gate(loadSignals(raw), PATTERNS, 3);
+  expect(r.stapel.length).toBe(1);
+  expect(r.stapel[0].count).toBe(3);
+  expect(r.stapel[0].rank).toBe(9); // 3 × impact hoch(3)
+  expect(r.geparkt.length).toBe(0);
+});
+
+test("gate: recurring friction below threshold is dropped", () => {
+  const raw = [
+    sig("correction", "receipt:unknown-vendor", "2026-06-01T00:00:00Z"),
+    sig("correction", "receipt:unknown-vendor", "2026-06-02T00:00:00Z"),
+  ].join("\n");
+  const r = gate(loadSignals(raw), PATTERNS, 3);
+  expect(r.stapel.length).toBe(0);
+  expect(r.geparkt.length).toBe(0);
+});
+
+test("gate: recurring friction with no evidence → geparkt", () => {
+  const raw = [0, 1, 2].map((i) => sig("correction", "receipt:unbekannt", `2026-06-0${i + 1}T00:00:00Z`)).join("\n");
+  const r = gate(loadSignals(raw), PATTERNS, 3);
+  expect(r.stapel.length).toBe(0);
+  expect(r.geparkt.length).toBe(1);
+});
+
+test("gate: observation skips recurrence; evidence → candidate, none → geparkt", () => {
+  const r1 = gate(loadSignals(sig("observation", "observation:neuer-ablauf", "2026-06-01T00:00:00Z")), PATTERNS, 3);
+  expect(r1.candidates.length).toBe(1);
+  const r2 = gate(loadSignals(sig("observation", "observation:sonstwas", "2026-06-01T00:00:00Z")), PATTERNS, 3);
+  expect(r2.geparkt.length).toBe(1);
+});
+
+test("gate: facts listed individually, tech clustered by key", () => {
+  const raw = [
+    sig("fact", "fact:neuer-kunde", "2026-06-01T00:00:00Z"),
+    sig("fact", "fact:neuer-kunde", "2026-06-02T00:00:00Z"),
+    sig("tech_change", "tech:vorlage-geaendert", "2026-06-03T00:00:00Z"),
+    sig("tech_change", "tech:vorlage-geaendert", "2026-06-04T00:00:00Z"),
+  ].join("\n");
+  const r = gate(loadSignals(raw), PATTERNS, 3);
+  expect(r.facts.length).toBe(2);   // each fact listed
+  expect(r.tech.length).toBe(1);    // clustered by key
+  expect(r.tech[0].count).toBe(2);
 });
