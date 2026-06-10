@@ -143,4 +143,18 @@ test("renderReport: stapel item shows pattern + count; empty sections show a fri
   expect(md).toContain("Register anlegen.");
   expect(md).toContain("3×");
   expect(md).toContain("Keine offenen Fakten");
+  const order = [
+    "## Getorter Stapel",
+    "## Kontext-Vertiefung",
+    "## Neue-Automatisierung-Kandidaten",
+    "## Technik-Hinweise",
+    "## Geparkt",
+  ].map((h) => md.indexOf(h));
+  expect(order.every((i) => i >= 0)).toBe(true);
+  expect([...order].sort((a, b) => a - b)).toEqual(order);
+});
+
+test("renderReport: empty sinceTs renders the first-review wording", () => {
+  const md = renderReport("X", "", gate([], [], 3));
+  expect(md).toContain("seit Beginn (erster Review)");
 });

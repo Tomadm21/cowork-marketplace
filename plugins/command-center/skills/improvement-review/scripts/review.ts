@@ -6,6 +6,10 @@
  * Note: sub-threshold friction is dropped per window (watermark) — a deliberate noise floor; counts do not accumulate across reviews.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+
 export type SignalType = "correction" | "recurring_check" | "observation" | "fact" | "tech_change";
 export interface Signal { ts: string; process: string; type: SignalType; key: string; detail?: string; }
 export interface Pattern {
@@ -114,7 +118,7 @@ function clusterLines(cs: Cluster[]): string {
   return cs.map((c) => {
     const head = `- **${c.key}** — ${c.count}×` + (c.pattern ? ` · Muster: *${c.pattern.name}* (Impact ${c.pattern.impact})` : "");
     const emp = c.pattern?.empfehlung ? `\n  - Empfehlung: ${c.pattern.empfehlung}` : "";
-    const ex = c.details[0] ? `\n  - Beispiel: ${c.details[0]}` : "";
+    const ex = c.details[0] ? `\n  - Beispiel: ${c.details[0].replace(/\s+/g, " ")}` : "";
     return head + emp + ex;
   }).join("\n");
 }
@@ -125,7 +129,7 @@ export function renderReport(firm: string, sinceTs: string, r: GateResult): stri
     `\n## ${title}\n\n${body.trim() ? body : `_${empty}_`}\n`;
 
   const facts = r.facts.length
-    ? r.facts.map((f) => `- ${f.key}${f.detail ? ` — ${f.detail}` : ""}`).join("\n")
+    ? r.facts.map((f) => `- ${f.key}${f.detail ? ` — ${f.detail.replace(/\s+/g, " ")}` : ""}`).join("\n")
     : "";
 
   return `# Optimierungs-Bericht — ${firm}
@@ -145,16 +149,18 @@ Fenster: ${since}.
     `\n---\n_Bericht ist eine Empfehlung. Jede Plugin-Änderung ist ein bewusster Schritt von Tom — nichts wendet sich selbst an._\n`;
 }
 
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
+// ── IO (used by main only) ──
 
-function readSafe(p: string): string | null { try { return fs.readFileSync(p, "utf8"); } catch { return null; } }
+function readFileSafe(p: string): string | null { try { return fs.readFileSync(p, "utf8"); } catch { return null; } }
 
 function firmName(ws: string): string {
-  const md = readSafe(path.join(ws, "_firma", "company-context.md"));
-  const h = md?.match(/^#\s*Firmenkontext\s*[—–-]\s*(.+)\s*$/m);
-  if (h && h[1] && !h[1].includes("{{")) return h[1].trim();
+  const md = readFileSafe(path.join(ws, "_firma", "company-context.md"));
+  if (md) {
+    const h = md.match(/^#\s*Firmenkontext\s*[—–-]\s*(.+)\s*$/m);
+    if (h && h[1] && !h[1].includes("{{")) return h[1].trim();
+    const f = md.match(/Firmenname:\s*(.+)/);
+    if (f && f[1] && !f[1].includes("{{")) return f[1].trim();
+  }
   return "Dein Betrieb";
 }
 
@@ -164,11 +170,11 @@ function main() {
   const out = process.argv[3] || path.join(ws, "_firma", "optimierung-bericht.md");
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
-  const patternsMd = readSafe(process.env.CC_PATTERNS_MD || path.join(scriptDir, "../../../reference/patterns.md")) || "";
+  const patternsMd = readFileSafe(process.env.CC_PATTERNS_MD || path.join(scriptDir, "../../../reference/patterns.md")) || "";
   const patterns = parsePatterns(patternsMd);
 
-  const signals = loadSignals(readSafe(path.join(ws, "_firma", "_state", "signals.jsonl")) || "");
-  const wmRaw = readSafe(path.join(ws, "_firma", "_state", "review-watermark.json"));
+  const signals = loadSignals(readFileSafe(path.join(ws, "_firma", "_state", "signals.jsonl")) || "");
+  const wmRaw = readFileSafe(path.join(ws, "_firma", "_state", "review-watermark.json"));
   let watermark = "";
   try { watermark = wmRaw ? String(JSON.parse(wmRaw).last_review_ts ?? "") : ""; } catch { watermark = ""; }
 
