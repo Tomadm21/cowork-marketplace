@@ -12,3 +12,6 @@ plugins/*/archive/
 
 # OS
 .DS_Store
+
+# Trendfinder dev credentials (tenant API key) — never commit
+.trendfinder/

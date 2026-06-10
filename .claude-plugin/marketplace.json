@@ -20,6 +20,14 @@
       "version": "0.2.0",
       "author": { "name": "Tom Adomeit" },
       "keywords": ["finance", "excel", "commerzbank", "gobd", "liquidity", "cowork"]
+    },
+    {
+      "name": "trendfinder",
+      "source": "./plugins/trendfinder",
+      "description": "Trend data → content decisions in Cowork. Detect-first onboarding (API key, Apify token, niches, schedules) against the Trendfinder backend, plus the Trendfinder-Cockpit Live Artifact (Trends · Avatare). Customer pays own scraping (Apify) and inference (Cowork seat); backend only stores and scrapes.",
+      "version": "0.1.0",
+      "author": { "name": "Tom Adomeit" },
+      "keywords": ["trends", "tiktok", "content", "avatars", "cowork", "trendfinder"]
     }
   ]
 }
