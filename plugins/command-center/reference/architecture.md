@@ -68,3 +68,11 @@ The plugin improves over time without ever self-modifying. Two roles, hard bound
 `patterns.md` is the operator-curated evidence library; curating it is how the review sharpens.
 The daily dashboard (`skills/dashboard/`) is deliberately unchanged — it stays the firm's clean,
 stable home screen.
+
+## Review cockpit (v0.4.0)
+
+The dashboard Live Artifact is a **review cockpit**: an "Überblick" tab (time saved, workflows, feed) plus one tab per process that pages through open review items — each showing the proposed VORSCHLAG fields, the BEGRÜNDUNG, and Freigeben / Ablehnen.
+
+- **Queues** — prepared runs write `_firma/_review/R-<date>-<slug>.json` (contract: `reference/review-queue.md`). Writing a queue never moves files; it is the "prepared" state.
+- **Engine** — `skills/dashboard/scripts/apply.ts` (a TypeScript port of the proven workspace `apply.py`) applies an approval: copy collision-safe to the target(s), append a reversible journal record in `_firma/_journal/`, remove the action, archive the emptied queue. Commands: `list`, `approve`, `reject`, `approve-safe`, `--dry`. It refuses any source/target that resolves outside the workspace.
+- **Loop** — the cockpit's Freigeben/Ablehnen buttons call `sendPrompt("Freigeben: <runid> Aktion <id> (<label>)")`; the dashboard skill runs `apply.ts` and regenerates the cockpit. Nothing is applied without this explicit human step — the role boundary is unchanged.

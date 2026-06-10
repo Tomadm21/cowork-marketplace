@@ -31,7 +31,7 @@ Claude interviews in batches (identity → business → sites → people → too
 ```
 # Firmenkontext — Muster Bau GmbH
 <!-- cc:meta -->
-- plugin: command-center v0.3.0
+- plugin: command-center v0.4.0
 - workspace_root: /Users/muster/MusterBau-Cowork
 - onboarded: 2026-06-02
 - sprache: de
