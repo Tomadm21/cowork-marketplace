@@ -58,6 +58,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
 
 **On 401 from either call:** tell the user the key is incorrect, delete the config file so it does not persist an invalid state, re-ask for the key, and do NOT proceed. Repeat until connection succeeds or the user aborts.
 
+**On any non-2xx response that is NOT a 401 (5xx, timeout/network error):** report the error verbatim, leave the config file in place, and ask the user whether to retry or abort — do NOT proceed to Step 2.
+
 **On success:** `/api/niches/config` returns the tenant's existing niches. Present them as detected state — for example:
 
 > "Verbindung erfolgreich. Ich sehe bereits folgende Niches auf deinem Account:"
@@ -126,6 +128,24 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/niches/config '{"display_name
 
 Repeat until the user is satisfied with their niche list.
 
+**Renaming or deleting a niche (✏️ path):**
+
+- **Rename** — change only the display name; the slug (`niche_id`) is immutable:
+  ```
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PUT /api/niches/config/<niche_id> '{"display_name":"<neuer Name>"}'
+  ```
+  The `niche_id` slug stays the same after a rename; only the display name changes.
+
+- **Delete** — always confirm with the user before executing:
+  ```
+  1) Ja, Niche löschen
+  2) Abbrechen
+  ```
+  Warn the user that any schedules pointing at this niche will stop making sense and should also be deleted (`bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE /api/schedules/<id>` for each schedule whose `niche_id` matches). On confirmation:
+  ```
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE /api/niches/config/<niche_id>
+  ```
+
 ---
 
 ## Step 4 — First schedule (cost honesty)
@@ -163,6 +183,11 @@ Run:
 
 ```
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/schedules
+```
+
+For each `niche_id` from the confirmed niche list (Step 3), fetch trends individually:
+
+```
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
 ```
 
