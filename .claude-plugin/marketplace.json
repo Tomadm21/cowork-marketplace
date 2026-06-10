@@ -9,7 +9,7 @@
       "name": "command-center",
       "source": "./plugins/command-center",
       "description": "Turn any firm into a Cowork-automated operation. A guided firm onboarding captures the company's full context and scaffolds a clean workspace; then each business process (invoicing, daily reports, photo sorting, receipt filing, lead-gen) becomes its own self-contained skill with a built-in setup, and can be put on a schedule. Onboard once, every process inherits the context.",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "author": { "name": "Tom Adomeit" },
       "keywords": ["onboarding", "workflow", "automation", "business-process", "invoicing", "receipts", "cowork", "command-center"]
     },
