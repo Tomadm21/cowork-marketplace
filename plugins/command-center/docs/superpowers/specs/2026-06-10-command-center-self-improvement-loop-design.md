@@ -101,7 +101,7 @@ mit diesen Abschnitten:
 2. **Getorter Stapel** — Cluster mit **Wiederholung ≥ Schwelle** (Default 3) **UND** Beleg-Treffer,
    sortiert nach Wiederholung × Impact. Pro Item: Cluster, Häufigkeit, belegtes Muster, Beispiel-Details.
 3. **Kontext-Vertiefung** — unbestätigte `fact`-Signale → „bestätige diese Fakten für den Firmenkontext".
-4. **Neue-Automatisierung-Kandidaten** — belegte Cluster ohne abdeckenden Prozess → „Kandidat: bau X" (nur Tom baut).
+4. **Neue-Automatisierung-Kandidaten** — belegte `observation`-Cluster → „Kandidat: bau X" (nur Tom baut). *(Implementierungs-Entscheidung: Kandidaten = bewusste Beobachtungen mit Beleg-Treffer; ein expliziter „kein abdeckender Prozess"-Check gegen `workflows.json` entfällt — Kandidaten-Muster mappen ohnehin nur `observation:*`-Keys.)*
 5. **Technik-Hinweise** — `tech_change`-Signale → „Vorlage/Ordner hat sich geändert, Prozess Y anpassen".
 6. **Geparkt (unbelegt)** — wiederkehrend, kein Beleg-Treffer — leise gelistet.
 
