@@ -57,6 +57,15 @@ On approval, build the invoice file (xlsx via Cowork's native spreadsheet abilit
 
 Report what was produced and where, and list any unresolved "prüfen" items.
 
+## Step 5b — Signal loggen (best-effort)
+Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per
+`${CLAUDE_PLUGIN_ROOT}/reference/signals.md` — one JSON line each, never blocking the run:
+- if a person was unknown and the user mapped it → `{type:"correction", key:"invoicing:unknown-person"}`
+- if the spesen heuristic was corrected → `{type:"correction", key:"invoicing:spesen-heuristik"}`
+- if a capped-day "prüfen" fired → `{type:"recurring_check", key:"invoicing:capped-day"}`
+- if the user said "wäre gut wenn…/merk dir…" → `{type:"observation", key:"observation:<slug>", detail:"…"}`
+- if a learned firm fact came up → `{type:"fact", key:"fact:<slug>", detail:"…"}`
+
 ## Step 6 — Log the run
 After approval + save, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „invoicing-<jahr>-KW<kw>" (so a correction updates the entry instead of double-counting), `process: invoicing`, `items` = number of invoices produced, `summary` like „Rechnung KW 21 · <Baustelle> · <N> Personen", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
 

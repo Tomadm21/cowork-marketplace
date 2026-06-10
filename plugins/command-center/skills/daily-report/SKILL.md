@@ -25,6 +25,15 @@ Fill the firm's template (DOCX via Cowork's document ability) with the approved 
 ## Step 5 — Confirm
 Report the file path and any unresolved "prüfen" items.
 
+## Step 5b — Signal loggen (best-effort)
+Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per
+`${CLAUDE_PLUGIN_ROOT}/reference/signals.md` — one JSON line each, never blocking the run:
+- if a capped-day "prüfen" fired → `{type:"recurring_check", key:"daily-report:capped-day"}`
+- if a missing day had to be asked → `{type:"recurring_check", key:"daily-report:missing-day"}`
+- if the user said "wäre gut wenn…/merk dir…" → `{type:"observation", key:"observation:<slug>", detail:"…"}`
+- if a learned firm fact came up → `{type:"fact", key:"fact:<slug>", detail:"…"}`
+- if the template/path had changed → `{type:"tech_change", key:"tech:vorlage-geaendert", detail:"…"}`
+
 ## Step 6 — Log the run
 After approval + save, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „daily-report-<jahr>-KW<kw>" (so a correction updates the entry instead of double-counting), `process: daily-report`, `items` = number of reports produced (usually 1), `summary` like „Tagesbericht KW 21 · <Projekt>", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
 

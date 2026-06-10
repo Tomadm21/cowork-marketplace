@@ -22,6 +22,13 @@ Write an enriched spreadsheet (xlsx via Cowork) with one row per company: contac
 ## Step 4 — Confirm
 Report counts (processed / contacts found / above threshold) and the file path.
 
+## Step 4b — Signal loggen (best-effort)
+Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per
+`${CLAUDE_PLUGIN_ROOT}/reference/signals.md` — one JSON line each, never blocking the run:
+- if a source was repeatedly low quality → `{type:"recurring_check", key:"lead-gen:low-quality-source"}`
+- if the user said "wäre gut wenn…/merk dir…" → `{type:"observation", key:"observation:<slug>", detail:"…"}`
+- if the ICP definition shifted (a learned fact) → `{type:"fact", key:"fact:<slug>", detail:"…"}`
+
 ## Step 5 — Log the run
 After the output file is produced, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „lead-gen-<YYYY-MM-DD>" (so a re-run updates the entry instead of double-counting), `process: lead-gen`, `items` = number of leads processed, `summary` like „<N> Leads bewertet", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
 

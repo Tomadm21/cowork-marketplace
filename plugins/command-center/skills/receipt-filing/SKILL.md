@@ -22,6 +22,14 @@ Show, per document: proposed name, entity, type, and every target path. After ap
 ## Step 4 — Confirm
 Summarize what was filed where, and list "prüfen" items.
 
+## Step 4b — Signal loggen (best-effort)
+Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per
+`${CLAUDE_PLUGIN_ROOT}/reference/signals.md` — one JSON line each, never blocking the run:
+- if a vendor was unknown and the user mapped it → `{type:"correction", key:"receipt:unknown-vendor", detail:"<vendor>"}`
+- if routing was ambiguous and the user picked → `{type:"correction", key:"receipt:ambiguous-routing"}`
+- if the user said "wäre gut wenn…/merk dir…" → `{type:"observation", key:"observation:<slug>", detail:"…"}`
+- if a learned firm/vendor fact came up → `{type:"fact", key:"fact:<slug>", detail:"…"}`
+
 ## Step 5 — Log the run
 After approval + filing, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „receipt-filing-<YYYY-MM-DD>" (so a re-run updates the entry instead of double-counting), `process: receipt-filing`, `items` = number of receipts filed, `summary` like „<N> Belege abgelegt", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
 

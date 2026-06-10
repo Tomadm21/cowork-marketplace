@@ -22,6 +22,14 @@ After approval, **copy** (don't move originals unless asked) each photo to its t
 ## Step 4 — Confirm
 List what was filed and any "prüfen" items.
 
+## Step 4b — Signal loggen (best-effort)
+Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per
+`${CLAUDE_PLUGIN_ROOT}/reference/signals.md` — one JSON line each, never blocking the run:
+- if the site was unknown and the user named it → `{type:"correction", key:"photo:unknown-site"}`
+- if a low-confidence date had to be corrected → `{type:"correction", key:"photo:low-confidence-date"}`
+- if the user said "wäre gut wenn…/merk dir…" → `{type:"observation", key:"observation:<slug>", detail:"…"}`
+- if a project folder/structure had changed → `{type:"tech_change", key:"tech:pfad-geaendert", detail:"…"}`
+
 ## Step 5 — Log the run
 After approval + filing, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „photo-sorting-<YYYY-MM-DD>" (so a re-run updates the entry instead of double-counting), `process: photo-sorting`, `items` = number of photos filed, `summary` like „<N> Fotos sortiert · <Projekt>", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
 
