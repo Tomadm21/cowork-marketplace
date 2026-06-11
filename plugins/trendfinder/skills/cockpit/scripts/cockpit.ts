@@ -563,28 +563,13 @@ async function main() {
     }
   }
 
-  // ── Brands + personas fetch ───────────────────────────────────────────────
-  let brands: Brand[] = [];
-  try {
-    const rawBrands = await apiFetch(cfg, "/api/brands");
-    brands = extractList(rawBrands) as Brand[];
-  } catch {
-    warnings.push("Marken konnten nicht geladen werden");
-  }
-
+  // ── Brands + personas: NOT fetched (platform limit 6 in api-contract.md) ──
+  // /api/brands und /api/brands/{id}/personas sind serverseitig NICHT
+  // tenant-gescoped — sie liefern globale Daten aller Tenants. Bis Phase 3
+  // Tenant-Scoping nachrüstet, rendert das Cockpit hier bewusst nichts
+  // (Cross-Tenant-Datenleck, live nachgewiesen am 2026-06-11). Der
+  // Render-Code für Avatare bleibt erhalten und ist Mock-getestet.
   const brandData: BrandData[] = [];
-  for (const brand of brands) {
-    const bid = brandId(brand);
-    if (!bid) continue;
-    try {
-      const rawPersonas = await apiFetch(cfg, `/api/brands/${bid}/personas`);
-      const personas = extractList(rawPersonas) as Persona[];
-      brandData.push({ brand, personas });
-    } catch {
-      warnings.push(`Avatare für ${brandName(brand)} konnten nicht geladen werden`);
-      brandData.push({ brand, personas: [] });
-    }
-  }
 
   // ── Schedules fetch ───────────────────────────────────────────────────────
   let schedules: Schedule[] = [];

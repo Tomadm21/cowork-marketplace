@@ -118,11 +118,13 @@ Ask for:
 
 Platform limit (api-contract §2): niche slugs are globally unique across all tenants. Prefix the display name with the tenant id to avoid collisions — for example, if the tenant is `acme`, suggest `"acme <Name>"`. Remind the user of this with one sentence.
 
-Create via:
+Ask which platforms the niche should track (numbered: 1: TikTok, 2: Instagram, 3: YouTube Shorts — multiple allowed) and the hashtags/queries per platform (✏️ free-text). **There is NO generic `hashtags` field — the API silently ignores unknown fields.** Use the per-platform fields and disable unused platforms:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/niches/config '{"display_name":"<prefixed name>","hashtags":[...]}'
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/niches/config '{"display_name":"<prefixed name>","tiktok_hashtags":["..."],"instagram_hashtags":["..."],"youtube_search_queries":["..."],"instagram_enabled":false,"youtube_enabled":false}'
 ```
+
+After creating, read the response back and confirm the hashtags actually landed in the per-platform fields — empty hashtag lists mean every scrape will find nothing.
 
 **Always continue with the `niche_id` the API returned in the response — never use a locally guessed slug.**
 

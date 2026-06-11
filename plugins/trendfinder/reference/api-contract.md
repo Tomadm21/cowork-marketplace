@@ -31,7 +31,7 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 |---|---|---|---|
 | GET /health | — | 200 | Connectivity proof, no auth required |
 | GET /api/niches/config | — | `[{niche_id, display_name, ...}]` | Tenant-scoped server-side |
-| POST /api/niches/config | `{display_name, hashtags?, ...}` | Created niche incl. derived `niche_id` slug | ALWAYS use the returned `niche_id` afterwards |
+| POST /api/niches/config | `{display_name, tiktok_hashtags?, instagram_hashtags?, youtube_search_queries?, tiktok_enabled?, instagram_enabled?, youtube_enabled?, ...}` | Created niche incl. derived `niche_id` slug | ALWAYS use the returned `niche_id` afterwards. **No generic `hashtags` field exists — unknown fields are silently ignored** (live-verified 2026-06-11); read the response back to confirm hashtags landed |
 | PUT /api/niches/config/{niche_id} | Partial niche fields | Updated niche | 404 if not tenant's |
 | DELETE /api/niches/config/{niche_id} | — | 200 | 404 if not tenant's |
 | POST /api/tenant/settings | `{apify_api_key}` | `{ok: true, tenant_id}` | Apify key is Fernet-encrypted at rest |
@@ -41,9 +41,9 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 | DELETE /api/schedules/{id} | — | 204 | 404 if not tenant's |
 | GET /api/trends/{niche_id} | — | Trend clusters (list) | May be empty OR 404 for a fresh niche — both mean "no data yet" |
 | GET /api/trends/{niche_id}/velocity | — | Velocity per cluster | Same empty-handling as above |
-| GET /api/brands | — | Brand list | Avatars (personas) live under brands |
-| GET /api/brands/{brand_id}/personas | — | Personas incl. DNA fields | |
-| GET /api/personas/{persona_id} | — | One persona | |
+| GET /api/brands | — | Brand list | ⚠️ NOT tenant-scoped — see platform limit 6; do not display to customers |
+| GET /api/brands/{brand_id}/personas | — | Personas incl. DNA fields | ⚠️ NOT tenant-scoped — see platform limit 6 |
+| GET /api/personas/{persona_id} | — | One persona | ⚠️ NOT tenant-scoped — see platform limit 6 |
 | GET /api/pipeline/status | — | Pipeline state | For pipeline-control (Phase 3) |
 
 ---
@@ -61,3 +61,5 @@ These are deliberate Phase-1 backend decisions. The plugin encodes and enforces 
 4. **Schedules execute on the backend scheduler (60s tick), not in Cowork.** Cowork sessions are not 24/7. `last_run_at` on `GET /api/schedules` is the execution proof.
 
 5. **No tenant self-service for key rotation or tenant deletion.** The operator handles both.
+
+6. **Brands/personas (avatars) are NOT tenant-scoped — do not display them.** `GET /api/brands` and `GET /api/brands/{id}/personas` return GLOBAL data across all tenants (cross-tenant data leak, live-verified 2026-06-11: a fresh tenant saw 8 foreign brands). Until Phase 3 adds tenant scoping to these routes, no skill may fetch or render brands/personas; the Cockpit shows the Avatare cold-start state instead.

@@ -40,7 +40,7 @@ Der Generator liest zum Zeitpunkt der Generierung alle Tenant-Daten via API, inl
 **Best-effort-Verhalten:** Der Generator bricht nie mit einem Fehler ab, wenn Daten fehlen oder leer sind — ein frischer Tenant ohne Scrape-Daten bekommt einen action-first Cold-Start-Zustand statt eines Fehlers.
 
 **Falls der Generator mit Exit-Code ≠ 0 endet:**
-- Lies seine letzte stdout-Zeile als einzeilige deutsche Fehlermeldung und gib sie wortgetreu weiter.
+- Lies seine letzte **stderr**-Zeile als einzeilige deutsche Fehlermeldung und gib sie wortgetreu weiter (Fehler gehen nach stderr; stdout bleibt bei Fehlern leer).
 - Schlage die passende Lösung vor:
   - Konfigurationsfehler (missing config, invalid key, 401) → `onboarding` Skill erneut ausführen.
   - Backend-Fehler (5xx, Netzwerk-Timeout) → "Versuch es in einem Moment noch einmal" — der Backend-Dienst ist vorübergehend nicht erreichbar.
