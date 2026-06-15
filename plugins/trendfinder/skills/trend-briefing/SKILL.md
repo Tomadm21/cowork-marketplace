@@ -47,7 +47,7 @@ Der Generator liest alle Trend-Daten via API, inlinet sie in eine selbst-enthalt
 **Best-effort-Verhalten:** Der Generator bricht nie mit einem Fehler ab, wenn Trends fehlen — ein frischer Tenant ohne Scrape-Daten bekommt einen action-first Cold-Start-Zustand.
 
 **Falls der Generator mit Exit-Code ≠ 0 endet:**
-- Lies seine letzte **stderr**-Zeile als einzeilige deutsche Fehlermeldung und gib sie wortgetreu weiter.
+- Lies die **stderr-Ausgabe** als deutsche Fehlermeldung und gib sie wortgetreu weiter (bei unbekannter Niche folgt der Fehlermeldung eine Auflistung der verfügbaren Niches — gib die ganze Ausgabe weiter, nicht nur die letzte Zeile).
 - Schlage die passende Lösung vor:
   - Konfigurationsfehler (missing config, invalid key, 401) → `onboarding` Skill erneut ausführen.
   - Keine Niches konfiguriert → `onboarding` Skill für Nische-Anlage.
