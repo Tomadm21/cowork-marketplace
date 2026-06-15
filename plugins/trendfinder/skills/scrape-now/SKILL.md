@@ -191,20 +191,40 @@ Report the result to the user:
 > - Aktualisiert: {updated}
 > - Gefiltert (unter Virality-Schwelle, normal): {rejected}"
 
-After a successful ingest (`inserted` or `updated` > 0), offer:
-
-```
-1) Cockpit öffnen (aktuelle Trends anzeigen)
-2) Fertig
-```
-
 Clean up the temp ingest file after a successful ingest (regardless of rejected count). On ingest failure, leave the file for debugging and tell the user its path.
+
+---
+
+## Step 4 — Wait for auto-clustering, then regenerate the artifact
+
+Ingested videos do NOT appear as trends instantly. The backend automatically embeds the new videos and clusters the niche on its background loop (≈ every 10s) — **no extra API call is needed to trigger it.** But the Cockpit/Briefing artifact is a regenerated snapshot, so after clustering completes you must regenerate it for the user to see the new trends.
+
+After a successful ingest (`inserted` or `updated` > 0), tell the user:
+
+> "Die Videos sind drin. Das Backend embedded + clustert die Nische jetzt automatisch — das dauert meist 10–30 Sekunden. Ich warte kurz und aktualisiere dann das Cockpit."
+
+Then **poll** `GET /api/trends/{niche_id}` until trends appear, bounded:
+
+```
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
+```
+
+- Poll up to **6 times with ~10s between tries** (≈60s total). Between tries, wait before re-polling.
+- **As soon as the response is a non-empty cluster list** → stop polling and regenerate the artifact:
+  ```
+  bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>
+  ```
+  Present the regenerated Cockpit as the Live Artifact and name the top 1–2 trends from the data the generator actually wrote.
+- **If still empty after all 6 tries** → do NOT claim trends exist. Say honestly:
+  > "Nach dem Scrape sind noch keine Trends entstanden. Das kann zwei Gründe haben: (1) zu wenige Videos über der Virality-Schwelle, um Cluster zu bilden, oder (2) das Clustering läuft noch. Probier in ein paar Minuten erneut ‚zeig mir die Trends', oder scrape mit höherem Limit für mehr Datenpunkte."
+
+Never fabricate trends to fill the wait. `inserted > 0` means data landed; only a non-empty `/api/trends/{niche_id}` means trends formed.
 
 ---
 
 ## Honesty rules
 
-- Never claim trends have appeared until the backend returns `inserted > 0`.
+- Never claim trends have appeared until `GET /api/trends/{niche_id}` returns a non-empty cluster list. `inserted > 0` only means raw videos landed — embedding + clustering happen automatically afterwards on the backend loop (~10–30s), and a niche can have ingested videos but zero trends (too few above the virality threshold to cluster).
 - `rejected` items are normal virality filtering by the backend — they are not scrape failures or bad data.
 - Never run an actor on a global/Tom operator token. The Cowork Apify MCP connector always uses the tenant's own Apify credentials.
 - Tenant isolation is mandatory: only pass `niche_id` values previously obtained from `GET /api/niches/config` in this tenant context. Never accept a free-text niche slug from the user without API resolution first.
@@ -220,5 +240,6 @@ Clean up the temp ingest file after a successful ingest (regardless of rejected 
 - Actor ran via Cowork Apify MCP connector with the correct actor ID and input shape.
 - Dataset items fetched and passed through UNCHANGED to `/api/ingest`.
 - `/api/ingest` returned 201; result reported honestly including rejected count context.
+- After a successful ingest: polled `GET /api/trends/{niche_id}` (bounded) for backend auto-clustering; on non-empty trends, regenerated the Cockpit artifact; on still-empty, gave the honest cold-start message — never fabricated trends.
 - Temp ingest file cleaned up on success, left in place on failure with path reported.
 - No key, no item data, and no `.trendfinder/` files ever committed or printed to the user.

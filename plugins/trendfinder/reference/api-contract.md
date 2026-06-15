@@ -49,6 +49,15 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 
 ---
 
+## Auto-pipeline (scrape → trends, no manual trigger)
+
+After videos land via `POST /api/ingest` (on-demand) **or** a scheduled JobQueue scrape, the backend's always-on loop automatically (a) embeds the new pending videos and (b) **clusters the niche under its real slug** (`run_clustering(niche=<slug>, persona_id=None)`) on its ~10s cycle. No skill needs to call an embed/cluster endpoint — it is automatic (added 2026-06-15; before that, only `niche="all"`/per-persona clustering ran, so tenant niches never formed trends).
+
+Consequences for skills:
+- After ingest, trends appear in `GET /api/trends/{niche_id}` after a short delay (≈10–30s), not instantly. Poll (bounded) before rendering, then regenerate the artifact snapshot.
+- A niche can have ingested videos but **zero trends** if too few clear the virality threshold to form a cluster — that is normal, not a failure.
+- Clustering needs an LLM key (Anthropic or Google) configured on the backend; the embedder's Google key covers it. If neither is set, embedding still runs but clusters won't form (ops config, not a skill error).
+
 ## Platform Limits
 
 These are deliberate Phase-1 backend decisions. The plugin encodes and enforces them.
