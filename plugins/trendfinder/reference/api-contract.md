@@ -64,3 +64,21 @@ These are deliberate Phase-1 backend decisions. The plugin encodes and enforces 
 5. **No tenant self-service for key rotation or tenant deletion.** The operator handles both.
 
 6. **Brands/personas (avatars) are NOT tenant-scoped — do not display them.** `GET /api/brands` and `GET /api/brands/{id}/personas` return GLOBAL data across all tenants (cross-tenant data leak, live-verified 2026-06-11: a fresh tenant saw 8 foreign brands). Until Phase 3 adds tenant scoping to these routes, no skill may fetch or render brands/personas; the Cockpit shows the Avatare cold-start state instead.
+
+---
+
+## Schedule CRUD — Supplementary Notes (added Phase 3)
+
+**`POST /api/schedules` body details:**
+- `type` — currently only `"scrape"` is valid
+- `niche_id` — must be a niche owned by this tenant (tenant-scoped validation server-side); returns 404 `{"error": "niche not found for this tenant"}` for unknown/foreign slugs
+- `interval_hours` — integer, bounds 1–168 (1 hour = minimum, 168 hours = 7 days/weekly maximum); backend rejects values outside this range
+- `enabled` — boolean; default `true`; set `false` to create a paused schedule (backend scheduler will not execute it)
+
+**`PATCH /api/schedules/{id}` body details:**
+- Both fields optional; include only what you want to change
+- `interval_hours` — same 1–168 bounds as POST
+- `enabled` — `true` to resume, `false` to pause
+
+**Execution model:**
+Schedules run on the backend server scheduler (60-second tick) using the **Apify key deposited via `POST /api/tenant/settings`** during onboarding. This is a distinct credential from the Cowork Apify MCP connector used by `scrape-now`. Scheduled runs continue 24/7 independent of active Cowork sessions. `last_run_at` on the schedule row is the authoritative proof of execution.
