@@ -87,6 +87,22 @@ Möchtest du diesen Scrape starten?
 
 **If the user does not choose option 1 explicitly → abort. Do NOT call any Apify actor.**
 
+### Preflight — backend ingest MUST be reachable BEFORE the paid scrape
+
+A scrape costs real Apify credits. If `/api/ingest` is not deployed, the scraped data would be discarded (404) — money burned for nothing. So AFTER the user confirms but BEFORE calling the actor, probe ingest with a **zero-item** request (no cost):
+
+```
+echo '{"niche_id":"<confirmed niche_id>","platform":"<tiktok|instagram>","items":[]}' > {workspace}/.trendfinder/ingest-preflight.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/ingest @{workspace}/.trendfinder/ingest-preflight.json
+```
+
+Interpret the result:
+- **HTTP 201** (`{"inserted":0,...}`) → ingest is deployed and the niche is owned → proceed to Step 2.
+- **HTTP 404 with body `{"error":"niche not found for this tenant"}`** → route IS deployed but the niche is wrong → go back and re-resolve the niche from `/api/niches/config`; do NOT scrape.
+- **HTTP 404 "Not Found" (no `"niche not found"` error key), or any 5xx / connection failure** → `/api/ingest` is **NOT deployed yet**. STOP. Tell the user the backend ingest endpoint isn't live yet, so a scrape would be wasted. Do NOT call the Apify actor. (This is expected until the Phase-3 backend deploy lands.)
+
+Delete `ingest-preflight.json` after the probe.
+
 ---
 
 ## Step 2 — Run via the Cowork Apify MCP connector
