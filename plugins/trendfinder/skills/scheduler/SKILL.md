@@ -151,9 +151,9 @@ Map the user's answer to `interval_hours` using the natural-language table:
 | "alle 2 Tage" | 48 |
 | "alle 3 Tage" | 72 |
 | "wöchentlich" / "einmal pro Woche" / "jede Woche" | 168 |
-| bare integer N | N |
+| bare integer N | N (clamped to 1–168) |
 
-**Clamp to 1–168.** If the user enters a value below 1, use 1 and say so. If above 168, use 168 and say so.
+**Clamp to 1–168.** If the user enters a value below 1, use 1 and say so. If above 168, use 168 and say so. If the user names an interval in **minutes** (e.g. "alle 30 Minuten"), explain that the minimum granularity is 1 hour and re-ask — never silently round to a fractional or zero hour.
 
 ### Create
 
