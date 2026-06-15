@@ -39,8 +39,8 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 | GET /api/schedules | — | `[{id, type, niche_id, interval_hours, enabled, last_run_at}]` | Tenant-scoped |
 | PATCH /api/schedules/{id} | `{interval_hours?, enabled?}` | 200 | 404 if not tenant's |
 | DELETE /api/schedules/{id} | — | 204 | 404 if not tenant's |
-| GET /api/trends/{niche_id} | — | Trend clusters (list) | May be empty OR 404 for a fresh niche — both mean "no data yet" |
-| GET /api/trends/{niche_id}/velocity | — | Velocity per cluster | Same empty-handling as above |
+| GET /api/trends/{niche_id} | query params: `min_score` (float, default 0.0), `persona_id` (optional), `limit` (int ≤100), `diversify` (bool) | Trend clusters (list). Fields per cluster: `cluster_id`, `trend_score`, `trend_label`, `description`, `hook_type`, `hook_examples`, `visual_style`, `velocity`, `video_count`, `video_count_delta`, `lifecycle`, `trajectory_counts`, `dominant_hashtags`, `dominant_audio_type`, `top_sounds`, `avg_engagement_rate`, `scripted_count`, `dismissed` | **NOT tenant-scoped at the backend** — the skill MUST only query niche slugs obtained from `GET /api/niches/config` for this tenant. Empty list OR 404 for a fresh niche — both mean no data yet. |
+| GET /api/trends/{niche_id}/velocity | query param: `persona_id` (optional) | `[{cluster_id, trend_label, trend_score, velocity, trajectory}]` | **NOT tenant-scoped at the backend** — only query tenant-owned niche slugs from `GET /api/niches/config`. Empty list OR 404 for a fresh niche. |
 | GET /api/brands | — | Brand list | ⚠️ NOT tenant-scoped — see platform limit 6; do not display to customers |
 | GET /api/brands/{brand_id}/personas | — | Personas incl. DNA fields | ⚠️ NOT tenant-scoped — see platform limit 6 |
 | GET /api/personas/{persona_id} | — | One persona | ⚠️ NOT tenant-scoped — see platform limit 6 |
