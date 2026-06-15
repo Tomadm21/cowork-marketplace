@@ -72,6 +72,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/{niche_id}
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/{niche_id}/velocity
 ```
 
+**Do NOT pass the `persona_id` query param** even though api-contract.md lists it — personas are not tenant-scoped (platform limit 6). Query niche-level data only.
+
 **Empty or 404 on both responses** → both mean no data exists for this niche yet. Go directly to Step 3 (cold-start). Do not proceed to Step 2.
 
 **Empty or 404 on the velocity endpoint only** → proceed to Step 2 with trend clusters only; note that velocity data is unavailable.
