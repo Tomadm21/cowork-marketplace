@@ -1,13 +1,26 @@
 ---
 name: onboarding
-description: First-time Trendfinder setup. Use when the user says "richte Trendfinder ein", "set up trendfinder", "trendfinder setup", "verbinde mein trendfinder" — or whenever any Trendfinder skill is invoked and `{workspace}/.trendfinder/config.json` is missing. Walks the user through API key connection, Apify token deposit, niche configuration, and first schedule creation, then hands off to the Cockpit.
+description: First-time Trendfinder setup. Use when the user says "richte Trendfinder ein", "set up trendfinder", "trendfinder setup", "verbinde mein trendfinder" — or whenever any Trendfinder skill is invoked and `{workspace}/.trendfinder/config.json` is missing. Walks the user through API key connection, Apify connector setup (on-demand) and optional backend credential (24/7 scheduled scrapes), niche configuration, and first schedule creation, then hands off to the Cockpit.
 ---
 
 # Trendfinder Onboarding
 
-Goal: connect this workspace to the customer's Trendfinder tenant exactly once, deposit the Apify token (mandatory before any schedule), configure at least one niche, create the first scrape schedule, and end on the Cockpit artifact. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints and platform limits.
+Goal: connect this workspace to the customer's Trendfinder tenant exactly once, set up Apify access for on-demand scrapes (via the Cowork Apify MCP connector), optionally deposit a backend Apify credential for 24/7 unattended scheduled scrapes, configure at least one niche, create the first scrape schedule, and end on the Cockpit artifact. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints and platform limits.
 
 All API calls use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call the API with raw curl or an inline key.
+
+---
+
+## Credential model — understand this before proceeding
+
+There are TWO distinct Apify credential paths:
+
+| Path | Who holds the credential | When it's used |
+|------|--------------------------|----------------|
+| **Cowork Apify MCP connector** | Cowork (OAuth, per-user) | On-demand scrapes via the `scrape-now` skill — runs while a Cowork session is active |
+| **Backend Apify key** (deposited via `POST /api/tenant/settings`) | The Trendfinder backend server | 24/7 unattended scheduled scrapes — runs independently of any Cowork session |
+
+This split is intentional, not a gap. On-demand scrapes never touch the backend Apify credential; scheduled scrapes never use the Cowork connector.
 
 ---
 
@@ -73,13 +86,57 @@ Carry these `niche_id` values forward to Step 3.
 
 ---
 
-## Step 2 — Apify token (HARD GATE)
+## Step 2 — Apify access
 
-Explain honestly in one sentence:
+Apify access is split into two sub-steps. The on-demand connector is always needed; the backend credential is optional and only needed for scheduled (24/7) scrapes.
 
-> "Die Scrapes laufen 24/7 auf deinem eigenen Apify-Account — der Token wird einmalig hinterlegt, damit das Backend deine Quota verwendet, nicht die des Operators."
+### Step 2a — Cowork Apify MCP connector (required for on-demand scrapes)
 
-Capture the Apify token via ✏️ free-text input (open value by nature). Confirm receipt with last 4 characters only.
+Tell the user:
+
+> "Für On-Demand-Scrapes (wenn du hier in Cowork sagst 'scrape jetzt') nutzen wir den Apify-Connector in Cowork — du verbindest dich einmal per OAuth, danach kann Claude Apify-Actors direkt aufrufen, ohne dass ein Token hinterlegt wird."
+
+Instruct the user to connect the Apify connector in Cowork if not already done:
+
+> "Falls du den Apify-Connector noch nicht verbunden hast: gehe in Cowork zu Einstellungen → Connectoren, suche nach 'Apify', und klicke 'Verbinden' (OAuth bei `https://mcp.apify.com`). Sobald der Connector aktiv ist, sind On-Demand-Scrapes mit dem `scrape-now`-Befehl möglich."
+
+Ask the user to confirm:
+
+```
+Ist der Apify-Connector in Cowork verbunden?
+
+1) Ja, Connector ist aktiv
+2) Nein, ich möchte das später einrichten
+✏️  Ich bin mir nicht sicher
+```
+
+- **Option 1:** Continue to Step 2b.
+- **Option 2 or uncertain:** Acknowledge and continue — the connector is not required to finish onboarding; on-demand scrapes simply won't work until it is connected. Tell the user they can connect it anytime, then continue to Step 2b.
+
+**Note for Tom (operator):** Tom's Cowork workspace already has the Apify connector active. For new customers, this is the step where they authorise their own Apify account via OAuth at `https://mcp.apify.com`. No token is ever pasted into the backend through this path.
+
+### Step 2b — Backend Apify credential (OPTIONAL — only needed for 24/7 scheduled scrapes)
+
+Tell the user:
+
+> "Für automatische Scrapes im Hintergrund (24/7, auch wenn Cowork nicht offen ist) braucht das Backend einen eigenen Apify-Token. Das ist OPTIONAL — du kannst es überspringen, wenn du Scrapes nur manuell starten möchtest."
+
+Ask:
+
+```
+Möchtest du einen Apify-Token für automatische Hintergrund-Scrapes hinterlegen?
+
+1) Ja, Token jetzt hinterlegen (für 24/7-Zeitpläne)
+2) Nein, später oder gar nicht (nur manuelle Scrapes via Connector)
+```
+
+**If the user chooses option 2 (skip):** Acknowledge and note clearly:
+
+> "Verstanden. Du kannst Scrapes manuell mit dem `scrape-now`-Befehl starten. Automatische Zeitpläne können erst erstellt werden, wenn du den Token nachträglich über `POST /api/tenant/settings` hinterlegst."
+
+Then continue to Step 3. Do NOT create a schedule in Step 4 — instead, skip to Step 5 (proof + Cockpit hand-off) with a note that no schedule was created because the backend credential is missing.
+
+**If the user chooses option 1:** Capture the Apify token via ✏️ free-text input (open value by nature). Confirm receipt with last 4 characters only.
 
 Deposit via:
 
@@ -89,10 +146,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/tenant/settings '{"apify_api_
 
 Expect `{"ok": true, ...}`. On any non-ok response, report the error and re-ask.
 
-**Gate sentence — must not be bypassed under any circumstance:**
-> No schedule is ever created before this step succeeds — if the user wants to skip the Apify token, onboarding stops here and Step 4 is not executed.
-
-If the user explicitly says they want to skip or do this later: acknowledge, summarise what is already saved (API key + config file), and end onboarding. Do NOT create any schedule.
+**Schedule gate — applies only when a schedule will be created:**
+> A schedule (Step 4) must not be created unless this deposit step has succeeded or the user has confirmed an existing token is in place. If the user skipped this step, do NOT create a schedule in Step 4.
 
 ---
 
@@ -152,7 +207,13 @@ Repeat until the user is satisfied with their niche list.
 
 ## Step 4 — First schedule (cost honesty)
 
-Ask which scrape interval the customer wants:
+**Skip this step entirely if the user did not deposit a backend Apify credential in Step 2b.** Tell the user:
+
+> "Da kein Backend-Apify-Token hinterlegt wurde, wird kein automatischer Zeitplan erstellt. Du kannst jederzeit mit dem `scheduler`-Befehl einen hinzufügen, nachdem du den Token über `POST /api/tenant/settings` hinterlegt hast."
+
+Then proceed directly to Step 5.
+
+**If the backend credential WAS deposited**, ask which scrape interval the customer wants:
 
 ```
 Wie oft soll der Scraper laufen?
@@ -193,9 +254,13 @@ For each `niche_id` from the confirmed niche list (Step 3), fetch trends individ
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
 ```
 
-Show the schedule entry to the user. `last_run_at` will be `null` until the backend's 60-second scheduler tick fires — say so honestly:
+Show the schedule entry to the user (if one was created). `last_run_at` will be `null` until the backend's 60-second scheduler tick fires — say so honestly:
 
 > "Der Zeitplan wurde angelegt. `last_run_at` ist noch leer — das füllt sich nach dem ersten Backend-Tick (~60 Sekunden)."
+
+If no schedule was created (Step 4 was skipped): omit the schedule display and tell the user instead:
+
+> "Kein automatischer Zeitplan wurde eingerichtet. Du kannst jederzeit mit `scrape-now` manuell Trends holen oder mit dem `scheduler`-Befehl einen Zeitplan anlegen, sobald der Backend-Token hinterlegt ist."
 
 For trends: a fresh niche returns an empty list or 404 — both mean no data yet. Say:
 
@@ -212,11 +277,12 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>
 ## Done means
 
 - `{workspace}/.trendfinder/config.json` exists, `GET /health` returns 200.
-- Apify token deposited and `POST /api/tenant/settings` returned `{"ok": true, ...}`.
+- User is informed about the Apify connector for on-demand scrapes (Step 2a); user has either confirmed it is connected or acknowledged they will connect it later.
+- If the user chose to deposit a backend Apify token: `POST /api/tenant/settings` returned `{"ok": true, ...}`.
 - At least one niche confirmed or created; all `niche_id` values came from the API, never guessed locally.
-- At least one schedule created (HTTP 201) with interval chosen by the user after cost disclosure.
-- `GET /api/schedules` shows the schedule entry; user informed about first-run latency.
+- If the backend Apify token was deposited: at least one schedule created (HTTP 201) with interval chosen by the user after cost disclosure; `GET /api/schedules` shows the schedule entry; user informed about first-run latency.
+- If the backend Apify token was NOT deposited: no schedule created; user clearly informed of what is and isn't available.
 - Cockpit artifact generated.
 - No firm data written inside the plugin directory; all state lives in `{workspace}/.trendfinder/`.
 
-Never invent niche slugs or schedule ids. Never create a schedule before the Apify token is confirmed. If uncertain about any value, re-query the API rather than guessing.
+Never invent niche slugs or schedule ids. Never create a schedule before the backend Apify token is confirmed deposited. If uncertain about any value, re-query the API rather than guessing.

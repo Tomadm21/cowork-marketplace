@@ -1,8 +1,14 @@
 {
   "name": "trendfinder",
-  "description": "Turn TikTok/Instagram trend data into content decisions inside Cowork. Connects to your Trendfinder data backend (trends, velocity, avatars/DNA, scrape schedules), guides a detect-first onboarding (API key, Apify token, niches, first schedule), and renders the Trendfinder-Cockpit as a Live Artifact with Trends and Avatare tabs. All AI synthesis (briefings, scripts, cluster labels) happens natively in Claude — the backend only stores and scrapes.",
+  "description": "Turn TikTok/Instagram trend data into content decisions inside Cowork. Connects to your Trendfinder data backend (trends, velocity, avatars/DNA, scrape schedules), guides a detect-first onboarding (API key, Apify connector setup, niches, first schedule), and renders the Trendfinder-Cockpit as a Live Artifact with Trends and Avatare tabs. All AI synthesis (briefings, scripts, cluster labels) happens natively in Claude — the backend only stores and scrapes.",
   "version": "0.1.0",
   "author": { "name": "Tom Adomeit", "email": "tomadomeit05@gmail.com" },
   "license": "UNLICENSED",
-  "keywords": ["trends", "tiktok", "instagram", "content", "avatars", "scraping", "cowork", "trendfinder"]
+  "keywords": ["trends", "tiktok", "instagram", "content", "avatars", "scraping", "cowork", "trendfinder"],
+  "mcpServers": {
+    "apify": {
+      "type": "http",
+      "url": "https://mcp.apify.com"
+    }
+  }
 }

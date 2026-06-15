@@ -82,3 +82,35 @@ These are deliberate Phase-1 backend decisions. The plugin encodes and enforces 
 
 **Execution model:**
 Schedules run on the backend server scheduler (60-second tick) using the **Apify key deposited via `POST /api/tenant/settings`** during onboarding. This is a distinct credential from the Cowork Apify MCP connector used by `scrape-now`. Scheduled runs continue 24/7 independent of active Cowork sessions. `last_run_at` on the schedule row is the authoritative proof of execution.
+
+---
+
+## Apify Credential Model
+
+There are TWO distinct Apify credential paths. This split is intentional — not a gap.
+
+| Path | Holder | When used | How established |
+|------|--------|-----------|-----------------|
+| **Cowork Apify MCP connector** | Cowork (OAuth per-user, `https://mcp.apify.com`) | On-demand scrapes (`scrape-now` skill) — runs while a Cowork session is active | User connects once via Cowork Settings → Connectors (OAuth); no token stored in the backend |
+| **Backend Apify key** | Trendfinder backend server (Fernet-encrypted at rest) | 24/7 unattended scheduled scrapes (backend scheduler, 60s tick) — runs independently of any Cowork session | Deposited via `POST /api/tenant/settings` during onboarding Step 2b |
+
+**Rules:**
+- On-demand scrapes via `scrape-now` always use the Cowork connector; they never read the backend Apify key.
+- Scheduled scrapes managed by the backend scheduler always use the backend key; they never use the Cowork connector.
+- A schedule must not be created until the backend Apify key has been deposited (enforcement in onboarding Step 2b / scheduler skill).
+- If a tenant has not deposited a backend key, the backend falls back to the operator's shared Apify key for scheduled runs — the scheduler skill informs the user of this if relevant.
+
+---
+
+## Actor Cost Reference
+
+Costs are estimates based on Apify pricing at time of writing. Actual amounts appear in the tenant's Apify dashboard. Skills display these estimates in cost-disclosure gates before running any actor.
+
+| Actor | Actor ID | Approx. cost | Notes |
+|-------|----------|--------------|-------|
+| TikTok scraper | `clockworks/tiktok-scraper` | ≈ $1.70 per 1,000 posts | Current production actor used by `scrape-now` and the backend scheduler |
+| Instagram hashtag scraper | `apify/instagram-hashtag-scraper` | ≈ $0.0004 per item | Already cheap; no alternative evaluation needed |
+
+### Cost reduction opportunity (not implemented — separate evaluated task)
+
+`apidojo/tiktok-scraper` runs at approximately $0.30 per 1,000 posts — roughly 5× cheaper than `clockworks/tiktok-scraper`. However, switching actors requires rewriting the backend's `normalize_tiktok_item` function to handle apidojo's different field shape (field names differ from clockworks output). This is a deliberate scope exclusion from Phase 3; it should be evaluated and implemented as a standalone task with its own test coverage for the normaliser rewrite.
