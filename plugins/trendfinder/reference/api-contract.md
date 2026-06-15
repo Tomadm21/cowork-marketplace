@@ -45,6 +45,7 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 | GET /api/brands/{brand_id}/personas | — | Personas incl. DNA fields | ⚠️ NOT tenant-scoped — see platform limit 6 |
 | GET /api/personas/{persona_id} | — | One persona | ⚠️ NOT tenant-scoped — see platform limit 6 |
 | GET /api/pipeline/status | — | Pipeline state | For pipeline-control (Phase 3) |
+| POST /api/ingest | `{niche_id, platform: "tiktok"\|"instagram", items[]}` | 201 `{inserted, updated, rejected, errors}` / 400 tenant / 404 niche | items MUST be raw actor dataset items (clockworks/tiktok-scraper or apify/instagram-hashtag-scraper) — do not reshape; max 500 items/request |
 
 ---
 
