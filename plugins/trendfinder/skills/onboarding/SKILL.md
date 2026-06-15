@@ -5,7 +5,7 @@ description: First-time Trendfinder setup. Use when the user says "richte Trendf
 
 # Trendfinder Onboarding
 
-Goal: connect this workspace to the customer's Trendfinder tenant exactly once, set up Apify access for on-demand scrapes (via the Cowork Apify MCP connector), optionally deposit a backend Apify credential for 24/7 unattended scheduled scrapes, configure at least one niche, create the first scrape schedule, and end on the Cockpit artifact. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints and platform limits.
+Goal: connect this workspace to the customer's Trendfinder tenant exactly once, set up Apify access for on-demand scrapes (via the Cowork Apify MCP connector), optionally deposit a backend Apify credential for 24/7 unattended scheduled scrapes, configure at least one niche, optionally create the first scrape schedule (only if a backend Apify credential was deposited), and end on the Cockpit artifact. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints and platform limits.
 
 All API calls use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call the API with raw curl or an inline key.
 

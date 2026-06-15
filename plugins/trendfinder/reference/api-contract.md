@@ -53,7 +53,7 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 
 These are deliberate Phase-1 backend decisions. The plugin encodes and enforces them.
 
-1. **Apify key BEFORE first schedule.** A tenant without a deposited Apify key scrapes on the operator's global key. Onboarding deposits the customer's Apify token via `POST /api/tenant/settings` BEFORE any `POST /api/schedules`. This order is a hard gate, not a recommendation.
+1. **Apify key BEFORE first schedule (not before on-demand).** A `POST /api/schedules` must not be created until the backend Apify key has been deposited via `POST /api/tenant/settings` (onboarding Step 2b) — this order is a hard gate for *scheduled* scrapes. On-demand scrapes use the Cowork Apify MCP connector and require NO backend key. ⚠️ If a tenant has no deposited key, the backend currently falls back to the operator's global key for any scheduled run — the schedule gate is what prevents that in practice; a tenant-key-required hard fail is tracked as a deferred SECURITY item.
 
 2. **Niche slugs are globally unique.** `niche_id` is derived from `display_name` and shared across all tenants. Convention: prefix the display name with the tenant id (e.g. `"acme Beauty"`), and always continue with the `niche_id` the API returned — never a locally guessed slug.
 

@@ -11,11 +11,11 @@ Goal: let the tenant view and manage their per-niche scrape schedules (create, u
 
 ## Honesty note — scheduled vs. on-demand scrapes
 
-Scheduled scrapes (managed here) run on the **backend server scheduler** (60-second tick). They use the **Apify API key deposited on the backend via onboarding Step 2** — the backend's own credential, not the Cowork Apify MCP connector. This means schedules continue running 24/7 even when no Cowork session is open.
+Scheduled scrapes (managed here) run on the **backend server scheduler** (60-second tick). They use the **Apify API key deposited on the backend via onboarding Step 2b** — the backend's own credential, not the Cowork Apify MCP connector. This means schedules continue running 24/7 even when no Cowork session is open.
 
 On-demand scrapes (`scrape-now` skill) are different: they use the **Cowork Apify MCP connector** and run only while a Cowork session is active.
 
-If the Apify key has never been deposited via onboarding, the backend falls back to the operator's shared key — explain this honestly if the user has not completed onboarding Step 2.
+If the Apify key has never been deposited via onboarding, the backend falls back to the operator's shared key — explain this honestly if the user has not completed onboarding Step 2b.
 
 ---
 
