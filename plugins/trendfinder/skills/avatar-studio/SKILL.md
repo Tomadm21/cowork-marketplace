@@ -69,8 +69,10 @@ A persona always belongs to a brand. If creating a new brand, ask the user for t
 Write the body to a gitignored temp file and POST it:
 
 ```
-echo '{"brand_id":"tom-beauty","display_name":"Tom Beauty","mission":"...","target_audience":"..."}' > {workspace}/.trendfinder/brand-<brand_id>.json
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/brands @{workspace}/.trendfinder/brand-<brand_id>.json
+BRAND_BODY=$(mktemp)   # real temp dir, NOT the synced workspace
+echo '{"brand_id":"tom-beauty","display_name":"Tom Beauty","mission":"...","target_audience":"..."}' > "$BRAND_BODY"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/brands @"$BRAND_BODY"
+rm -f "$BRAND_BODY" 2>/dev/null || : > "$BRAND_BODY"   # truncate fallback if the mount denies unlink
 ```
 
 Interpret:
@@ -79,7 +81,7 @@ Interpret:
 - **422** → a field is malformed (usually `brand_id` not matching `^[a-z0-9-]+$`) — fix the slug and retry.
 - **401/400 tenant** → key invalid → route to onboarding.
 
-Delete the temp file after success. If selecting an **existing** brand, just use its `brand_id`.
+(The block above cleans up the temp body.) If selecting an **existing** brand, just use its `brand_id`.
 
 ---
 
@@ -103,8 +105,10 @@ Then **you (Claude) synthesise** the DNA into the structured body from the contr
 Write the confirmed DNA body to a temp file and POST under the brand:
 
 ```
-echo '{ ...full DNA persona body... }' > {workspace}/.trendfinder/persona-<persona_id>.json
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/brands/<brand_id>/personas @{workspace}/.trendfinder/persona-<persona_id>.json
+PERSONA_BODY=$(mktemp)   # real temp dir, NOT the synced workspace
+echo '{ ...full DNA persona body... }' > "$PERSONA_BODY"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/brands/<brand_id>/personas @"$PERSONA_BODY"
+rm -f "$PERSONA_BODY" 2>/dev/null || : > "$PERSONA_BODY"   # truncate fallback if unlink denied
 ```
 
 Interpret:
@@ -113,7 +117,7 @@ Interpret:
 - **404** "Brand not found" → the brand_id isn't this tenant's → re-resolve from Step 1.
 - **422** → malformed field → fix and retry.
 
-Delete the temp file after success.
+(The block above cleans up the temp body.)
 
 ---
 
@@ -143,7 +147,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/personas/<persona_id>
 Only if this returns the persona (200) → regenerate the Cockpit so the Avatare tab shows it:
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>
+if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
 ```
 
 Present the regenerated Cockpit as the Live Artifact and point the user to the new avatar in the Avatare tab. Report the embed status from Step 5 truthfully.
@@ -165,7 +169,7 @@ Present the regenerated Cockpit as the Live Artifact and point the user to the n
 - DNA is synthesised by Claude in-session, never by the backend. Always show the synthesised DNA and get confirmation before writing it.
 - This skill never calls an Apify actor and never spends credits. If the user wants new trend data, route to `scrape-now`.
 - Tenant isolation is automatic server-side, but only ever pass `brand_id`/`persona_id` values obtained from `GET /api/brands` in this tenant context — never a guessed slug for an existing resource.
-- Never print or commit the API key. Write all bodies to `{workspace}/.trendfinder/` (gitignored) and delete temp files after success; leave them on failure with the path reported.
+- Never print or commit the API key. Write request bodies via `mktemp` — a real temp dir OUTSIDE the synced workspace, never into `{workspace}/.trendfinder/` next to `config.json`. Clean up after success with `rm`, falling back to truncate (`: > "$f"`) because the Cowork workspace mount can deny `unlink`. On failure, report the temp path.
 
 ---
 

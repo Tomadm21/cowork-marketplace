@@ -33,16 +33,19 @@ interface Niche {
 }
 
 interface TrendCluster {
+  cluster_id?: string | number;
   trend_label?: string;
   label?: string;
   name?: string;
   topic?: string;
   trend_score?: unknown;
   video_count?: unknown;
+  lifecycle?: unknown;
   [k: string]: unknown;
 }
 
 interface VelocityEntry {
+  cluster_id?: string | number;
   trend_label?: string;
   label?: string;
   name?: string;
@@ -73,6 +76,13 @@ interface Persona {
   persona_id?: string;
   id?: string;
   name?: string;
+  display_name?: string;
+  persona_profile?: unknown;
+  tone_of_voice?: unknown;
+  content_pillars?: unknown;
+  system_prompt?: unknown;
+  interests?: unknown;
+  origin_story?: unknown;
   dna?: unknown;
   persona_dna?: unknown;
   description?: unknown;
@@ -194,16 +204,51 @@ function trendTitle(t: TrendCluster): string {
 
 function trendScore(t: TrendCluster): string {
   if (typeof t.trend_score === "number" && isFinite(t.trend_score)) {
-    return t.trend_score.toFixed(1);
+    return t.trend_score.toFixed(2);
   }
   return "—";
 }
 
 function personaDna(p: Persona): string {
-  const raw = p.dna ?? p.persona_dna ?? p.description;
-  if (raw == null) return "";
-  const str = typeof raw === "string" ? raw : JSON.stringify(raw);
-  return str.length > 200 ? str.slice(0, 197) + "…" : str;
+  // Build a readable DNA summary from the real persona fields the API returns
+  // (persona_profile / tone_of_voice / content_pillars / interests). The old
+  // p.dna/persona_dna/description fields do not exist on the API response.
+  const out: string[] = [];
+  const prof = p.persona_profile as Record<string, unknown> | undefined;
+  if (prof?.age != null) out.push(String(prof.age));
+  if (prof?.location) out.push(String(prof.location));
+  if (prof?.personality) out.push(String(prof.personality));
+  const tov = p.tone_of_voice as Record<string, unknown> | undefined;
+  if (tov?.tone) out.push(`Ton: ${String(tov.tone)}`);
+  if (Array.isArray(p.content_pillars) && p.content_pillars.length) {
+    const names = (p.content_pillars as Array<Record<string, unknown>>)
+      .map((x) => (x && x.name != null ? String(x.name) : ""))
+      .filter(Boolean);
+    if (names.length) out.push("Pillars: " + names.join(", "));
+  }
+  if (p.interests) out.push(String(p.interests));
+  // Fallback to the legacy free-text fields if no structured DNA is present.
+  if (out.length === 0) {
+    const raw = p.dna ?? p.persona_dna ?? p.description;
+    if (raw != null) out.push(typeof raw === "string" ? raw : JSON.stringify(raw));
+  }
+  const s = out.join(" · ");
+  return s.length > 240 ? s.slice(0, 237) + "…" : s;
+}
+
+/** lifecycle from the trends API is an object {stage, age_days, days_since_peak};
+ *  extract + localise the stage. Tolerates a bare string too. */
+function lifecycleLabel(lc: unknown): string | null {
+  if (lc == null) return null;
+  const stage =
+    typeof lc === "object" ? (lc as Record<string, unknown>).stage : lc;
+  const s = String(stage ?? "").toLowerCase();
+  if (!s) return null;
+  if (s === "growing") return "wächst";
+  if (s === "peak") return "Peak";
+  if (s === "declining") return "sinkend";
+  if (s === "stable") return "stabil";
+  return s;
 }
 
 function brandId(b: Brand): string {
@@ -291,11 +336,14 @@ function buildHtml(
           </section>`;
         }
 
-        // Build velocity map by label
+        // Build velocity map keyed by cluster_id AND trend_label (briefing.ts pattern):
+        // cluster_id is the stable join key, trend_label the fallback.
         const velMap = new Map<string, VelocityEntry>();
         for (const v of nd.velocity) {
-          const key = v.trend_label ?? v.label ?? v.name ?? v.topic ?? "";
-          if (key) velMap.set(String(key), v);
+          const byId = v.cluster_id != null ? String(v.cluster_id) : null;
+          const byLabel = v.trend_label ?? v.label ?? v.name ?? v.topic;
+          if (byId) velMap.set(byId, v);
+          if (byLabel) velMap.set(String(byLabel), v);
         }
 
         // Sort by trend_score desc
@@ -311,9 +359,10 @@ function buildHtml(
             const score = trendScore(t);
             const videoCount =
               typeof t.video_count === "number" ? String(t.video_count) : null;
-            const vel = velMap.get(title);
-            const lifecycle =
-              vel && vel.lifecycle != null ? String(vel.lifecycle) : null;
+            const vel = velMap.get(t.cluster_id != null ? String(t.cluster_id) : title);
+            // lifecycle is an object {stage,...} on the trend cluster (contract
+            // §trends); lifecycleLabel extracts + localises the stage.
+            const lifecycle = lifecycleLabel(t.lifecycle ?? (vel ? vel.lifecycle : null));
             const velocity =
               vel && vel.velocity != null ? String(vel.velocity) : null;
 
@@ -355,7 +404,7 @@ function buildHtml(
         if (bd.personas.length === 0) return "";
         const cards = bd.personas
           .map((p) => {
-            const name = String(p.name ?? "Unbekannter Avatar");
+            const name = String(p.display_name ?? p.name ?? "Unbekannter Avatar");
             const dna = personaDna(p);
             return `<div class="avatar-card">
               <div class="avatar-name">${esc(name)}</div>
@@ -580,7 +629,25 @@ async function main() {
       let personas: Persona[] = [];
       try {
         const rawP = await apiFetch(cfg, `/api/brands/${bid}/personas`);
-        personas = extractList(rawP) as Persona[];
+        const slim = extractList(rawP) as Persona[];
+        // The list endpoint returns only {id, persona_id, display_name} — no DNA.
+        // Enrich each persona with its detail (GET /api/personas/{id}) so the
+        // Avatare tab can render persona_profile / tone_of_voice / pillars.
+        for (const p of slim) {
+          const pid = String(p.persona_id ?? p.id ?? "");
+          if (!pid) {
+            personas.push(p);
+            continue;
+          }
+          try {
+            const full = await apiFetch(cfg, `/api/personas/${pid}`);
+            personas.push(
+              full && typeof full === "object" ? (full as Persona) : p
+            );
+          } catch {
+            personas.push(p); // fall back to the slim list item
+          }
+        }
       } catch {
         warnings.push(`Avatare für ${brandName(brand)} konnten nicht geladen werden`);
       }

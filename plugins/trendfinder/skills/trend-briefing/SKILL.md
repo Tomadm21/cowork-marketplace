@@ -34,7 +34,7 @@ Bei Option 1: route zum `onboarding` Skill. Generiere das Briefing **nicht** geg
 Führe den Generator aus:
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts <workspace_root> [niche_id]
+if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts <workspace_root> [niche_id]; else node ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts <workspace_root> [niche_id]; fi
 ```
 
 **Niche-Auflösung:**

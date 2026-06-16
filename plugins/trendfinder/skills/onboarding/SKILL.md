@@ -269,7 +269,7 @@ For trends: a fresh niche returns an empty list or 404 — both mean no data yet
 Finish by generating the Cockpit so the user ends on the artifact even in cold-start state:
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>
+if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
 ```
 
 ---

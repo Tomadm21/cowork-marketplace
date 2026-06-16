@@ -212,7 +212,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
 - Poll up to **6 times with ~10s between tries** (≈60s total). Between tries, wait before re-polling.
 - **As soon as the response is a non-empty cluster list** → stop polling and regenerate the artifact:
   ```
-  bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>
+  if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
   ```
   Present the regenerated Cockpit as the Live Artifact and name the top 1–2 trends from the data the generator actually wrote.
 - **If still empty after all 6 tries** → do NOT claim trends exist. Say honestly:
