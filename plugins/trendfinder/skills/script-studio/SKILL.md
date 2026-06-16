@@ -55,7 +55,7 @@ Hold onto `persona_profile`, `tone_of_voice`, `content_pillars`, `interests`, `o
 
 ## Step 2 — Pull the current trends (no persona_id)
 
-Resolve the niche(s) and fetch trends. **Do not pass `persona_id`** (it returns empty):
+Resolve the niche from the tenant's niche list — **only ever use a `niche_id` returned by `GET /api/niches/config`, never a guessed or assumed slug** (a wrong slug returns 0 trends — the exact failure we are avoiding; the brand name is NOT automatically a niche_id). If the tenant has more than one niche, ask which one (numbered list); if exactly one, use it. Then fetch trends — **do not pass `persona_id`** (it returns empty):
 
 ```
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
@@ -89,7 +89,7 @@ Für Lena (K-Beauty, locker-expertenhaft) passen aktuell am besten — meine Ein
 Welchen Trend soll ich verskripten? (Nummer, oder ✏️ eigener Fokus)
 ```
 
-Be honest when a trend fits poorly ("passt nur mittel, weil …") — don't force-fit all of them.
+**Ground every fit reason in an actual DNA field you loaded** — name/quote the specific `content_pillar`, `interest`, `tone_of_voice`, or `persona_profile` trait it rests on. If a trend maps to nothing in the avatar's DNA, say "kein starkes DNA-Signal" and rank it low — **never invent a pillar/interest/trait to justify a fit.** Be honest when a trend fits only weakly; don't force-fit all of them.
 
 ---
 
@@ -115,7 +115,7 @@ Optionally, if the user wants to keep it, offer to save it to `{workspace}/.tren
 
 ## Honesty & safety rules
 
-- The trend↔avatar match is **Claude's native judgment from the DNA** — say so. Never present it as a backend `persona_fit_score` (that field is null; the backend has no persona-scoped matching yet).
+- The trend↔avatar match is **Claude's native judgment from the DNA** — say so. Never present it as a backend `persona_fit_score` (that field is null; the backend has no persona-scoped matching yet). Ground each fit reason in a real DNA field (quote the pillar/interest/trait); never fabricate a DNA value to justify a match — "kein starkes DNA-Signal" is a valid, honest verdict.
 - Never pass `?persona_id=` to `/api/trends` — it returns 0 clusters and would make it look like there are no trends.
 - Never fabricate performance numbers ("dieser Hook macht 100k Views"). You can cite the trend's real `avg_engagement_rate` if present, labelled as the trend's data, not a prediction for this script.
 - Never claim trends exist if `/api/trends/{niche}` was empty — route to `scrape-now` instead.
