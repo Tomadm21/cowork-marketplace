@@ -563,13 +563,30 @@ async function main() {
     }
   }
 
-  // ── Brands + personas: NOT fetched (platform limit 6 in api-contract.md) ──
-  // /api/brands und /api/brands/{id}/personas sind serverseitig NICHT
-  // tenant-gescoped — sie liefern globale Daten aller Tenants. Bis Phase 3
-  // Tenant-Scoping nachrüstet, rendert das Cockpit hier bewusst nichts
-  // (Cross-Tenant-Datenleck, live nachgewiesen am 2026-06-11). Der
-  // Render-Code für Avatare bleibt erhalten und ist Mock-getestet.
+  // ── Brands + personas fetch (tenant-scoped since 2026-06-16) ──────────────
+  // /api/brands und /api/brands/{id}/personas sind serverseitig tenant-gescoped:
+  // diese Tenant sieht ausschließlich die eigenen Avatare (das frühere
+  // Cross-Tenant-Leck ist geschlossen). avatar-studio legt sie an, hier werden
+  // sie gerendert. Bei null Avataren bleibt der Cold-Start-Zustand erhalten.
   const brandData: BrandData[] = [];
+  try {
+    const rawBrands = await apiFetch(cfg, "/api/brands");
+    const brands = extractList(rawBrands) as Brand[];
+    for (const brand of brands) {
+      const bid = brandId(brand);
+      if (!bid) continue;
+      let personas: Persona[] = [];
+      try {
+        const rawP = await apiFetch(cfg, `/api/brands/${bid}/personas`);
+        personas = extractList(rawP) as Persona[];
+      } catch {
+        warnings.push(`Avatare für ${brandName(brand)} konnten nicht geladen werden`);
+      }
+      brandData.push({ brand, personas });
+    }
+  } catch {
+    warnings.push("Avatare konnten nicht geladen werden");
+  }
 
   // ── Schedules fetch ───────────────────────────────────────────────────────
   let schedules: Schedule[] = [];

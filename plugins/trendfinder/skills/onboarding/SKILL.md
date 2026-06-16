@@ -274,6 +274,26 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>
 
 ---
 
+## Step 6 — Avatar anlegen (optional offer)
+
+Avatars (brand + persona + DNA) personalise the trend matching, but they are **not required** to use Trendfinder — so this is an offer, never a gate. After the Cockpit hand-off, ask once:
+
+```
+Möchtest du jetzt auch deinen ersten Avatar anlegen? Ein Avatar (Marke + Persona
+mit DNA) macht die Trend-Empfehlungen persönlicher — du kannst das aber jederzeit
+später machen.
+
+1) Ja, Avatar jetzt anlegen
+2) Nein, später — fertig fürs Erste
+```
+
+- Option 1 → route to the `avatar-studio` skill (it does brand → persona → DNA → embed → Cockpit refresh).
+- Option 2 (or anything else) → finish onboarding. Tell the user they can say "Avatar anlegen" anytime to start `avatar-studio`.
+
+Do not block onboarding completion on this step.
+
+---
+
 ## Done means
 
 - `{workspace}/.trendfinder/config.json` exists, `GET /health` returns 200.

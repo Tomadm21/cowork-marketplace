@@ -41,9 +41,17 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 | DELETE /api/schedules/{id} | — | 204 | 404 if not tenant's |
 | GET /api/trends/{niche_id} | query params: `min_score` (float, default 0.0), `persona_id` (optional), `limit` (int ≤100), `diversify` (bool) | Trend clusters (list). Fields per cluster: `cluster_id`, `trend_score`, `trend_label`, `description`, `hook_type`, `hook_examples`, `visual_style`, `velocity`, `video_count`, `video_count_delta`, `lifecycle`, `trajectory_counts`, `dominant_hashtags`, `dominant_audio_type`, `top_sounds`, `avg_engagement_rate`, `scripted_count`, `dismissed` | **NOT tenant-scoped at the backend** — the skill MUST only query niche slugs obtained from `GET /api/niches/config` for this tenant. Empty list OR 404 for a fresh niche — both mean no data yet. |
 | GET /api/trends/{niche_id}/velocity | query param: `persona_id` (optional) | `[{cluster_id, trend_label, trend_score, velocity, trajectory}]` | **NOT tenant-scoped at the backend** — only query tenant-owned niche slugs from `GET /api/niches/config`. Empty list OR 404 for a fresh niche. |
-| GET /api/brands | — | Brand list | ⚠️ NOT tenant-scoped — see platform limit 6; do not display to customers |
-| GET /api/brands/{brand_id}/personas | — | Personas incl. DNA fields | ⚠️ NOT tenant-scoped — see platform limit 6 |
-| GET /api/personas/{persona_id} | — | One persona | ⚠️ NOT tenant-scoped — see platform limit 6 |
+| GET /api/brands | — | Brand list (this tenant only) | ✅ Tenant-scoped since 2026-06-16 — safe to display |
+| POST /api/brands | `{brand_id, display_name, mission?, target_audience?, content_pillars?, tone_of_voice?, visual_concept?, hashtag_strategy?, posting_schedule?, content_formats?}` | 201 created brand | `brand_id` is stamped with this tenant. 409 if `brand_id` already exists (globally unique) |
+| GET /api/brands/{brand_id} | — | One brand | 404 if not this tenant's |
+| PUT /api/brands/{brand_id} | Partial brand fields | Updated brand | 404 if not this tenant's. `tenant_id` cannot be reassigned via body |
+| DELETE /api/brands/{brand_id} | — | 204 | 404 if not this tenant's |
+| GET /api/brands/{brand_id}/personas | — | Personas (avatars) of this brand incl. DNA fields | ✅ Tenant-scoped — safe to display |
+| POST /api/brands/{brand_id}/personas | `{persona_id, display_name, persona_profile?, content_pillars?, tone_of_voice?, system_prompt?, interests?, origin_story?, potential_development?, tiktok_enabled?, tiktok_hashtags?, instagram_enabled?, instagram_hashtags?, ...}` | 201 created persona | Inherits `tenant_id` from the parent brand (which is tenant-checked first). 409 if `persona_id` exists. Auto-embeds DNA best-effort on save |
+| GET /api/personas/{persona_id} | — | One persona (avatar) | 404 if not this tenant's |
+| PUT /api/personas/{persona_id} | Partial persona fields | Updated persona | 404 if not this tenant's. Re-embeds DNA if a DNA field changed |
+| POST /api/personas/{persona_id}/embed-dna | — | `{status:"embedded", persona_id, vector_dims}` | Manual DNA (re-)embed. **503** if no Google embedder configured; **400** if persona has no DNA text |
+| DELETE /api/personas/{persona_id} | — | 204 | 404 if not this tenant's |
 | GET /api/pipeline/status | — | Pipeline state | For pipeline-control (Phase 3) |
 | POST /api/ingest | `{niche_id, platform: "tiktok"\|"instagram", items[]}` | 201 `{inserted, updated, rejected, errors}` / 400 tenant / 404 niche | items MUST be raw actor dataset items (clockworks/tiktok-scraper or apify/instagram-hashtag-scraper) — do not reshape; max 500 items/request |
 
@@ -57,6 +65,47 @@ Consequences for skills:
 - After ingest, trends appear in `GET /api/trends/{niche_id}` after a short delay (≈10–30s), not instantly. Poll (bounded) before rendering, then regenerate the artifact snapshot.
 - A niche can have ingested videos but **zero trends** if too few clear the virality threshold to form a cluster — that is normal, not a failure.
 - Clustering needs an LLM key (Anthropic or Google) configured on the backend; the embedder's Google key covers it. If neither is set, embedding still runs but clusters won't form (ops config, not a skill error).
+
+## Avatars — Brands, Personas & DNA (tenant-scoped)
+
+An **avatar** in Trendfinder is two layers:
+
+1. **Brand** (`/api/brands`) — the overarching identity/Marke: mission, target audience, content pillars, tone, visual concept, hashtag strategy. A tenant can have several brands.
+2. **Persona** (`/api/brands/{brand_id}/personas`) — the actual avatar that carries **DNA**: a rich profile (`persona_profile`, `tone_of_voice`, `content_pillars`, `system_prompt`, `interests`, `origin_story`) that gets vectorised into Qdrant and used to personalise trend matching (`GET /api/trends/{niche_id}?persona_id=...`). One brand → one or more personas.
+
+**ID rules (both brand_id and persona_id):**
+- Pattern `^[a-z0-9-]+$` (lowercase, digits, hyphens only — slugify display names), 1–100 chars.
+- **Globally unique** across all tenants (like niche slugs). Convention: prefix with the tenant/brand name, e.g. `tom-beauty`, `tom-beauty-anna`. A clash returns **409** — pick another slug.
+
+**Minimal create — Brand:**
+```json
+{ "brand_id": "tom-beauty", "display_name": "Tom Beauty" }
+```
+
+**Minimal create — Persona:**
+```json
+{ "persona_id": "tom-beauty-anna", "display_name": "Anna" }
+```
+
+**Full DNA Persona body (all DNA fields optional — synthesise what you have):**
+```json
+{
+  "persona_id": "tom-beauty-anna",
+  "display_name": "Anna",
+  "persona_profile": { "name": "Anna", "age": 27, "background": "...", "location": "...", "appearance": "...", "personality": "...", "style": "..." },
+  "tone_of_voice": { "tone": "...", "language": "de", "attitude": "...", "energy": "...", "avoid_words": ["..."], "example_openers": ["..."] },
+  "content_pillars": [ { "name": "...", "description": "...", "topics": ["..."] } ],
+  "system_prompt": "Du bist Anna ...",
+  "interests": "...",
+  "origin_story": "...",
+  "potential_development": { "brand_deals": ["..."], "digital_products": ["..."], "community": ["..."] }
+}
+```
+
+**DNA model (matches the `AI synthesis happens in Claude` axiom):**
+- Claude synthesises the DNA *in the Cowork session* (from a short interview with the user) and POSTs it as structured JSON. The backend only **stores + embeds** — it never authors DNA.
+- On persona create/update the backend auto-embeds DNA best-effort. `POST /api/personas/{id}/embed-dna` is the manual trigger and surfaces errors: **503** if no Google embedder is configured on the backend, **400** if the persona has no DNA text yet.
+- `embed-dna` returning 200 (`vector_dims` set) is the proof the avatar's DNA is searchable. Until then the avatar exists and is editable, just not yet vector-matched to trends.
 
 ## Platform Limits
 
@@ -72,7 +121,7 @@ These are deliberate Phase-1 backend decisions. The plugin encodes and enforces 
 
 5. **No tenant self-service for key rotation or tenant deletion.** The operator handles both.
 
-6. **Brands/personas (avatars) are NOT tenant-scoped — do not display them.** `GET /api/brands` and `GET /api/brands/{id}/personas` return GLOBAL data across all tenants (cross-tenant data leak, live-verified 2026-06-11: a fresh tenant saw 8 foreign brands). Until Phase 3 adds tenant scoping to these routes, no skill may fetch or render brands/personas; the Cockpit shows the Avatare cold-start state instead.
+6. **Brands/personas (avatars) ARE tenant-scoped (since 2026-06-16) — safe to create, fetch, and display.** All brand + persona routes (list/get/create/update/delete + embed-dna) filter by the tenant key server-side: a tenant sees and edits ONLY its own avatars, foreign access 404s, and created rows are stamped with the tenant. The old cross-tenant leak (live-verified 2026-06-11) is closed. The `avatar-studio` skill creates them; the Cockpit Avatare tab renders them. Self-scoping rule still applies to the legacy `/api/trends/*` reads (limit 3), which key on niche slug, not tenant.
 
 ---
 
