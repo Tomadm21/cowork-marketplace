@@ -542,7 +542,9 @@ async function main() {
   const warnings: string[] = [];
 
   // ── Fetch trends ──────────────────────────────────────────────────────────
-  // NEVER pass persona_id (platform limit 6, not tenant-scoped)
+  // NEVER pass persona_id: GET /api/trends/{niche}?persona_id= returns 0 clusters
+  // today (no persona-scoped clustering pipeline; persona_fit_score is null).
+  // Avatar-personalised output is done natively in Claude via the script-studio skill.
   let trends: TrendCluster[] = [];
   try {
     const rawTrends = await apiFetch(cfg, `/api/trends/${targetNiche.niche_id}`);

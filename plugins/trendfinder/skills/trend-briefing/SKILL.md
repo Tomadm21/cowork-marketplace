@@ -9,6 +9,8 @@ Generiere das Trend-Briefing als **Cowork Live Artifact**: eine selbst-enthalten
 
 **Wichtig:** Das HTML-Artifact rendert nur die rohen Cluster-Daten. Die inhaltliche **Briefing-Narration** (Interpretation, Handlungsempfehlungen, was das wirklich bedeutet) liefert Claude nativ im Chat — das ist keine Server-Funktion, sondern Claude-Intelligenz angewandt auf die zurückgegebenen Daten.
 
+**Avatar-personalisiert?** Das Briefing ist Nischen-weit (kein `persona_id` — das liefert serverseitig 0 Cluster). Wenn der Nutzer Trends für einen bestimmten Avatar oder fertige Skripte in dessen Stimme will → route zur `script-studio`-Skill (matcht Trends nativ an die Avatar-DNA und schreibt Hooks/Skripte).
+
 ---
 
 ## Step 0 — Self-check (route, don't error)

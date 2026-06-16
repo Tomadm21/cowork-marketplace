@@ -7,6 +7,8 @@ description: Read and synthesise current trend data for a tenant-owned niche. Us
 
 Goal: fetch the tenant's current trend clusters and velocity data for one niche, then synthesise the results natively — ranking rising patterns, naming hooks and accelerating signals, and giving the user an honest read of what the data actually says. The synthesis is pure Claude intelligence applied to the returned data — no additional server calls are made during synthesis.
 
+**Avatar-personalised?** Trend-radar is niche-wide and does NOT pass `persona_id` (the backend returns 0 clusters for it — no persona-scoped clustering yet). When the user wants trends matched to a specific avatar, or finished scripts in that avatar's voice, route to the `script-studio` skill — it matches trends to the avatar's DNA natively and writes hooks/scripts.
+
 All API calls use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call tf.sh or curl with an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints and platform limits.
 
 ---
