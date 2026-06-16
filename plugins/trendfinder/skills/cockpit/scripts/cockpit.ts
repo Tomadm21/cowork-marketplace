@@ -33,6 +33,7 @@ interface Niche {
 }
 
 interface TrendCluster {
+  trend_label?: string;
   label?: string;
   name?: string;
   topic?: string;
@@ -42,6 +43,7 @@ interface TrendCluster {
 }
 
 interface VelocityEntry {
+  trend_label?: string;
   label?: string;
   name?: string;
   topic?: string;
@@ -185,7 +187,7 @@ function extractList(data: unknown): unknown[] {
 }
 
 function trendTitle(t: TrendCluster): string {
-  const raw = t.label ?? t.name ?? t.topic;
+  const raw = t.trend_label ?? t.label ?? t.name ?? t.topic;
   if (raw != null && String(raw).trim() !== "") return String(raw).trim();
   return "Unbenannter Trend";
 }
@@ -292,7 +294,7 @@ function buildHtml(
         // Build velocity map by label
         const velMap = new Map<string, VelocityEntry>();
         for (const v of nd.velocity) {
-          const key = v.label ?? v.name ?? v.topic ?? "";
+          const key = v.trend_label ?? v.label ?? v.name ?? v.topic ?? "";
           if (key) velMap.set(String(key), v);
         }
 
