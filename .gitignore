@@ -15,3 +15,14 @@ plugins/*/archive/
 
 # Trendfinder dev credentials (tenant API key) — never commit
 .trendfinder/
+
+# Trendfinder customer guides + internal docs — contain a real tenant API key / backend details, never commit
+plugins/trendfinder/Trendfinder-Anleitung*
+plugins/trendfinder/CUSTOMER-*.html
+plugins/trendfinder/make-customer-guide.sh
+plugins/trendfinder/HANDOVER-*
+plugins/trendfinder/GATE2-*
+plugins/trendfinder/AUDIT-*
+plugins/trendfinder/CUSTOMER-roadmap-*
+plugins/trendfinder/dore-claude-prompt.md
+plugins/trendfinder/demo-setup-recording-script.md

@@ -46,23 +46,21 @@ Only continue with setup if the user explicitly chooses option 2 or types a matc
 
 ---
 
-## Step 1 — Verbindungs-Code (einmal einfügen)
+## Step 1 — Zugang einfügen (einmal)
 
-The customer has **one Verbindungs-Code** in their Anleitung/PDF — a single base64 string that bundles `base_url` + `api_key`. They never see or type a URL; they paste one thing. Ask (German):
+The customer has their access in their Anleitung/PDF: a **server URL** plus an **API key**, shown together as one short "Dein Zugang" block they can copy in one go. Ask (German):
 
-> "Füge deinen Trendfinder-Verbindungs-Code ein — du findest ihn in deiner Anleitung (PDF). Einfach den ganzen Code hierher kopieren."
+> "Füg deinen Trendfinder-Zugang ein — du findest ihn in deiner Anleitung. Kopier einfach den ganzen ‚Dein Zugang'-Block (Server + Schlüssel) hierher."
 
-Capture the code via ✏️ free-text. **Decode it deterministically — never guess the contents:**
+Capture the pasted text via ✏️ free-text. **Extract `base_url` and `api_key` from it.** The block looks like:
 
 ```
-printf %s "<eingefügter code>" | base64 -d
+Server: https://… — Schlüssel: <key>
 ```
 
-This yields JSON of shape `{ "base_url": "...", "api_key": "..." }`. **Validate** that it parses and contains both `base_url` and `api_key`. Then write it **verbatim** to `{workspace}/.trendfinder/config.json`. Do NOT echo the key or the URL back; confirm only: `"Zugang erkannt — Key endet auf …XXXX"`.
+Parse the URL (the `https://…` value after "Server:") and the key (the value after "Schlüssel:"). If the user pastes only a bare key without a URL, ask once for the server URL too. **Validate** you have both a plausible `https://` URL and a non-empty key, then write them to `{workspace}/.trendfinder/config.json` as `{ "base_url": "...", "api_key": "..." }`. Do NOT echo the key back; confirm only: `"Zugang erkannt — Key endet auf …XXXX"`.
 
-**If decoding fails or a key is missing** (often a copy/paste line-break): tell the user the code looks incomplete and ask them to paste it again as **one line**. Do NOT proceed and do NOT write a partial config.
-
-> Fallback (only if the user has no code, e.g. an older setup): ask for `base_url` + `api_key` separately and write the same config shape. The code is the simple default; never hardcode a backend URL in the plugin.
+**If the key is missing or empty:** tell the user the access block looks incomplete and ask them to paste the whole block again. Do NOT proceed and do NOT write a partial config. Never hardcode a backend URL in the plugin — it always comes from the pasted access block.
 
 Then immediately prove the connection — run both checks:
 
