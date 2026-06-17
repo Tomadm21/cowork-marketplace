@@ -294,6 +294,12 @@ Do not block onboarding completion on this step.
 
 ---
 
+## Step 7 — Next-Steps-Auswahlblock (einmal, ganz am Ende)
+
+Erst **jetzt** — nach Cockpit-Hand-off und Avatar-Angebot, ganz am Schluss des Onboardings — präsentiere den interaktiven **Auswahlblock** aus `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md`. Während Step 0–6 führen die einzelnen nummerierten Schritt-Auswahlen; der große Next-Steps-Block kommt NICHT nach jedem Schritt, sondern nur dieses eine Mal zum Abschluss. Markiere genau eine Option als ⭐ Empfehlung (frisch eingerichtet, noch kein Scrape → in der Regel 🔥 „Jetzt scrapen").
+
+---
+
 ## Done means
 
 - `{workspace}/.trendfinder/config.json` exists, `GET /health` returns 200.

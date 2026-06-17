@@ -133,3 +133,9 @@ Optionally, if the user wants to keep it, offer to save it to `{workspace}/.tren
 - Hooks + a full short-video script + caption written in the avatar's voice for the chosen trend.
 - Delivered as copyable markdown; optionally saved under `.trendfinder/`.
 - No `?persona_id=` sent, no Apify call, no key printed.
+
+---
+
+## Abschluss (PFLICHT) — Next-Steps-Auswahlblock
+
+Beende deine Antwort IMMER mit dem interaktiven **Auswahlblock** (die selektierbaren Options-UI-Blöcke, die Cowork rendert) — Spezifikation: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md`. Zeige alle im aktuellen Zustand sinnvollen Optionen und markiere **genau eine** als ⭐ Empfehlung, passend zu dem, was du gerade getan hast. Nutze die ⭐-Kontext-Tabelle und die Zustands-Regeln aus dieser Datei.

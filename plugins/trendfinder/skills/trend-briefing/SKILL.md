@@ -91,3 +91,9 @@ Gib danach eine **native Briefing-Narration** im Chat — 3–5 Sätze, in der S
 - **Kein `persona_id`-Parameter** wird übergeben — Personas sind nicht tenant-gescoped (Platform-Limit 6 in api-contract.md).
 - **Keine Brands oder Personas** werden abgerufen oder angezeigt.
 - Ein Nutzer kann keine fremde Nische übergeben — der Generator lehnt unbekannte Slugs explizit ab.
+
+---
+
+## Abschluss (PFLICHT) — Next-Steps-Auswahlblock
+
+Beende deine Antwort IMMER mit dem interaktiven **Auswahlblock** (die selektierbaren Options-UI-Blöcke, die Cowork rendert) — Spezifikation: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md`. Zeige alle im aktuellen Zustand sinnvollen Optionen und markiere **genau eine** als ⭐ Empfehlung, passend zu dem, was du gerade getan hast. Nutze die ⭐-Kontext-Tabelle und die Zustands-Regeln aus dieser Datei.

@@ -262,3 +262,9 @@ Note honestly (create only):
 - `interval_hours` is within 1–168 and matches the user's intent after natural-language mapping.
 - Every mutation confirmed back to the user in plain words.
 - No key, no slug guessing, no brands/personas, no actor calls.
+
+---
+
+## Abschluss (PFLICHT) — Next-Steps-Auswahlblock
+
+Beende deine Antwort IMMER mit dem interaktiven **Auswahlblock** (die selektierbaren Options-UI-Blöcke, die Cowork rendert) — Spezifikation: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md`. Zeige alle im aktuellen Zustand sinnvollen Optionen und markiere **genau eine** als ⭐ Empfehlung, passend zu dem, was du gerade getan hast. Nutze die ⭐-Kontext-Tabelle und die Zustands-Regeln aus dieser Datei.

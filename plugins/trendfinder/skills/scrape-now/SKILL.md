@@ -243,3 +243,9 @@ Never fabricate trends to fill the wait. `inserted > 0` means data landed; only 
 - After a successful ingest: polled `GET /api/trends/{niche_id}` (bounded) for backend auto-clustering; on non-empty trends, regenerated the Cockpit artifact; on still-empty, gave the honest cold-start message — never fabricated trends.
 - Temp ingest file cleaned up on success, left in place on failure with path reported.
 - No key, no item data, and no `.trendfinder/` files ever committed or printed to the user.
+
+---
+
+## Abschluss (PFLICHT) — Next-Steps-Auswahlblock
+
+Beende deine Antwort IMMER mit dem interaktiven **Auswahlblock** (die selektierbaren Options-UI-Blöcke, die Cowork rendert) — Spezifikation: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md`. Zeige alle im aktuellen Zustand sinnvollen Optionen und markiere **genau eine** als ⭐ Empfehlung, passend zu dem, was du gerade getan hast. Nutze die ⭐-Kontext-Tabelle und die Zustands-Regeln aus dieser Datei.

@@ -182,3 +182,9 @@ Present the regenerated Cockpit as the Live Artifact and point the user to the n
 - `embed-dna` result reported honestly (embedded / 503-not-configured / 400-no-DNA).
 - Cockpit regenerated; the new avatar appears in the Avatare tab.
 - No key printed, no `.trendfinder/` file committed, no Apify actor called.
+
+---
+
+## Abschluss (PFLICHT) — Next-Steps-Auswahlblock
+
+Beende deine Antwort IMMER mit dem interaktiven **Auswahlblock** (die selektierbaren Options-UI-Blöcke, die Cowork rendert) — Spezifikation: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md`. Zeige alle im aktuellen Zustand sinnvollen Optionen und markiere **genau eine** als ⭐ Empfehlung, passend zu dem, was du gerade getan hast. Nutze die ⭐-Kontext-Tabelle und die Zustands-Regeln aus dieser Datei.

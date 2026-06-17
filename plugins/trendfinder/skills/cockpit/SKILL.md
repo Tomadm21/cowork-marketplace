@@ -65,3 +65,9 @@ Gib danach eine 2–3-zeilige In-Chat-Zusammenfassung in der Sprache des Nutzers
 - Leere Zustände benennen die nächste Aktion, nicht einen Fehler: "Noch keine Trends — nach dem ersten Scrape-Run erscheinen sie hier."
 - Erfinde keine Trend-Zahlen in der Chat-Zusammenfassung. Berichte ausschließlich, was der Generator in die HTML-Datei geschrieben hat. Wenn der Generator 0 Trends zurückgegeben hat, sag das offen.
 - Für eine manuelle Aktualisierung diesen Skill einfach erneut ausführen — das überschreibt `cockpit.html` und präsentiert das neue Artifact.
+
+---
+
+## Abschluss (PFLICHT) — Next-Steps-Auswahlblock
+
+Beende deine Antwort IMMER mit dem interaktiven **Auswahlblock** (die selektierbaren Options-UI-Blöcke, die Cowork rendert) — Spezifikation: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md`. Zeige alle im aktuellen Zustand sinnvollen Optionen und markiere **genau eine** als ⭐ Empfehlung, passend zu dem, was du gerade getan hast. Nutze die ⭐-Kontext-Tabelle und die Zustands-Regeln aus dieser Datei.

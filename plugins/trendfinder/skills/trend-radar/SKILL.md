@@ -204,3 +204,9 @@ Do NOT render placeholder analysis, example trends, or fabricated cluster data. 
 - If data exists: native synthesis delivered with top patterns, velocity leaders, and declining trends called out honestly.
 - If data is empty or 404: cold-start message delivered and user offered route to scrape-now.
 - No brands or personas fetched. No data written to disk. No niche slug accepted without API resolution.
+
+---
+
+## Abschluss (PFLICHT) — Next-Steps-Auswahlblock
+
+Beende deine Antwort IMMER mit dem interaktiven **Auswahlblock** (die selektierbaren Options-UI-Blöcke, die Cowork rendert) — Spezifikation: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md`. Zeige alle im aktuellen Zustand sinnvollen Optionen und markiere **genau eine** als ⭐ Empfehlung, passend zu dem, was du gerade getan hast. Nutze die ⭐-Kontext-Tabelle und die Zustands-Regeln aus dieser Datei.
