@@ -46,21 +46,23 @@ Only continue with setup if the user explicitly chooses option 2 or types a matc
 
 ---
 
-## Step 1 — API key + connection proof
+## Step 1 — Verbindungs-Code (einmal einfügen)
 
-Tell the user (German):
+The customer has **one Verbindungs-Code** in their Anleitung/PDF — a single base64 string that bundles `base_url` + `api_key`. They never see or type a URL; they paste one thing. Ask (German):
 
-> "Gib deine Trendfinder-Zugangsdaten ein — die **Backend-URL** und deinen **API-Key**. Beides hast du von Tom erhalten, als dein Zugang angelegt wurde."
+> "Füge deinen Trendfinder-Verbindungs-Code ein — du findest ihn in deiner Anleitung (PDF). Einfach den ganzen Code hierher kopieren."
 
-Capture both via ✏️ free-text input (open values). Do NOT echo the key in full; confirm receipt with the last 4 characters only: `"Key empfangen — endet auf …XXXX"`.
+Capture the code via ✏️ free-text. **Decode it deterministically — never guess the contents:**
 
-Write the config file — **use the base_url the user provided; never hardcode a backend URL**:
-
-```json
-{ "base_url": "<vom Nutzer erhaltene base_url>", "api_key": "<key>" }
+```
+printf %s "<eingefügter code>" | base64 -d
 ```
 
-to `{workspace}/.trendfinder/config.json`.
+This yields JSON of shape `{ "base_url": "...", "api_key": "..." }`. **Validate** that it parses and contains both `base_url` and `api_key`. Then write it **verbatim** to `{workspace}/.trendfinder/config.json`. Do NOT echo the key or the URL back; confirm only: `"Zugang erkannt — Key endet auf …XXXX"`.
+
+**If decoding fails or a key is missing** (often a copy/paste line-break): tell the user the code looks incomplete and ask them to paste it again as **one line**. Do NOT proceed and do NOT write a partial config.
+
+> Fallback (only if the user has no code, e.g. an older setup): ask for `base_url` + `api_key` separately and write the same config shape. The code is the simple default; never hardcode a backend URL in the plugin.
 
 Then immediately prove the connection — run both checks:
 
@@ -69,7 +71,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
 ```
 
-**On 401 from either call:** tell the user the key is incorrect, delete the config file so it does not persist an invalid state, re-ask for the key, and do NOT proceed. Repeat until connection succeeds or the user aborts.
+**On 401 from either call:** the code's key is wrong — delete the config file so no invalid state persists, ask for the code again, and do NOT proceed. Repeat until connection succeeds or the user aborts.
 
 **On any non-2xx response that is NOT a 401 (5xx, timeout/network error):** report the error verbatim, leave the config file in place, and ask the user whether to retry or abort — do NOT proceed to Step 2.
 

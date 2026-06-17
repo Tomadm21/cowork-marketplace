@@ -1,7 +1,7 @@
 {
   "name": "trendfinder",
   "description": "Turn TikTok/Instagram trend data into content decisions inside Cowork. Connects to your Trendfinder data backend (trends, velocity, avatars/DNA, scrape schedules), guides a detect-first onboarding (API key, Apify connector setup, niches, first schedule, optional first avatar), creates avatars via the avatar-studio skill (brand + persona + DNA, all tenant-scoped), and generates hooks + short-video scripts in an avatar voice via the script-studio skill (trends matched to avatar DNA natively in Claude), and renders the Trendfinder-Cockpit as a Live Artifact with Trends and Avatare tabs. All AI synthesis (briefings, scripts, cluster labels, avatar DNA) happens natively in Claude — the backend only stores and scrapes.",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "author": {
     "name": "Tom Adomeit"
   },
