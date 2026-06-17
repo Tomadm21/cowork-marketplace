@@ -1,6 +1,6 @@
 # Trendfinder API Contract
 
-Backend: `https://api-production-78bb.up.railway.app` — multi-tenant architecture live since 2026-06-10. This file is the single source of truth every skill in the plugin relies on. Do not invent endpoints or fields not listed here.
+Backend: the customer's Trendfinder backend URL — **provided at onboarding** and stored in `config.json` (never hardcoded here). Multi-tenant architecture. This file is the single source of truth every skill in the plugin relies on. Do not invent endpoints or fields not listed here.
 
 ---
 
@@ -16,7 +16,7 @@ Error responses:
 The key lives in `{workspace}/.trendfinder/config.json` with shape:
 
 ```json
-{ "base_url": "https://api-production-78bb.up.railway.app", "api_key": "..." }
+{ "base_url": "<your Trendfinder backend URL>", "api_key": "..." }
 ```
 
 Skills call the API exclusively through `scripts/tf.sh`, never raw curl with an inline key.

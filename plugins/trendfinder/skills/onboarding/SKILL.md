@@ -48,16 +48,16 @@ Only continue with setup if the user explicitly chooses option 2 or types a matc
 
 ## Step 1 — API key + connection proof
 
-Tell the user (German, one sentence):
+Tell the user (German):
 
-> "Gib deinen Trendfinder API-Key ein — du hast ihn von Tom erhalten, als dein Tenant angelegt wurde."
+> "Gib deine Trendfinder-Zugangsdaten ein — die **Backend-URL** und deinen **API-Key**. Beides hast du von Tom erhalten, als dein Zugang angelegt wurde."
 
-Capture the key via ✏️ free-text input (it is inherently an open value). Do NOT echo it back in full; confirm receipt by showing the last 4 characters only: `"Key empfangen — endet auf …XXXX"`.
+Capture both via ✏️ free-text input (open values). Do NOT echo the key in full; confirm receipt with the last 4 characters only: `"Key empfangen — endet auf …XXXX"`.
 
-Write the config file:
+Write the config file — **use the base_url the user provided; never hardcode a backend URL**:
 
 ```json
-{ "base_url": "https://api-production-78bb.up.railway.app", "api_key": "<key>" }
+{ "base_url": "<vom Nutzer erhaltene base_url>", "api_key": "<key>" }
 ```
 
 to `{workspace}/.trendfinder/config.json`.

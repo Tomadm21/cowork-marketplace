@@ -1,24 +1,34 @@
 # Trendfinder — Cowork Plugin
 
-Customer-facing client for the Trendfinder multi-tenant data backend (Railway).
-Thin data client: the backend stores trends/transcripts/avatars and runs 24/7
-scrape schedules on the customer's own Apify token; ALL AI synthesis happens
-natively in Claude inside the customer's Cowork seat.
+Turn TikTok/Instagram trend data into content decisions inside Claude Cowork.
+Thin data client: it connects to a Trendfinder backend (trends, velocity, avatars/DNA,
+scrape schedules) and renders the Trendfinder-Cockpit as a Live Artifact. **All AI
+synthesis (briefings, scripts, cluster labels, avatar DNA) happens natively in Claude** —
+the backend only stores and scrapes.
 
 ## Components
 
 | Component | Purpose |
 |---|---|
-| `skills/onboarding` | First-run setup: API key → health proof → Apify token → niches → first schedule → proof |
+| `skills/onboarding` | First-run setup: backend URL + API key → connection proof → Apify connector → niches → optional schedule → optional first avatar |
 | `skills/cockpit` | Trendfinder-Cockpit Live Artifact (tabs: Trends · Avatare), regenerated on demand |
+| `skills/scrape-now` | On-demand scrape for one niche + platform via the Cowork Apify connector |
+| `skills/trend-radar` · `skills/trend-briefing` | Read + synthesise current trends |
+| `skills/script-studio` | Hooks + short-video scripts in an avatar's voice, matched to trends |
+| `skills/avatar-studio` | Create brand + persona + DNA |
+| `skills/scheduler` | Manage automatic scrape schedules |
 | `scripts/tf.sh` | curl wrapper reading `{workspace}/.trendfinder/config.json` |
 | `reference/api-contract.md` | Endpoint contract + platform limits every skill relies on |
+| `reference/next-steps.md` | The interactive next-step option block every skill ends with |
 
-## Install
+## Setup
 
-`/plugin marketplace add Tomadm21/cowork-marketplace` → `/plugin install trendfinder@command-center`
+You need two values from your Trendfinder provider: a **backend URL** and an **API key**.
+Install the plugin, then say *„richte Trendfinder ein"* — onboarding asks for both and
+walks you through the rest.
 
-## Dev verification
+## Configuration
 
-A test tenant (`plugin-dev`) key lives in the untracked `.trendfinder/config.json`
-at the repo root. Never commit it.
+Connection details live in `{workspace}/.trendfinder/config.json`
+(`{ "base_url": "...", "api_key": "..." }`). This file is local to your workspace and is
+never committed.
