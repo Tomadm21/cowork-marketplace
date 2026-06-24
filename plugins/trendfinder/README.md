@@ -10,7 +10,7 @@ the backend only stores and scrapes.
 
 | Component | Purpose |
 |---|---|
-| `skills/onboarding` | First-run setup: backend URL + API key → connection proof → Apify connector → niches → optional schedule → optional first avatar |
+| `skills/onboarding` | First-run setup (connector-only default): access → Apify connector → niche → Cockpit. 24/7 scheduled scraping is an optional add-on (see `scheduler`) |
 | `skills/cockpit` | Trendfinder-Cockpit Live Artifact (tabs: Trends · Avatare), regenerated on demand |
 | `skills/scrape-now` | On-demand scrape for one niche + platform via the Cowork Apify connector |
 | `skills/trend-radar` · `skills/trend-briefing` | Read + synthesise current trends |

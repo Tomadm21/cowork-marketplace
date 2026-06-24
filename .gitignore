@@ -20,6 +20,7 @@ plugins/*/archive/
 plugins/trendfinder/Trendfinder-Anleitung*
 plugins/trendfinder/CUSTOMER-*.html
 plugins/trendfinder/make-customer-guide.sh
+plugins/trendfinder/new-customer.sh
 plugins/trendfinder/HANDOVER-*
 plugins/trendfinder/GATE2-*
 plugins/trendfinder/AUDIT-*
