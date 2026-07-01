@@ -1,0 +1,266 @@
+#!/usr/bin/env python3
+"""Command Center apply engine (pure Python 3, stdlib only).
+
+Canonical, workspace-resident review-queue engine. Idempotent + atomic:
+- content dedupe (md5): an identical file is never copied again as _2;
+- journal guard: a (runid,id,target) already applied is skipped;
+- per-action atomic queue removal: a re-run after a crash is safe.
+
+Usage:
+  python3 apply.py <workspace_root> list
+  python3 apply.py <workspace_root> approve <runid> <action_id> [--dry]
+  python3 apply.py <workspace_root> reject  <runid> <action_id> [--dry]
+  python3 apply.py <workspace_root> approve-safe [--dry]
+Contract: reference/review-queue.md. Mirrors apply.ts; do not add engine-specific fields.
+"""
+import sys, os, json, hashlib, shutil, datetime, glob
+
+def ws_paths(root):
+    f = os.path.join(root, "_firma")
+    return {
+        "review": os.path.join(f, "_review"),
+        "erledigt": os.path.join(f, "_review", "_erledigt"),
+        "preview": os.path.join(f, "_review", "_preview"),
+        "journal": os.path.join(f, "_journal"),
+        "state": os.path.join(f, "_state"),
+    }
+
+def now_iso():
+    return datetime.datetime.now().isoformat(timespec="seconds")
+
+def md5(path):
+    h = hashlib.md5()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+def load_queues(P):
+    out = []
+    if not os.path.isdir(P["review"]):
+        return out
+    for fp in sorted(glob.glob(os.path.join(P["review"], "R-*.json"))):
+        try:
+            with open(fp, encoding="utf-8") as fh:
+                q = json.load(fh)
+            q["_path"] = fp
+            out.append(q)
+        except Exception as e:
+            sys.stderr.write("WARN bad queue %s: %s\n" % (fp, e))
+    return out
+
+def eff_tier(a):
+    # confidence:"prüfen" overrides a sicher tier for display/bulk
+    if a.get("tier") == "sicher" and a.get("confidence") == "prüfen":
+        return "pruefen"
+    return {"sicher": "sicher", "prüfen": "pruefen", "folgenreich": "folgenreich"}.get(a.get("tier"), "pruefen")
+
+def title_of(a):
+    v = a.get("values", {}) or {}
+    parts = [v.get("lieferant"), v.get("nummer"), v.get("betrag")]
+    parts = [p for p in parts if p]
+    if parts:
+        return " · ".join(parts)
+    if v.get("belegtyp") == "LF":
+        return "Lieferschein " + (v.get("nummer") or "")
+    return a.get("filename", "Posten")
+
+def cmd_list(P):
+    qs = load_queues(P)
+    groups, total, ns, np, nf = [], 0, 0, 0, 0
+    for q in qs:
+        acts = q.get("actions", []) or []
+        if not acts:
+            continue
+        rows = []
+        for a in acts:
+            t = eff_tier(a)
+            ns += t == "sicher"; np += t == "pruefen"; nf += t == "folgenreich"
+            rows.append({"id": a.get("id"), "tier": a.get("tier"), "confidence": a.get("confidence"),
+                         "title": title_of(a), "reason": a.get("reason"),
+                         "filename": a.get("filename"), "targets": a.get("targets", []),
+                         "values": a.get("values", {})})
+        total += len(rows)
+        # headline derived from len(actions) — never trust a stale stored counter
+        groups.append({"process": q.get("process"), "runid": q.get("runid"),
+                       "headline": "%d %s" % (len(rows), q.get("process", "Posten")),
+                       "count": len(rows), "actions": rows})
+    print(json.dumps({"ok": True, "stand": now_iso(), "total": total,
+                      "ns": ns, "np": np, "nf": nf, "groups": groups}, ensure_ascii=False))
+
+def journal_has(P, runid, aid, target_base):
+    """atomic/idempotent guard: was this (runid,id,target) already applied?"""
+    month = datetime.date.today().strftime("%Y-%m")
+    for jf in glob.glob(os.path.join(P["journal"], "*.jsonl")):
+        try:
+            for line in open(jf, encoding="utf-8"):
+                line = line.strip()
+                if not line:
+                    continue
+                r = json.loads(line)
+                if r.get("runid") == runid and r.get("id") == aid and \
+                   os.path.basename(r.get("target", "")) == target_base:
+                    return True
+        except Exception:
+            pass
+    return False
+
+def append_journal(P, rec):
+    os.makedirs(P["journal"], exist_ok=True)
+    month = datetime.date.today().strftime("%Y-%m")
+    with open(os.path.join(P["journal"], month + ".jsonl"), "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+def record_filed_md5(P, m):
+    os.makedirs(P["state"], exist_ok=True)
+    fp = os.path.join(P["state"], "filed-md5.json")
+    try:
+        data = json.load(open(fp, encoding="utf-8")) if os.path.exists(fp) else []
+    except Exception:
+        data = []
+    if m not in data:
+        data.append(m)
+        tmp = fp + ".tmp"
+        json.dump(data, open(tmp, "w", encoding="utf-8"))
+        os.replace(tmp, fp)
+
+def resolve_target_dir(root, target):
+    # absolute (e.g. connected N:/S:) allowed only if it already exists; else workspace-relative
+    if os.path.isabs(target):
+        return target, os.path.isdir(target)
+    return os.path.join(root, target), True
+
+def collision_safe(dest):
+    if not os.path.exists(dest):
+        return dest
+    base, ext = os.path.splitext(dest)
+    i = 2
+    while os.path.exists("%s_%d%s" % (base, i, ext)):
+        i += 1
+    return "%s_%d%s" % (base, i, ext)
+
+def apply_action(root, P, q, a, dry):
+    src = os.path.join(root, a["source"]) if not os.path.isabs(a["source"]) else a["source"]
+    if not os.path.exists(src):
+        return [{"status": "error", "detail": "source fehlt: " + a["source"]}]
+    src_md5 = md5(src)
+    fname = a.get("filename") or os.path.basename(src)
+    results = []
+    for target in a.get("targets", []):
+        tdir, ok = resolve_target_dir(root, target)
+        if not ok:
+            # external drive not connected -> fall back to workspace _ausgang/<process>
+            fb = os.path.join(root, "_ausgang", q.get("process", "sonstiges"))
+            results.append({"status": "fallback", "intended": target, "dir": fb})
+            tdir = fb
+        # journal guard (atomic re-run safety)
+        if journal_has(P, q.get("runid"), a.get("id"), fname):
+            results.append({"status": "already-journaled", "target": os.path.join(target, fname)})
+            continue
+        dest = os.path.join(tdir, fname)
+        status = "copied"
+        if os.path.exists(dest) and md5(dest) == src_md5:
+            status = "skipped-identical"            # P1: content idempotency — no _2 clone
+            final = dest
+        else:
+            final = collision_safe(dest)
+        if dry:
+            results.append({"status": "DRY:" + status, "target": final})
+            continue
+        if status == "copied":
+            os.makedirs(tdir, exist_ok=True)
+            shutil.copy2(src, final)
+        rel = os.path.relpath(final, root) if final.startswith(root) else final
+        append_journal(P, {"ts": datetime.datetime.now().isoformat(),
+                           "runid": q.get("runid"), "id": a.get("id"), "verb": a.get("verb", "kopieren"),
+                           "source": a.get("source"), "target": rel, "md5": src_md5,
+                           "status": status, "reversible": True})
+        record_filed_md5(P, src_md5)
+        results.append({"status": status, "target": rel})
+    return results
+
+def remove_action_atomic(q, aid):
+    q["actions"] = [x for x in q.get("actions", []) if x.get("id") != aid]
+    tmp = q["_path"] + ".tmp"
+    data = {k: v for k, v in q.items() if k != "_path"}
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+    os.replace(tmp, q["_path"])   # atomic
+
+def archive_if_empty(P, q):
+    if q.get("actions"):
+        return False
+    os.makedirs(P["erledigt"], exist_ok=True)
+    dest = os.path.join(P["erledigt"], os.path.basename(q["_path"]))
+    try:
+        os.replace(q["_path"], dest)
+    except Exception as e:
+        sys.stderr.write("WARN archive failed (ok to retry): %s\n" % e)
+        return False
+    # staging/preview cleanup for this runid (best-effort)
+    pv = P["preview"]
+    if os.path.isdir(pv):
+        for f in os.listdir(pv):
+            if q.get("runid", "") in f:
+                try: os.remove(os.path.join(pv, f))
+                except Exception: pass
+    return True
+
+def find_queue(qs, runid):
+    for q in qs:
+        if q.get("runid") == runid:
+            return q
+    return None
+
+def cmd_approve(P, root, runid, aid, dry):
+    qs = load_queues(P); q = find_queue(qs, runid)
+    if not q:
+        print(json.dumps({"ok": False, "error": "runid nicht gefunden: " + runid})); return
+    a = next((x for x in q.get("actions", []) if str(x.get("id")) == str(aid)), None)
+    if not a:
+        print(json.dumps({"ok": False, "error": "action nicht gefunden"})); return
+    res = apply_action(root, P, q, a, dry)
+    if not dry and not any(r["status"].startswith(("error",)) for r in res):
+        remove_action_atomic(q, a.get("id"))
+        archive_if_empty(P, q)
+    print(json.dumps({"ok": True, "runid": runid, "id": aid, "results": res, "dry": dry}, ensure_ascii=False))
+
+def cmd_reject(P, runid, aid, dry):
+    qs = load_queues(P); q = find_queue(qs, runid)
+    if not q:
+        print(json.dumps({"ok": False, "error": "runid nicht gefunden"})); return
+    if dry:
+        print(json.dumps({"ok": True, "dry": True, "would_reject": [runid, aid]})); return
+    remove_action_atomic(q, int(aid) if str(aid).isdigit() else aid)
+    archive_if_empty(P, q)
+    print(json.dumps({"ok": True, "rejected": [runid, aid]}))
+
+def cmd_approve_safe(P, root, dry):
+    qs = load_queues(P); applied = []
+    for q in qs:
+        for a in list(q.get("actions", [])):
+            if eff_tier(a) == "sicher":
+                res = apply_action(root, P, q, a, dry)
+                applied.append({"runid": q.get("runid"), "id": a.get("id"), "results": res})
+                if not dry and not any(r["status"].startswith("error") for r in res):
+                    remove_action_atomic(q, a.get("id"))
+        if not dry:
+            archive_if_empty(P, q)
+    print(json.dumps({"ok": True, "applied": applied, "dry": dry}, ensure_ascii=False))
+
+def main():
+    args = [x for x in sys.argv[1:] if x != "--dry"]
+    dry = "--dry" in sys.argv
+    if len(args) < 2:
+        print(__doc__); sys.exit(1)
+    root, cmd = args[0], args[1]
+    P = ws_paths(root)
+    if cmd == "list": cmd_list(P)
+    elif cmd == "approve": cmd_approve(P, root, args[2], args[3], dry)
+    elif cmd == "reject": cmd_reject(P, args[2], args[3], dry)
+    elif cmd == "approve-safe": cmd_approve_safe(P, root, dry)
+    else:
+        print(json.dumps({"ok": False, "error": "unknown command: " + cmd})); sys.exit(1)
+
+if __name__ == "__main__":
+    main()

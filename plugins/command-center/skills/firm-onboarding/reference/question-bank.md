@@ -47,7 +47,6 @@ Numbered **multi-select** (*„mehrere möglich, z.B. `1,3,5`"*):
 2. **daily-report** — fill the daily/weekly report template
 3. **photo-sorting** — rename + file site/job photos
 4. **receipt-filing** — read receipts and file them
-5. **lead-gen** — find + score contacts from company sites
 ✏️ etwas anderes / später
 
 Record the chosen set with status `selected` (each gets onboarded individually next).

@@ -1,5 +1,7 @@
 # Command Center — Review Cockpit (Freigabe-Board) Implementation Plan
 
+> **Historical (v0.4.0).** Superseded by v0.5.0: the cockpit is now a **read-only overview** and the Freigeben/Ablehnen buttons + `sendPrompt` loop were removed — approving, editing (full), re-running and rejecting all happen in **chat** (`reference/chat-review.md`), and processes run on one hourly collector task (`reference/automation.md`). Kept as a record of the original cockpit build.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement task-by-task. Steps use checkbox (`- [ ]`) syntax.
 
 **Goal:** Replace the dashboard live artifact with a unified cockpit in the look of `~/galant-command-center.pdf`: workflow tabs paging through open review items (VORSCHLAG fields + BEGRÜNDUNG + Freigeben/Ablehnen via sendPrompt), plus an "Überblick" tab carrying the old status content. Ship the review-apply engine in the plugin (TS port of the proven workspace `apply.py`) and teach processes to write review queues.

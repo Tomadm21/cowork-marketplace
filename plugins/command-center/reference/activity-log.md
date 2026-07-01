@@ -13,8 +13,8 @@ Every process records each successful run as one line in **`<workspace>/_firma/_
 | `ts` | ISO-8601 timestamp of the run |
 | `version` | schema version (currently `1`) — present from line one |
 | `run_id` | stable id for **this** piece of work, so a re-run/retry never double-counts. Build it from process + the work's natural key (e.g. `invoicing-<jahr>-KW<kw>`), optionally + a suffix. The dashboard keeps the **last** line per `run_id`. |
-| `process` | the process key (`invoicing`, `daily-report`, `photo-sorting`, `receipt-filing`, `lead-gen`) |
-| `items` | how many units this run handled (Rechnungen, Belege, Fotos, Berichte, Leads) — drives the time-saved estimate |
+| `process` | the process key (`invoicing`, `daily-report`, `photo-sorting`, `receipt-filing`) |
+| `items` | how many units this run handled (Rechnungen, Belege, Fotos, Berichte) — drives the time-saved estimate |
 | `summary` | one short human line of what happened (shown in the feed) |
 | `status` | `done` (work finished + approved) · `prepared` (a scheduled/review run that's waiting for the operator's approval — shown in the feed but **not** counted toward time saved) |
 

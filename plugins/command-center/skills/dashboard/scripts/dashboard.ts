@@ -6,8 +6,8 @@
  * file:// can't fetch siblings). The HTML is the live artifact:
  *
  *   • First tab: "Überblick" — hero (time saved), process cards, activity feed.
- *   • Per-process tabs: review cockpit (item pager, preview, VORSCHLAG, BEGRÜNDUNG,
- *     Freigeben / Ablehnen buttons calling sendPrompt).
+ *   • Per-process tabs: READ-ONLY review list (item pager, preview, VORSCHLAG,
+ *     BEGRÜNDUNG, tier). No buttons — approving/editing/re-running happens in chat.
  *
  * Active tab: first workflow tab with open items; if none → Überblick.
  *
@@ -262,6 +262,7 @@ export function buildDashboard(ws: string): string {
   const entries = loadActivity(ws);
   const queues = loadQueues(ws);
   const counts = countByProcess(queues);
+  const openItems = queues.reduce((s, pq) => s + pq.items.length, 0);
   const activeDefault = defaultTab(queues);
   const stand = deDateTime(new Date());
 
@@ -297,7 +298,9 @@ export function buildDashboard(ws: string): string {
   let nextStep: string;
   const waitingActive = active.filter((k) => waiting[k] > 0);
   const starters = keys.filter((k) => procs[k].starter && !active.includes(k));
-  if (active.length === 0) {
+  if (openItems > 0) {
+    nextStep = `${deInt(openItems)} ${openItems === 1 ? "Vorschlag wartet" : "Vorschläge warten"} auf deine Freigabe. Sag im Chat: „<b>zeig offene Freigaben</b>" — dort kannst du annehmen, bearbeiten oder neu rechnen lassen.`;
+  } else if (active.length === 0) {
     const rec = starters[0] ? procs[starters[0]] : (keys[0] ? procs[keys[0]] : undefined);
     nextStep = rec
       ? `Noch kein Prozess aktiv. Der einfachste Start: <b>${esc(rec.emoji || "")} ${esc(rec.title)}</b>. Sag <code>/command-center:setup</code> — wir richten ihn in 2 Minuten ein.`
@@ -449,10 +452,7 @@ export function buildDashboard(ws: string): string {
       <div>
         <div class="icard"><p class="ttl">Vorschlag</p><table class="vt"><tbody>${rows}</tbody></table></div>
         <div class="icard"><p class="ttl">Begründung</p><div class="begruendung">${esc(it.reason)}</div>
-          <div class="actions">
-            <button class="ap" onclick="act('Freigeben','${esc(it.runid)}',${idAttr},${labelAttr})">Freigeben</button>
-            <button class="rj" onclick="act('Ablehnen','${esc(it.runid)}',${idAttr},${labelAttr})">Ablehnen</button>
-          </div>
+          <div class="chathint">Freigabe, Bearbeiten &amp; Nochmal laufen im <b>Chat</b> — sag z. B.: „<b>zeig offene Freigaben</b>"</div>
         </div>
       </div>
     </div>`;
@@ -539,6 +539,7 @@ table.vt td:first-child{color:var(--mu);width:90px;padding-right:10px}
 .actions button{font:inherit;font-size:13.5px;border-radius:9px;padding:9px 16px;cursor:pointer;border:1px solid transparent}
 .ap{background:var(--gn);color:#fff}.ap:hover{background:#136a32}
 .rj{background:#fff;color:#b42318;border-color:#eccac6}.rj:hover{background:#fdf3f2}
+.chathint{margin-top:14px;background:#eef3ff;border:1px solid #d7e3fb;border-radius:9px;padding:10px 13px;font-size:13px;color:#27486f}
 .empty-tab{border:1px dashed var(--bd);border-radius:14px;padding:40px 28px;text-align:center;background:var(--sf)}
 .empty-tab h3{margin:0 0 5px;font-size:15px;font-weight:600}
 .empty-tab p{margin:0 auto;max-width:460px;font-size:13px;color:var(--mu)}
@@ -590,13 +591,13 @@ p.empty{color:var(--mu);background:var(--sf);border:1px solid var(--bd);border-r
 <body><div class="wrap">
   <div class="hd">
     <div class="mark"></div>
-    <div><h1>${esc(name)} · Command Center</h1><div class="sub">Freigaben &amp; Kontrolle</div></div>
+    <div><h1>${esc(name)} · Command Center</h1><div class="sub">Übersicht — Freigaben laufen im Chat</div></div>
     <div class="stand">Stand: ${esc(stand)}</div>
   </div>
   <div class="tabs" id="tabs">${tabsHtml}</div>
   <div id="body">${initialBody}</div>
   <div class="manual" id="manual"></div>
-  <div class="foot">Workflow oben wählen · ←→ blättern · F freigeben · R ablehnen · Freigabe legt collision-safe ab — nichts ohne deine Bestätigung.</div>
+  <div class="foot">Workflow oben wählen · ←→ blättern · Freigabe, Bearbeiten &amp; Nochmal laufen im Chat — sag „zeig offene Freigaben". Das Dashboard zeigt nur an, es verändert nichts.</div>
   <div id="ueberblick-content" style="${ueberblickDisplay}">
     ${hero}
     ${catNote}
@@ -651,10 +652,8 @@ function renderProcess(proc){
     '<div class="itemgrid"><div>'+prevHtml+'</div><div>'+
     '<div class="icard"><p class="ttl">Vorschlag</p><table class="vt"><tbody>'+rows+'</tbody></table></div>'+
     '<div class="icard"><p class="ttl">Begründung</p><div class="begruendung">'+e(it.reason)+'</div>'+
-    '<div class="actions">'+
-    '<button class="ap" onclick="act(\'Freigeben\',\''+e(it.runid)+'\','+idAttr+','+labelAttr+')">Freigeben</button>'+
-    '<button class="rj" onclick="act(\'Ablehnen\',\''+e(it.runid)+'\','+idAttr+','+labelAttr+')">Ablehnen</button>'+
-    '</div></div></div></div>';
+    '<div class="chathint">Freigabe, Bearbeiten &amp; Nochmal laufen im <b>Chat</b> — sag z. B.: „<b>zeig offene Freigaben</b>"</div>'+
+    '</div></div></div>';
 }
 
 function syncTabs(){
@@ -695,21 +694,12 @@ function go(d){
   si((ii[pi]||0)+d);
 }
 
-function act(verb,runid,id,label){
-  var p=(verb==='Freigeben'?'Freigeben: ':'Ablehnen: ')+runid+' Aktion '+id+' ('+label+')';
-  try{if(typeof sendPrompt==='function'){sendPrompt(p);return;}}catch(x){}
-  try{if(window.cowork&&window.cowork.sendPrompt){window.cowork.sendPrompt(p);return;}}catch(x){}
-  var m=document.getElementById('manual');m.style.display='block';
-  m.innerHTML='Sag mir: <b>'+e(p)+'</b><br>oder: <code>bun apply.ts _firma '+(verb==='Freigeben'?'approve':'reject')+' '+e(runid)+' '+id+'</code>';
-}
+// Review-Aktionen (annehmen / bearbeiten / nochmal / ablehnen) laufen im Chat — das Dashboard löst nichts aus.
 
 document.addEventListener('keydown',function(ev){
   if(pi==='overview')return;
-  var proc=null;for(var i=0;i<C.processes.length;i++){if(C.processes[i].key===pi){proc=C.processes[i];break;}}
   if(ev.key==='ArrowRight')go(1);
   else if(ev.key==='ArrowLeft')go(-1);
-  else if(ev.key.toLowerCase()==='f'&&proc&&proc.items.length){var it=proc.items[ii[pi]||0];var lbl=String((it.values&&it.values.lieferant)||it.filename||proc.label);act('Freigeben',it.runid,it.id,lbl);}
-  else if(ev.key.toLowerCase()==='r'&&proc&&proc.items.length){var it=proc.items[ii[pi]||0];var lbl=String((it.values&&it.values.lieferant)||it.filename||proc.label);act('Ablehnen',it.runid,it.id,lbl);}
 });
 </script>
 </body></html>`;

@@ -16,8 +16,8 @@ A block is only treated as a pattern if it has a `- keys:` line. `impact` ∈ ho
 - empfehlung: Ein `stammdaten/*.json`-Register anlegen oder erweitern, damit der Prozess den Treffer automatisch zuordnet statt jedes Mal nachzufragen.
 
 ## Heuristik → explizite Regel
-- keys: invoicing:spesen-heuristik, photo:low-confidence-date, receipt:ambiguous-routing, lead-gen:low-quality-source
-- beleg: Sobald eine wiederholt korrigierte Heuristik eine bekannte Regel hat, ersetzt eine explizite Config-Regel die Schätzung (etablierte Praxis: deterministische Regel schlägt wiederholtes Raten). Gilt auch für wiederholt gleich aufgelöste Routing-Mehrdeutigkeit und wiederholt aussortierte Quellen — beides sind fehlende explizite Regeln (Tie-Break bzw. Quellen-Filter).
+- keys: invoicing:spesen-heuristik, photo:low-confidence-date, receipt:ambiguous-routing
+- beleg: Sobald eine wiederholt korrigierte Heuristik eine bekannte Regel hat, ersetzt eine explizite Config-Regel die Schätzung (etablierte Praxis: deterministische Regel schlägt wiederholtes Raten). Gilt auch für wiederholt gleich aufgelöste Routing-Mehrdeutigkeit — eine fehlende explizite Regel (Tie-Break).
 - impact: mittel
 - aufwand: niedrig
 - empfehlung: Die Regel in der `reference/rules.md` des Prozesses bzw. in `config/<process>.json` explizit machen.

@@ -37,3 +37,8 @@ The deterministic rules the invoice math follows. **These are implemented in `sc
 ## Output
 
 `compute.ts` prints one JSON block: per-person day breakdown, spesen days, the four subtotal lines per person, and the netto/MwSt/brutto totals, plus `warnings[]`. The skill reproduces this block verbatim and uses it to fill the invoice — it never recomputes the numbers.
+
+## Confidence-Kalibrierung (v0.7.0)
+- **`sicher`** nur, wenn alle Stunden vollständig/lesbar sind, Sätze/Stufen/Spesen/MwSt deterministisch über das Pflicht-Skript berechnet wurden und keine Position geschätzt ist.
+- **`prüfen`** bei unleserlichen Stunden, fehlenden Tagen, unklarer Stufe/Spesen oder geschätzten Beträgen.
+- Geld/Recht bleibt deterministisch (Skript-Pflicht) — Confidence betrifft nur Lesbarkeit/Vollständigkeit des Inputs, nie die Arithmetik.

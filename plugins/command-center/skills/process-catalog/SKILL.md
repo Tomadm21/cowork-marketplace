@@ -18,10 +18,13 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/workflows.json` and present each process f
 > 2. 📷 **Fotos sortieren** — Baustellen-Fotos benennen und einsortieren · *schnell eingerichtet*
 > 3. 📋 **Tagesbericht** — euren Tagesbericht automatisch ausfüllen
 > 4. 🧾 **Rechnungen** — aus Stundenzetteln eine fertige Rechnung machen
-> 5. 🎯 **Kunden finden** — Kontakte suchen und nach Eignung bewerten
 > ✏️ Etwas anderes · ❓ „wie funktioniert Nummer X?"
 
 If they ask **"wie funktioniert X"**, explain that one from its `how` steps + needs/gives in `workflows.json` before they choose. Mark any process already `onboarded` in `cc:processes` as ✅ and offer it for re-config rather than re-listing as new.
+
+## Der einfachste Alltagsweg: alles reinwerfen
+
+Sag der Firma den Normalfall: **alle Dateien — Belege, Fotos, Tagesbericht — einfach in `_eingang/` legen** und „verarbeite alles" sagen. Die **intake**-Skill erkennt jeden Dateityp selbst, fragt nur das Nötige (bei Fotos: welche Baustelle/Datum, einmal pro Stapel) und legt am Ende ein interaktives Review-Board vor. Man muss keinen Prozess von Hand benennen.
 
 ## For a firm with no plan: recommend a starter
 

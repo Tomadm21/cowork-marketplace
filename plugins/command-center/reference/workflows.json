@@ -1,7 +1,7 @@
 {
   "version": 1,
   "_note": "Single source for workflow display + time-model. Read by dashboard.ts (cards + stats), process-catalog (beginner explainers) and the dashboard skill (on-demand 'wie funktioniert X'). Plain language only — no jargon in what/how/needs/gives/trigger. minutes_per_item lives ONLY here (anti-drift) and is a conservative under-estimate, shown as 'geschätzt' in the dashboard.",
-  "order": ["receipt-filing", "photo-sorting", "daily-report", "invoicing", "lead-gen"],
+  "order": ["receipt-filing", "photo-sorting", "daily-report", "invoicing"],
   "processes": {
     "invoicing": {
       "emoji": "🧾",
@@ -78,25 +78,6 @@
       "eingang": "receipt-filing",
       "setup_effort": "klein",
       "starter": true
-    },
-    "lead-gen": {
-      "emoji": "🎯",
-      "title": "Kunden finden",
-      "what": "Sucht Kontaktdaten und bewertet, wie gut eine Firma zu dir passt.",
-      "how": [
-        "Du gibst mir eine Liste von Firmen oder Webseiten.",
-        "Ich suche die Kontaktdaten und bewerte jede Firma nach deinem Wunschkunden.",
-        "Du bekommst eine sortierte Liste — die besten Treffer zuerst."
-      ],
-      "needs": "Eine Liste von Firmen/Webseiten + dein Wunschkunde",
-      "gives": "Eine bewertete Kontaktliste",
-      "trigger": "Finde passende Kunden aus dieser Liste",
-      "unit": "Lead",
-      "unit_plural": "Leads",
-      "minutes_per_item": 4,
-      "eingang": "lead-gen",
-      "setup_effort": "mittel",
-      "starter": false
     }
   }
 }

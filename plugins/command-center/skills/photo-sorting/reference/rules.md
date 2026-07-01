@@ -36,3 +36,8 @@ Then set `photo-sorting` under `cc:processes` to `onboarded`.
 A neutral construction set the firm can adopt and edit; spaces become `-` in filenames:
 
 Baustelleneinrichtung · Verkehrsabsicherung · Materialanlieferung · Geraete-Maschineneinsatz · Aufraeumen · Oberbodenabtrag · Auskoffern · Aushub-Fundament · Kabelgraben-herstellen · Baugrube-herstellen · Aushub-seitlich-lagern · Schotter-seitlich-lagern · Regenwasserleitung-legen · Kabel-verlegen · Kabel-absanden · Leitungen-verfuellen · Baugrube-anfuellen · Fundament-herstellen · Fundament-setzen · Poller-setzen · Markierungsplatten-legen · Schotter-einbauen · Splitt-einbauen · Sand-einbauen · Planum-herstellen · Splitt-abziehen · Verdichten · Borde-setzen · Pflastern · Einschlaemmen · Anfahrpfosten-anschneiden · Trafolieferung · Trafosetzung · Asphalt-stemmen · Lastplattendruckversuch · Restarbeiten · Feinreinigung · Endzustand
+
+## Confidence-Kalibrierung & Lernschleife (v0.7.0)
+- **`sicher`** nur, wenn: Baustelle in `stammdaten/projekte.json` zugeordnet, Datum sicher (EXIF oder eindeutig aus Dateiname), Tätigkeit aus dem Katalog mit hoher Sicherheit, Zielordner eindeutig.
+- **`prüfen`** sonst — fehlendes EXIF-Datum, unklare Baustelle, geratene Tätigkeit (`Uebersicht`-Fallback).
+- **Neue Baustelle** (nicht in `projekte.json`): `prüfen` **und** `fact:baustelle-<slug>`-Signal mit `severity:"folgenreich"`. Nach Freigabe Übernahme in Stammdaten anbieten (Lernschleife).

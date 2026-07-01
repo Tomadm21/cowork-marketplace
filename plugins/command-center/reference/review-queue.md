@@ -1,10 +1,10 @@
-# Review Queue contract — how processes hand work to the cockpit
+# Review Queue contract — how processes hand work to review
 
 A **review queue** is the handoff layer between a prepared workflow run and the workspace.
 When a process finishes its analysis it writes one JSON file; nothing is copied or moved until
-a human explicitly approves. The cockpit (Live Artifact dashboard) reads the open queues,
-groups actions by tier, and lets the reviewer approve them individually, in bulk, or reject
-them. Only the apply engine ever touches workspace files — skills write queues, the engine
+a human explicitly approves. The dashboard (Live Artifact) **displays** the open queues read-only;
+the actual review — approve, edit, re-run, reject — happens in **chat** (see `reference/chat-review.md`).
+Only the apply engine ever touches workspace files — skills write (and patch) queues, the engine
 applies them.
 
 ---
@@ -27,11 +27,11 @@ The filename becomes the `runid` (without the `.json` extension) and must be sta
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `runid` | string | yes | Stable identifier; matches `activity-log` `run_id`; equals the filename without `.json` |
-| `process` | string | yes | Process key: `receipt-filing`, `invoicing`, `daily-report`, `photo-sorting`, `lead-gen` |
+| `process` | string | yes | Process key: `receipt-filing`, `invoicing`, `daily-report`, `photo-sorting` |
 | `created` | string | yes | ISO 8601 timestamp; offset allowed (e.g. `+00:00`) |
 | `rechecked` | string | no | ISO 8601 timestamp; updated when a process re-analyses an existing queue |
 | `origin` | string | yes | `hintergrund` (background skill), `interaktiv`, or similar free-form tag |
-| `headline` | string | yes | One-sentence human summary shown in the cockpit header |
+| `headline` | string | yes | One-sentence human summary. **Display counts are derived from `len(actions)`** by the engine/board — a stale stored counter is never trusted. |
 | `actions` | array | yes | Ordered list of action objects — see below |
 
 Example top-level object (actions omitted):
@@ -107,7 +107,7 @@ Only keys relevant to the document type need to be present. The engine does not 
 ```
 process writes queue file            → status: prepared  (activity log)
          ↓
-cockpit reads all *.json in _review/  → grouped by process, sorted by tier
+dashboard displays *.json (read-only) → review happens in chat
          ↓
 reviewer takes action per action id
          ↓
@@ -124,19 +124,28 @@ queue with zero remaining actions
   → file moved to _erledigt/          → run considered done
 ```
 
-### Collision-safe copy
+### Collision-safe copy + content idempotency
 
-When copying `filename` into a target directory, the engine checks for an existing file with
-the same name. If one exists it appends `_2`, `_3`, … until the path is free. The chosen
-destination path (not the input) is what appears in the journal.
+When copying `filename` into a target directory the engine first compares **content (md5)**:
+- target with the same name exists **and is byte-identical** to the source → **skip**, journal
+  `status: "skipped-identical"`, **no** `_2` clone (this is what keeps a re-run from littering
+  `_ausgang`/N: with duplicates);
+- name exists but content differs → append `_2`, `_3`, … until free;
+- otherwise copy.
+The engine is also **journal-guarded** (a `(runid,id,target)` already applied is skipped) and
+removes the action from the queue **atomically**, so an interrupted run is safe to repeat.
+Applied output hashes are recorded in `_firma/_state/filed-md5.json` so intake can skip sources
+whose identical output was already filed on an earlier day.
 
 ### Journal record format
 
 One JSON line per applied action appended to `_firma/_journal/<YYYY-MM>.jsonl`:
 
 ```json
-{ "ts": "2026-06-08T16:21:07.123456", "verb": "kopieren", "source": "_eingang/receipt-filing/Heinz Wilmers GmbH RG 2605176 von 11.05.2026 - 476 EUR.pdf", "target": "001 Galant Bau GmbH/001. Buchhaltung/Buchhaltung 2026/05-26/Ausgaben/Heinz Wilmers GmbH RG 2605176 von 11.05.2026 - 476,00 EUR.pdf", "reversible": true }
+{ "ts": "2026-06-08T16:21:07.123456", "runid": "R-2026-06-08-belege", "id": 1, "verb": "kopieren", "source": "_eingang/receipt-filing/… .pdf", "target": "001 Galant Bau GmbH/001. Buchhaltung/2026/05-26/Ausgaben/… .pdf", "md5": "96fc5a7c…", "status": "copied", "reversible": true }
 ```
+`status` is `"copied"` or `"skipped-identical"`. `runid`+`id`+`md5` make the journal the
+idempotency source of truth.
 
 All paths in the journal are workspace-relative (relative to workspace root).
 
@@ -145,9 +154,12 @@ All paths in the journal are workspace-relative (relative to workspace root).
 ## Engine interface
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> \
+# kanonisch (reines Python3, vom Onboarding nach _firma/apply.py geschrieben):
+python3 <workspace_root>/_firma/apply.py <workspace_root> \
     list | approve <runid> <action_id> | reject <runid> <action_id> | approve-safe \
     [--dry]
+# optional, identischer Vertrag:
+bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> …
 ```
 
 | Command | Effect |
@@ -160,9 +172,10 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> \
 
 `<workspace_root>` is the absolute path to the workspace directory (parent of `_firma/`).
 
-> **Compatibility note:** a workspace-resident `_firma/apply.py` (as deployed on Galant) implements
-> the identical contract. Queues written by any process — plugin skill or external script — are
-> interchangeable between the Python and TypeScript engines. Do not write engine-specific fields.
+> **Engine note:** the **canonical** engine is `_firma/apply.py` (pure Python 3), written into the
+> workspace by `firm-onboarding` Step 2b — it runs everywhere without `bun`. The bundled
+> `skills/dashboard/scripts/apply.ts` implements the identical contract and is optional. Queues are
+> interchangeable between both engines; do not write engine-specific fields.
 
 ---
 
@@ -170,10 +183,12 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> \
 
 | Actor | Permitted |
 |---|---|
-| Process / skill | Write queue files to `_firma/_review/`; update `rechecked`; append signals |
+| Process / skill | Write queue files to `_firma/_review/`; **patch actions on edit / re-run**; update `rechecked`; append signals |
 | Apply engine | Read queues; copy files; append journal; move empty queues to `_erledigt/` |
-| Cockpit / chat | Trigger engine commands as an explicit human action — never automatic |
+| Dashboard | **Read-only** — display open queues; trigger nothing |
+| Chat (on the user's word) | Trigger engine commands (`approve` / `reject` / `approve-safe`) and queue patches as an explicit human action — never automatic |
 
-**Applying is always a deliberate human action.** No skill, hook, or background cron may call
-`approve` or `approve-safe` without a user-initiated trigger from the cockpit or chat interface.
-The queue is the firewall between analysis and workspace mutation.
+**Applying is always a deliberate human action.** No skill, hook, dashboard, or background cron may call
+`approve` or `approve-safe` without a user-initiated trigger in chat. The queue is the firewall
+between analysis and workspace mutation. Editing or re-running only changes the proposal in the
+queue — it never moves files; the move happens only on `approve`.

@@ -21,3 +21,7 @@ This arithmetic (cap + break subtraction) is intentionally done inline by the sk
 9. **Output path** 🔍 `output_path` — path-picker; propose a detected `*Bautagesberichte*` folder; capture as a pattern if it nests per project (`Bauvorhaben ‹Jahr›/‹Kunde›/‹Baustelle›/8.Bautagesberichte`). Default `_ausgang/berichte`.
 
 Then set the `daily-report` line under `cc:processes` to `onboarded`. If the firm has no template, offer to generate a simple starter they can replace.
+
+## Confidence-Kalibrierung (v0.7.0)
+- **`sicher`** nur, wenn kein Tag gekappt wurde, alle erwarteten Tage vorhanden sind und Baustelle/Bauleiter aus `stammdaten/projekte.json` eindeutig sind.
+- **`prüfen`** sobald ein Tag auf 17:00 gekappt wurde (Netto neu berechnet) oder ein Tag fehlt — der gekappte Tag bleibt als „prüfen" markiert.

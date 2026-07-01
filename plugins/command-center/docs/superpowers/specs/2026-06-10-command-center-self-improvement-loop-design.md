@@ -143,8 +143,8 @@ Tom zieht  /command-center:review  ──>  review.ts:
 - `commands/review.md` — `/command-center:review`.
 
 **Edit**
-- jede Prozess-`SKILL.md` (`invoicing`, `daily-report`, `photo-sorting`, `receipt-filing`,
-  `lead-gen`) — neuer „Signal loggen"-Schritt (Spiegel des „Log the run"-Schritts).
+- jede Prozess-`SKILL.md` (`invoicing`, `daily-report`, `photo-sorting`, `receipt-filing`)
+  — neuer „Signal loggen"-Schritt (Spiegel des „Log the run"-Schritts).
 - `reference/architecture.md` — Loop + Rollen-Grenze dokumentieren.
 - Version-Bump 0.2.0 → 0.3.0 (plugin.json, company-context.template.md, dry-run doc).
 

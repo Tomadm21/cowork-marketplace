@@ -12,12 +12,13 @@ The firm works inside a Cowork-granted folder (the **workspace root**). All firm
 <workspace>/
 ├── _firma/
 │   ├── company-context.md         # firm-level single source of truth (see §2)
+│   ├── apply.py                   # canonical apply engine (installed by onboarding)
 │   ├── config/                    # per-process config — one file each, decoupled
+│   │   ├── intake.json            # shared-inbox mapping (inbox_roots, ordner_routing, externe_eingaenge)
 │   │   ├── invoicing.json
 │   │   ├── daily-report.json
 │   │   ├── photo-sorting.json
-│   │   ├── receipt-filing.json
-│   │   └── lead-gen.json
+│   │   └── receipt-filing.json
 │   └── stammdaten/                # OPTIONAL master-data registers (matching aids)
 │       ├── projekte.json          # sites / jobs / client projects
 │       ├── personen.json          # staff / workers

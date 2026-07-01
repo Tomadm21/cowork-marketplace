@@ -1,51 +1,83 @@
-# Automation — putting a process on a schedule
+# Automation — Prozesse als stündliche Loops
 
-How to make any Command Center process run automatically in Claude Cowork, and the honest limits.
+Wie jeder Command-Center-Prozess in Claude Cowork automatisch **vorbereitet** wird — und die ehrlichen Grenzen.
 
-## How Cowork automation actually works (2026)
+## Wie Cowork-Automation funktioniert (2026)
 
-Cowork runs recurring work via **scheduled tasks**:
-- Create one with the **`/schedule`** command in a task chat, or via the **Scheduled** page in the sidebar (**+ New task** → name, prompt, frequency, optional folder).
-- Cadences: **hourly, daily, weekly, on weekdays, or manual** (on-demand).
-- Each scheduled task is its own Cowork session with access to your installed plugins and skills.
+Cowork führt wiederkehrende Arbeit über **geplante Tasks** aus:
+- Anlegen mit **`/schedule`** in einem Task-Chat, oder über die **Scheduled**-Seite in der Seitenleiste (**+ New task**).
+- Jeder geplante Task ist eine eigene Cowork-Session mit Zugriff auf deine installierten Plugins und Skills.
+- Zeitplan als Cron — für das Command Center **stündlich** (`0 * * * *`).
 
-### The limit you must tell the firm about
+### Die Grenze, die die Firma kennen muss
 
-> **Scheduled tasks only run while your computer is awake and the Claude Desktop app is open.** If the machine is asleep or the app is closed at trigger time, Cowork skips the run and executes it once the computer wakes / the app reopens.
+> **Geplante Tasks laufen nur, während dein Computer wach und die Claude-Desktop-App offen ist.** Schläft die Maschine oder ist die App zu, wird der Lauf übersprungen und beim nächsten Wachwerden / Öffnen nachgeholt.
 
-This is **not** server-side, headless, 24/7 cron. For genuinely unattended automation, the realistic options are:
-1. A dedicated always-on machine with Cowork open (a "back-office Mac").
-2. A documented **manual trigger** — the firm runs the process in chat when they have the inputs (most processes are fast).
-3. (Developer path) move the deterministic core to a headless runner — see `reference/architecture.md` Phase-2.
+Das ist **kein** serverseitiger 24/7-Cron. Für echte unbeaufsichtigte Automation:
+1. ein dauerhaft laufender „Back-Office-Mac" mit offener App, oder
+2. der dokumentierte **manuelle Trigger** — die Prozesse sind schnell; du startest sie im Chat, wenn du die Inputs hast.
 
-Never promise unattended 24/7 automation from a normal laptop.
+Verspricht der Firma nie unbeaufsichtigte 24/7-Automation vom normalen Laptop.
 
-## The non-negotiable rule: automatic ≠ unattended writes
+> **Engine:** Dateien bewegt am Ende ausschließlich die kanonische Workspace-Engine `_firma/apply.py` (reines Python3, vom Onboarding installiert, md5-idempotent + atomar). Der Sammel-Task **bereitet nur vor** und ruft sie nie.
 
-Command Center processes use vision/LLM extraction, which is non-deterministic. A scheduled run therefore:
-- **prepares** the work and **lands it in a review state** (a proposed invoice, a proposed set of file renames),
-- **never auto-commits** consequential writes (renaming/moving the firm's files, finalizing an invoice, sending anything),
-- waits for the operator to approve on their next session.
+## Das Modell: EIN stündlicher Sammel-Task
 
-"Automatic" means "the preparation is done for you," not "irreversible actions happened while you weren't looking."
+Statt eines Tasks pro Prozess legt das Command Center **einen** stündlichen Sammel-Task an („Collector"). Er schaut in alle aktiven Eingänge, bereitet neue Arbeit vor und legt sie zur Freigabe — **bewegt aber nichts**.
 
-## Recommended schedule per process
+Jeder Lauf:
+1. scannt den **gemeinsamen Eingang** `_eingang/` (rekursiv); die **intake**-Skill klassifiziert jede neue Datei nach Inhalt und routet sie an den richtigen Prozess (per-Prozess-Unterordner `_eingang/<prozess>/` werden weiter als explizites Ziel erkannt),
+2. überspringt alles, was schon gesehen / vorbereitet / abgelegt wurde (Dedupe, siehe unten),
+3. lässt für jeden Prozess mit neuem Input den Skill im **Loop-/Sammel-Modus** laufen — bündelt alle neuen Dateien in **eine** Review-Queue pro Prozess,
+4. schreibt Activity-Log `status: prepared`,
+5. ist nichts Neues da: **sofort beenden** (billig — kaum Verbrauch).
 
-| Process | Good cadence | What the scheduled run does (then waits for approval) |
+### Dedupe-/Watermark-Vertrag
+
+Damit der stündliche Lauf nichts doppelt vorbereitet, gilt eine Quelldatei als „schon erledigt", wenn ihr workspace-relativer Pfad in einem von dreien steht:
+- eine offene Queue unter `_firma/_review/`,
+- das Journal `_firma/_journal/*.jsonl` (bereits abgelegt),
+- die Merkliste `_firma/_state/seen-<prozess>.json` (bereits vorbereitet).
+
+Nach dem Vorbereiten ergänzt der Skill die neuen Quellpfade in `seen-<prozess>.json` (JSON-Array; Datei/Ordner anlegen, falls fehlend). Best-effort, nie blockierend. Details im jeweiligen `skills/<prozess>/SKILL.md` → „Loop- / Sammel-Modus".
+
+## Die nicht verhandelbare Regel: automatisch ≠ unbeaufsichtigt schreiben
+
+Command-Center-Prozesse nutzen Vision/LLM-Extraktion — nicht deterministisch. Ein geplanter Lauf:
+- **bereitet** die Arbeit vor und **landet im Review-Zustand** (eine vorgeschlagene Rechnung, ein vorgeschlagener Satz Umbenennungen),
+- **committet nie** folgenreiche Schreibvorgänge (Dateien verschieben/umbenennen, eine Rechnung finalisieren, irgendetwas senden),
+- wartet auf deine Freigabe.
+
+„Automatisch" heißt „die Vorbereitung ist für dich erledigt", nicht „während du weg warst, ist etwas Unumkehrbares passiert".
+
+## Freigabe passiert im Chat — nicht im Dashboard
+
+Das Dashboard (`skills/dashboard/`) ist **reine Übersicht**: es zeigt, was lief, wie viel Zeit gespart wurde und wie viele Posten warten — löst aber **nichts** aus. **Annehmen, Bearbeiten, Nochmal-Rechnen und Ablehnen machst du im Chat.** Sag „**zeig offene Freigaben**". Vollständiger Ablauf: `reference/chat-review.md`. Nur die Apply-Engine (`skills/dashboard/scripts/apply.ts`) bewegt am Ende Dateien — ausgelöst durch dein Wort im Chat, nie durch Task oder Dashboard.
+
+## Der Sammel-Task: genauer Prompt
+
+`/command-center:setup` bietet an, diesen Task anzulegen (stündlich, Cron `0 * * * *`). Der Prompt ist selbst-enthalten (jeder Lauf startet ohne Gedächtnis):
+
+> *„Command-Center-Sammellauf. Scanne den gemeinsamen Eingang `_eingang/` (rekursiv) im Workspace `<WORKSPACE_ROOT>`. Verarbeite nur Dateien, die noch NICHT in `_firma/_review/`, `_firma/_journal/` oder einer `_firma/_state/seen-<prozess>.json` stehen. Lass die intake-Skill im Loop-/Sammel-Modus laufen: klassifiziere jede neue Datei nach Inhalt (Beleg, Foto, Tagesbericht, Stundenzettel), erkenne Dubletten, route an den richtigen Prozess, bündle pro Prozess in EINE Review-Queue und schreibe Activity-Log `status: prepared`. Stelle KEINE Rückfragen; fehlt einem Foto Baustelle/Datum, lege die Aktion mit tier prüfen an. Bewege, buche, finalisiere oder sende NICHTS. Ist nichts Neues da, beende sofort. Wenn etwas vorbereitet wurde, gib mir eine kurze Notiz: ‚X neue Posten liegen zur Freigabe — sag zeig offene Freigaben.'"*
+
+`<WORKSPACE_ROOT>` füllt setup mit dem echten absoluten Pfad.
+
+## Empfohlene Taktung
+
+| Task | Takt | Was der Lauf tut (dann Freigabe im Chat) |
 |---|---|---|
-| `invoicing` | weekly (e.g. Mon AM) | scan `_eingang/invoicing/` for new timesheets, run `compute.ts`, prepare pro-forma invoices for review |
-| `daily-report` | weekdays (end of day) | assemble the day's report draft from provided hours/notes for review |
-| `photo-sorting` | daily | propose renamed/filed photos from `_eingang/photo-sorting/` for review |
-| `receipt-filing` | daily | read new receipts in `_eingang/receipt-filing/`, propose filing targets for review |
-| `lead-gen` | manual / weekly | run a prepared URL list, produce the scored output file |
+| **Sammel-Task** (alle vier) | **stündlich** `0 * * * *` | neue Inputs erkennen, vorbereiten, in Review-Queues bündeln |
 
-## Setting one up (operator walkthrough)
+Einzelne Prozesse seltener gewünscht? Du kannst zusätzlich pro Prozess einen eigenen Task mit anderem Cron anlegen (z. B. `invoicing` wöchentlich montags). Der Standard ist der **eine** stündliche Sammel-Task — ein Zeitplan, den du im Blick behältst.
 
-1. Make sure the process is onboarded (run it once manually first).
-2. In Cowork, run `/schedule`.
-3. Prompt template (German example for `receipt-filing`):
-   > *"Verarbeite neue Belege in `_eingang/receipt-filing/` mit dem Command-Center-Prozess 'receipt-filing'. Bereite die Ablage vor und lege sie mir zur Freigabe vor — buche/verschiebe nichts ohne meine Freigabe."*
-4. Pick the cadence; click **Schedule**.
-5. Tell the firm the app-open caveat.
+## Einrichten (Operator-Walkthrough)
 
-The `/command-center:setup` flow offers to walk through this for each activated process.
+1. Prozesse einmal manuell onboarden/laufen lassen, damit `_firma/config/<prozess>.json` existiert.
+2. `/command-center:setup` → bietet den Sammel-Task an. Oder `/schedule` manuell mit dem Prompt oben.
+3. Cron `0 * * * *` (**stündlich**), **Schedule** klicken.
+4. Der Firma die App-offen-Grenze sagen.
+5. Ab jetzt: Dashboard ansehen mit „zeig das Dashboard", freigeben mit „zeig offene Freigaben".
+
+## Phase-2 (echte unbeaufsichtigte Läufe)
+
+Für einen Prozess, der garantierten Determinismus oder echte headless-Läufe braucht: dem `jan-kapitalfluss`-Muster folgen (portable TS-Engine + dünner MCP-Adapter + Approval-Hook), siehe `reference/architecture.md`. Skill-Variante und Engine-Variante koexistieren.

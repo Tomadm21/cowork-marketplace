@@ -34,10 +34,29 @@ Create this structure under `workspace_root` (skip any that already exist; never
 ```
 _firma/company-context.md
 _firma/config/                  (empty; processes write their own files here)
+_firma/config/intake.json       (Eingang-Mapping — siehe Step 2b)
 _firma/stammdaten/              (only if the firm gave register data)
-_eingang/                       (+ a subfolder per process the firm activates)
+_firma/apply.py                 (die Apply-Engine — siehe Step 2b)
+_firma/_review/                 (offene Freigabe-Queues)  + _review/_preview/  + _review/_erledigt/
+_firma/_journal/                (umkehrbares Ablage-Journal)
+_firma/_state/                  (seen-/filed-md5-/signals-State)
+_eingang/                       (EIN gemeinsamer Eingang — alles hier reinwerfen; die intake-Skill erkennt den Typ und routet. Optionale Unterordner _eingang/<prozess>/ erzwingen ein Ziel.)
 _ausgang/                       (+ rechnungen/ berichte/ belege/ bilder/ as needed)
 ```
+
+## Step 2b — Engine, Löschrecht und Eingang-Mapping (einmalig, robust)
+
+Drei Dinge, die spätere Läufe verlässlich machen — jetzt erledigen, nicht mitten in der Ablage:
+
+1. **Apply-Engine in den Workspace schreiben.** Kopiere `${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.py` nach `<workspace>/_firma/apply.py`. Sie ist reines Python 3 (überall vorhanden) und damit die **kanonische** Engine: inhaltsbasiertes Dedupe (md5 → identische Datei wird nie als `_2` geklont), journal-geschützt und atomar (ein Re-Lauf nach Abbruch ist gefahrlos). Alle Skills rufen primär `python3 <workspace>/_firma/apply.py …`; `bun …/apply.ts` ist nur optional.
+2. **Löschrecht vorab holen.** Das Archivieren einer geleerten Queue (`_review` → `_review/_erledigt`) braucht Lösch-/Move-Recht im Workspace. Hole es **jetzt** über `mcp__cowork__allow_cowork_file_delete` (einmalig), damit kein Freigabe-Lauf später mittendrin abbricht.
+3. **Eingang-Mapping festlegen.** Frag (detect-first, onboarding-ux): liegt der echte Eingang im Workspace (`_eingang/`) oder in **separaten** Ordnern (z. B. `…/Workflow-Input-Ressourcen/1-Bildbenennung`, `…/2-Tagesbericht`, `…/3-Belegbenennung`)? Schreibe das Ergebnis nach `_firma/config/intake.json`:
+   ```json
+   { "inbox_roots": ["_eingang"],
+     "ordner_routing": { "1-Bildbenennung": "photo-sorting", "2-Tagesbericht": "daily-report", "3-Belegbenennung": "receipt-filing" },
+     "externe_eingaenge": ["/absoluter/Pfad/Workflow-Input-Ressourcen"] }
+   ```
+   So gibt es **einen dokumentierten Eingang**; intake scannt genau diese Quellen, Dedupe/seen-state bleiben eindeutig.
 
 ## Step 3 — Write company-context.md
 
@@ -48,6 +67,8 @@ If the firm provided master data, also write `_firma/stammdaten/projekte.json`, 
 ## Step 4 — Confirm + hand off to process selection
 
 Show the user a short summary of what was captured and the folder structure created. Then invoke the **process-catalog** skill (or say: *"Welche Prozesse möchtest du aktivieren?"*) to let them pick which processes to set up next. Each process onboards itself the first time it runs.
+
+Sag dem Nutzer den einfachen Alltagsweg: **alles in `_eingang/` reinwerfen** und „verarbeite alles" sagen — die **intake**-Skill erkennt Belege, Fotos und Tagesberichte selbst, fragt nur das Nötige und legt am Ende ein Review-Board vor.
 
 ## Done means
 

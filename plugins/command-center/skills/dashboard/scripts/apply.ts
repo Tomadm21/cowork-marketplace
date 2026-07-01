@@ -21,7 +21,6 @@ export const ICON: Record<string, [string, string]> = {
   "invoicing":      ["Rechnungen", "invoice"],
   "photo-sorting":  ["Fotos", "photo"],
   "daily-report":   ["Tagesbericht", "doc"],
-  "lead-gen":       ["Leads", "leads"],
 };
 
 // ── Pure functions (exported for tests) ──────────────────────────────────────

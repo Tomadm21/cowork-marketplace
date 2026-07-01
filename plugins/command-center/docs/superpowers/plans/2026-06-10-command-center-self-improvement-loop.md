@@ -26,7 +26,7 @@
 
 **Modify**
 - `skills/invoicing/SKILL.md`, `skills/daily-report/SKILL.md`, `skills/photo-sorting/SKILL.md`,
-  `skills/receipt-filing/SKILL.md`, `skills/lead-gen/SKILL.md` — add a "Signal loggen" step.
+  `skills/receipt-filing/SKILL.md` — add a "Signal loggen" step.
 - `reference/architecture.md` — document the loop + role boundary.
 - `.claude-plugin/plugin.json`, `skills/firm-onboarding/templates/company-context.template.md`,
   `docs/end-to-end-dry-run.md` — version bump 0.2.0 → 0.3.0.
@@ -119,7 +119,6 @@ fails, **silently skip** — logging must never block the user's task.
 - daily-report: `daily-report:capped-day`, `daily-report:missing-day`
 - photo-sorting: `photo:unknown-site`, `photo:low-confidence-date`
 - receipt-filing: `receipt:unknown-vendor`, `receipt:ambiguous-routing`
-- lead-gen: `lead-gen:low-quality-source`
 - any process: `observation:<slug>`, `fact:<slug>`, `tech:<slug>`
 ````
 
@@ -769,12 +768,12 @@ git commit -m "feat(command-center): improvement-review skill + /command-center:
 
 ---
 
-## Task 7: Wire "Signal loggen" into the 5 process skills
+## Task 7: Wire "Signal loggen" into the 4 process skills
 
 Each process gets one new step before its existing "Log the run" step. The step is best-effort
 and references `reference/signals.md`. Insert the process-specific block verbatim.
 
-**Files:** `skills/invoicing/SKILL.md`, `skills/daily-report/SKILL.md`, `skills/photo-sorting/SKILL.md`, `skills/receipt-filing/SKILL.md`, `skills/lead-gen/SKILL.md`
+**Files:** `skills/invoicing/SKILL.md`, `skills/daily-report/SKILL.md`, `skills/photo-sorting/SKILL.md`, `skills/receipt-filing/SKILL.md`
 
 - [ ] **Step 1: invoicing** — in `skills/invoicing/SKILL.md`, immediately before `## Step 6 — Log the run`, insert:
 
@@ -826,32 +825,21 @@ Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per
 - if a learned firm/vendor fact came up → `{type:"fact", key:"fact:<slug>", detail:"…"}`
 ```
 
-- [ ] **Step 5: lead-gen** — before `## Step 5 — Log the run`, insert:
-
-```markdown
-## Step 4b — Signal loggen (best-effort)
-Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per
-`${CLAUDE_PLUGIN_ROOT}/reference/signals.md` — one JSON line each, never blocking the run:
-- if a source was repeatedly low quality → `{type:"recurring_check", key:"lead-gen:low-quality-source"}`
-- if the user said "wäre gut wenn…/merk dir…" → `{type:"observation", key:"observation:<slug>", detail:"…"}`
-- if the ICP definition shifted (a learned fact) → `{type:"fact", key:"fact:<slug>", detail:"…"}`
-```
-
-- [ ] **Step 6: Verify each insertion landed before the run-log step**
+- [ ] **Step 5: Verify each insertion landed before the run-log step**
 
 ```bash
 cd ~/cowork-marketplace/plugins/command-center
-for f in invoicing daily-report photo-sorting receipt-filing lead-gen; do
+for f in invoicing daily-report photo-sorting receipt-filing; do
   echo "== $f =="; grep -n "Signal loggen\|Log the run" skills/$f/SKILL.md
 done
 ```
 Expected: in every file, the "Signal loggen" line appears **above** the "Log the run" line.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 cd ~/cowork-marketplace
-git add plugins/command-center/skills/invoicing/SKILL.md plugins/command-center/skills/daily-report/SKILL.md plugins/command-center/skills/photo-sorting/SKILL.md plugins/command-center/skills/receipt-filing/SKILL.md plugins/command-center/skills/lead-gen/SKILL.md
+git add plugins/command-center/skills/invoicing/SKILL.md plugins/command-center/skills/daily-report/SKILL.md plugins/command-center/skills/photo-sorting/SKILL.md plugins/command-center/skills/receipt-filing/SKILL.md
 git commit -m "feat(command-center): processes append friction signals"
 ```
 

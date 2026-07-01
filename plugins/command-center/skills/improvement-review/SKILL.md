@@ -1,12 +1,13 @@
 ---
 name: improvement-review
-description: Operator-only — generate the Command Center improvement report (the "what can we optimize" stack). Use when Tom says "optimierungs-bericht", "command center review", "was kann ich optimieren", "review ziehen", "improvement report". Reads the workspace signal log, gates candidates by recurrence (≥3) AND the evidence library, and writes a Markdown report. Does NOT change the plugin.
+description: Operator-only — generate the Command Center improvement report (the "what can we optimize" stack). Use when Tom says "optimierungs-bericht", "command center review", "was kann ich optimieren", "review ziehen", "improvement report". Reads the workspace signal log, gates candidates by recurrence (≥3) OR structural severity, AND the evidence library, and writes a Markdown report. Does NOT change the plugin.
 ---
 
 # Improvement review (operator)
 
 Generate the operator report that surfaces what is worth improving — gated by **recurrence
-(≥3)** and **evidence** (`${CLAUDE_PLUGIN_ROOT}/reference/patterns.md`). This is an operator
+(≥3) OR structural severity** and **evidence** (`${CLAUDE_PLUGIN_ROOT}/reference/patterns.md`).
+A signal carrying `severity:"folgenreich"` (siehe `${CLAUDE_PLUGIN_ROOT}/reference/signals.md`) **bypasses the ≥3 recurrence floor** and is surfaced on first occurrence — so a structurally damaging issue (e.g. duplicate output) does not stay invisible until it has happened three times. This is an operator
 tool (Tom). It is read-only with respect to the plugin: it only reads the workspace and writes
 one Markdown report. Nothing here changes the Command Center's capabilities.
 

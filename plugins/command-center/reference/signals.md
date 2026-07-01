@@ -9,6 +9,7 @@ Every Command Center process appends **friction signals** to
 
 ```json
 { "ts": "2026-06-10T08:12:00Z", "process": "receipt-filing", "type": "correction", "key": "receipt:unknown-vendor", "detail": "Vendor 'Müller GmbH' nicht erkannt, manuell zugeordnet" }
+{ "ts": "2026-06-24T09:00:00Z", "process": "intake", "type": "recurring_check", "key": "intake:output-duplikat", "detail": "identischer Output erneut vorbereitet", "severity": "folgenreich" }
 ```
 
 - `ts` — ISO 8601 timestamp, **UTC with `Z` suffix** (these compare correctly as strings; offsets like `+02:00` would break watermark windowing).
@@ -17,6 +18,7 @@ Every Command Center process appends **friction signals** to
 - `key` — **stable cluster key**, lowercase, `process:slug` form. NO free text in the key —
   it is what recurrences aggregate on. Keep the key type-stable (one key → one type).
 - `detail` — short human-readable note for the report (may name the concrete example).
+- `severity` *(optional)* — `"folgenreich"` (bzw. `structural`/`strukturell`) für strukturell schwere Reibungen. Ein so markiertes Signal **überspringt das Recurrence-≥3-Gate** im Operator-Report (siehe unten) und wird sofort vorgelegt — auch beim ersten Auftreten. Sparsam einsetzen: nur für Probleme, die schon einmalig Schaden anrichten (Daten-Duplikate, kaputte Ablage, Datenverlust-Risiko).
 
 ## Types
 
@@ -40,5 +42,4 @@ fails, **silently skip** — logging must never block the user's task.
 - daily-report: `daily-report:capped-day`, `daily-report:missing-day`
 - photo-sorting: `photo:unknown-site`, `photo:low-confidence-date`
 - receipt-filing: `receipt:unknown-vendor`, `receipt:ambiguous-routing`
-- lead-gen: `lead-gen:low-quality-source`
 - any process: `observation:<slug>`, `fact:<slug>`, `tech:<slug>`

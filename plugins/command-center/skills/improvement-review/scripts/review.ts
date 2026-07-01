@@ -11,7 +11,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type SignalType = "correction" | "recurring_check" | "observation" | "fact" | "tech_change";
-export interface Signal { ts: string; process: string; type: SignalType; key: string; detail?: string; }
+export interface Signal { ts: string; process: string; type: SignalType; key: string; detail?: string; severity?: string; }
 export interface Pattern {
   name: string; keys: string[]; beleg: string;
   impact: "hoch" | "mittel" | "niedrig"; aufwand?: string; empfehlung?: string;
@@ -30,6 +30,7 @@ export function loadSignals(raw: string): Signal[] {
       ts: String(e.ts ?? ""), process: String(e.process ?? ""),
       type: e.type as SignalType, key: e.key,
       detail: e.detail != null ? String(e.detail) : undefined,
+      severity: e.severity != null ? String(e.severity) : undefined,
     });
   }
   return out;
@@ -43,7 +44,7 @@ export function windowSignals(signals: Signal[], watermarkTs: string): Signal[] 
 
 export interface Cluster {
   key: string; count: number; type: SignalType; details: string[];
-  pattern?: Pattern; rank: number;
+  pattern?: Pattern; rank: number; severe: boolean;
 }
 export interface GateResult {
   stapel: Cluster[]; geparkt: Cluster[]; candidates: Cluster[];
@@ -61,7 +62,7 @@ export function gate(signals: Signal[], patterns: Pattern[], threshold = 3): Gat
   // tech clusters are notices — rank stays 0, render order is insertion order.
   const techMap = new Map<string, Cluster>();
   for (const s of signals.filter((s) => s.type === "tech_change")) {
-    const c = techMap.get(s.key) ?? { key: s.key, count: 0, type: "tech_change" as SignalType, details: [], rank: 0 };
+    const c = techMap.get(s.key) ?? { key: s.key, count: 0, type: "tech_change" as SignalType, details: [], rank: 0, severe: false };
     c.count++; if (s.detail) c.details.push(s.detail);
     techMap.set(s.key, c);
   }
@@ -71,8 +72,10 @@ export function gate(signals: Signal[], patterns: Pattern[], threshold = 3): Gat
   const clusterMap = new Map<string, Cluster>();
   for (const s of signals) {
     if (!(s.type === "correction" || s.type === "recurring_check" || s.type === "observation")) continue;
-    const c = clusterMap.get(s.key) ?? { key: s.key, count: 0, type: s.type, details: [], rank: 0 };
+    const c = clusterMap.get(s.key) ?? { key: s.key, count: 0, type: s.type, details: [], rank: 0, severe: false };
     c.count++; if (s.detail) c.details.push(s.detail);
+    const sev = (s.severity || "").toLowerCase();
+    if (sev === "folgenreich" || sev === "structural" || sev === "strukturell") c.severe = true;
     clusterMap.set(s.key, c);
   }
 
@@ -80,9 +83,9 @@ export function gate(signals: Signal[], patterns: Pattern[], threshold = 3): Gat
   for (const c of clusterMap.values()) {
     const p = patternForKey(c.key);
     c.pattern = p;
-    c.rank = c.count * (p ? IMPACT_WEIGHT[p.impact] : 1);
+    c.rank = c.count * (p ? IMPACT_WEIGHT[p.impact] : 1) + (c.severe ? 100 : 0);
     const isObservation = c.type === "observation";
-    if (!isObservation && c.count < threshold) continue; // below recurrence → dropped
+    if (!isObservation && c.count < threshold && !c.severe) continue; // below recurrence → dropped (severe bypasses the recurrence gate)
     if (!p) { geparkt.push(c); continue; }                // no evidence → parked
     if (isObservation) candidates.push(c); else stapel.push(c);
   }
@@ -116,7 +119,7 @@ export function maxTs(signals: Signal[]): string {
 
 function clusterLines(cs: Cluster[]): string {
   return cs.map((c) => {
-    const head = `- **${c.key}** — ${c.count}×` + (c.pattern ? ` · Muster: *${c.pattern.name}* (Impact ${c.pattern.impact})` : "");
+    const head = `- **${c.key}** — ${c.count}×` + (c.severe ? " · ⚠ **folgenreich** (Severity-Bypass)" : "") + (c.pattern ? ` · Muster: *${c.pattern.name}* (Impact ${c.pattern.impact})` : "");
     const emp = c.pattern?.empfehlung ? `\n  - Empfehlung: ${c.pattern.empfehlung}` : "";
     const ex = c.details[0] ? `\n  - Beispiel: ${c.details[0].replace(/\s+/g, " ")}` : "";
     return head + emp + ex;
