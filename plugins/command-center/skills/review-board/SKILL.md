@@ -30,7 +30,7 @@ Nur für den aktuellen Prozess: pro Posten die Output-Vorschau unter `_firma/_re
 ## Step 4 — Aktueller Prozess: pro Posten Karte + Boxen darunter
 Für JEDEN Posten des aktuellen Prozesses, in Reihenfolge:
 1. **Volle editierbare Karte** (visualize `show_widget`; `read_me` `interactive` einmal vorab) — siehe `${CLAUDE_PLUGIN_ROOT}/skills/review-board/reference/board-ui.md`. Sie zeigt **alle** Infos und macht sie **bearbeitbar**:
-   - **Dateiname** (`filename`), **Speicherort/Ziel** (`targets` — wohin gespeichert wird), die typrelevanten **Werte** (`values`: Belege `lieferant,nummer,datum,betrag,belegtyp,kategorie,entity`; Fotos `standort,datum,taetigkeit`; Bericht `projekt,kw`), **Begründung** (`reason`), **Stufe**-Badge.
+   - **Dateiname** (`filename`), **Speicherort/Ziel** (`targets` — wohin gespeichert wird), die typrelevanten **Werte** (`values`: Belege `lieferant,nummer,datum,betrag,belegtyp,kategorie,entity`; Fotos `standort,datum,taetigkeit`; Montagebericht-Scans `jahr,kw,bv,monteure`; Bericht `projekt,kw`), **Begründung** (`reason`), **Stufe**-Badge.
    - Buttons: **„Übernehmen"** (schickt geänderte Felder) und **„Ablehnen"**.
 2. **Direkt darunter** die nativen Boxen via EIN `present_files`-Aufruf für diesen Posten: `present_files([ <_firma/_review/_preview/Ergebnis>, <source Quelle> ])` → 1–2 klickbare Boxen, Klick öffnet rechts in der Sidebar. Nur Quelle, wenn kein Ergebnis.
 

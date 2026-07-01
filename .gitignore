@@ -27,3 +27,7 @@ plugins/trendfinder/AUDIT-*
 plugins/trendfinder/CUSTOMER-roadmap-*
 plugins/trendfinder/dore-claude-prompt.md
 plugins/trendfinder/demo-setup-recording-script.md
+
+# python bytecode
+__pycache__/
+*.pyc

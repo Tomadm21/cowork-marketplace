@@ -13,7 +13,7 @@ Zeigt ALLES und macht es bearbeitbar:
 - **Editierbare Felder** (Inputs, vorbefüllt):
   - `Dateiname` = `filename`
   - `Speicherort` = `targets` (wohin gespeichert wird; mehrzeilig möglich)
-  - typrelevante `values` (Belege: `lieferant, nummer, datum, betrag, belegtyp, kategorie, entity`; Fotos: `standort, datum, taetigkeit`; Bericht: `projekt, kw`)
+  - typrelevante `values` (Belege: `lieferant, nummer, datum, betrag, belegtyp, kategorie, entity`; Fotos: `standort, datum, taetigkeit`; Montagebericht-Scans: `jahr, kw, bv, monteure`; Bericht: `projekt, kw`)
 - **Begründung** (`reason`) als Text.
 - Buttons: **„Übernehmen"** (sammelt die geänderten Felder, `sendPrompt`), **„Ablehnen"** (`sendPrompt`).
 
