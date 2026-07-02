@@ -9,7 +9,7 @@
       "name": "command-center",
       "source": "./plugins/command-center",
       "description": "Turn any firm into a Cowork-automated operation. Drop any mix of files into one shared inbox; the intake skill auto-detects each file's type, routes it to the right process (receipt filing, photo sorting incl. report-scan archiving, daily reports, invoicing), asks only the unavoidable questions, and opens one interactive review board to collect approvals and save them in a single click. Onboard the firm once — every process inherits the context.",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "author": {
         "name": "Tom Adomeit"
       },
