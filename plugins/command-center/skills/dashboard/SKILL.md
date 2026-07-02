@@ -1,16 +1,18 @@
 ---
 name: dashboard
-description: Show the firm's live Command Center overview — a read-only at-a-glance artifact with time saved, every workflow (and how it works), the work already done, the recommended next step, and how many items are waiting for review. Approving, editing and re-running happen in chat, not in the artifact. Use when the user says "zeig das Dashboard", "show dashboard", "übersicht", "wie läuft es", "was wurde gemacht", "wie viel Zeit habe ich gespart", "was kann das command center", "wie funktioniert dieser Prozess", "stats". Also good as the home screen for a returning firm. NOT for acting on approvals: "zeig offene Freigaben", "freigaben", "was liegt zur freigabe", "freigeben", "ablehnen", "review board" → use the review-board skill instead (this skill only routes there).
+description: Show the firm's Command Center statistics & history — a fully static artifact with time saved, every workflow (and how it works), the run history, every filed file, the recommended next step, and how many items are waiting for review (count only). It never shows open review items and carries no actions — approving, editing and re-running happen in chat. Use when the user says "zeig das Dashboard", "show dashboard", "übersicht", "statistik", "verlauf", "wie läuft es", "was wurde gemacht", "wie viel Zeit habe ich gespart", "was kann das command center", "wie funktioniert dieser Prozess", "stats". Also good as the home screen for a returning firm. NOT for acting on approvals: "zeig offene Freigaben", "freigaben", "was liegt zur freigabe", "freigeben", "ablehnen", "review board" → use the review-board skill instead (this skill only routes there).
 ---
 
-# Dashboard — the overview (read-only)
+# Dashboard — Statistik & Verlauf (fully static)
 
-Generate the firm's overview as a **Cowork Live Artifact**: one self-contained HTML page with two sections:
+Generate the firm's statistics & history page as a **Cowork Live Artifact**: one self-contained, fully static HTML page (no script, no buttons) with:
 
-1. **Überblick tab** — time saved, active workflows (with plain "so funktioniert's" steps), what was already done, the recommended next step, and how many items are waiting for review. Warm and non-technical.
-2. **One tab per process that has open review items** — a **read-only** list of each pending action with its VORSCHLAG fields (lieferant, betrag, kategorie, etc.), the BEGRÜNDUNG (reason), and a tier badge (sicher / prüfen / folgenreich). No action buttons.
+1. **Hero** — time saved, Vorgänge erledigt, Läufe, active processes, how many items wait for review (count only), and the recommended next step.
+2. **Process cards** — what each workflow does (plain "so funktioniert's" steps), per-process stats, and an open-count hint when something waits. Warm and non-technical.
+3. **Verlauf** — the run history (up to 50 runs: date, process, what happened, savings).
+4. **Zuletzt abgelegt** — every filed file from the engine journal (up to 30: date, file, target folder).
 
-The dashboard never changes anything — it only shows. **Approving, editing, re-running and rejecting all happen in chat** (see `## Review im Chat` below). When the user wants to act on what's waiting, they say *"zeig offene Freigaben"*.
+The artifact never shows open review items and never carries actions — it is the firm's look-back surface ("was wurde wann gemacht, was hat es gebracht"). **Approving, editing, re-running and rejecting all happen in chat** (see `## Review im Chat` below). When the user wants to act on what's waiting, they say *"zeig offene Freigaben"*.
 
 ## Step 0 — Self-verify (route, don't error)
 Find `workspace_root` and read `_firma/company-context.md`. If it's missing, the firm isn't set up yet — say *"Dein Command Center ist noch nicht eingerichtet — sollen wir das in 2 Minuten machen?"* and run `/command-center:setup` (firm-onboarding). Don't generate an empty dashboard for an un-onboarded firm.
@@ -25,7 +27,7 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/dashboard.ts <workspace_root>
 It prints the path to the written file (default `<workspace_root>/_firma/dashboard.html`). It is best-effort and never crashes on missing/partial state — a brand-new firm gets a friendly zero-state, not an error.
 
 ## Step 2 — Show it as a Live Artifact
-Present the generated HTML to the user as a **Live Artifact** so it opens in Cowork's Live-artifacts tab (interactive, reopenable, refreshable) — not just a file path. Then give a 2–3 line in-chat summary in the firm's language: total Stunden gespart, how many processes are active, how many items are waiting for review, and the one recommended next step. Remind them they can refresh anytime by saying *"zeig das Dashboard"*, and act on what's waiting by saying *"zeig offene Freigaben"*.
+Present the generated HTML to the user as a **Live Artifact** so it opens in Cowork's Live-artifacts tab (reopenable, refreshable) — not just a file path. Then give a 2–3 line in-chat summary in the firm's language: total Stunden gespart, how many processes are active, how many items are waiting for review, and the one recommended next step. Remind them they can refresh anytime by saying *"zeig das Dashboard"*, and act on what's waiting by saying *"zeig offene Freigaben"*.
 
 ## Review im Chat
 

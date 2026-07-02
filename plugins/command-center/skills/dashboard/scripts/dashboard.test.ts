@@ -5,12 +5,11 @@ import * as os from "node:os";
 import {
   firmName,
   loadActivity,
+  loadJournal,
   loadQueues,
   countByProcess,
-  defaultTab,
   buildDashboard,
   esc,
-  jsonForScript,
 } from "./dashboard.ts";
 
 // ── Pure unit tests ───────────────────────────────────────────────────────────
@@ -22,27 +21,6 @@ describe("esc", () => {
   test("handles null/undefined gracefully", () => {
     expect(esc(null)).toBe("");
     expect(esc(undefined)).toBe("");
-  });
-});
-
-describe("defaultTab", () => {
-  test("returns first processKey that has items", () => {
-    const queues = [
-      { processKey: "receipt-filing", label: "Belege", items: [] },
-      { processKey: "photo-sorting",  label: "Fotos",  items: [{ id: 1 } as any] },
-      { processKey: "daily-report",   label: "Tagesbericht", items: [{ id: 2 } as any] },
-    ];
-    expect(defaultTab(queues)).toBe("photo-sorting");
-  });
-  test("returns 'overview' when no process has items", () => {
-    const queues = [
-      { processKey: "receipt-filing", label: "Belege", items: [] },
-      { processKey: "photo-sorting",  label: "Fotos",  items: [] },
-    ];
-    expect(defaultTab(queues)).toBe("overview");
-  });
-  test("returns 'overview' for empty queues array", () => {
-    expect(defaultTab([])).toBe("overview");
   });
 });
 
@@ -70,6 +48,7 @@ afterEach(() => {
 });
 
 function reviewDir(): string { return path.join(ws, "_firma", "_review"); }
+function journalDir(): string { return path.join(ws, "_firma", "_journal"); }
 
 function writeQueue(runid: string, actions: object[], proc = "receipt-filing"): void {
   const fp = path.join(reviewDir(), `${runid}.json`);
@@ -77,6 +56,15 @@ function writeQueue(runid: string, actions: object[], proc = "receipt-filing"): 
   fs.writeFileSync(
     fp,
     JSON.stringify({ runid, process: proc, created: new Date().toISOString(), actions }, null, 2),
+    "utf8",
+  );
+}
+
+function writeJournal(name: string, lines: object[]): void {
+  fs.mkdirSync(journalDir(), { recursive: true });
+  fs.writeFileSync(
+    path.join(journalDir(), name),
+    lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
     "utf8",
   );
 }
@@ -144,6 +132,36 @@ describe("loadActivity", () => {
   });
 });
 
+// ── loadJournal ──────────────────────────────────────────────────────────────
+
+describe("loadJournal", () => {
+  test("returns empty array when journal dir missing", () => {
+    expect(loadJournal(ws)).toEqual([]);
+  });
+  test("reads entries across multiple jsonl files", () => {
+    writeJournal("2026-06.jsonl", [
+      { ts: "2026-06-10T09:00:00", runid: "R-a", id: 1, target: "Buchhaltung/2026/06/beleg.pdf", status: "copied" },
+    ]);
+    writeJournal("2026-07.jsonl", [
+      { ts: "2026-07-01T09:00:00", runid: "R-b", id: 1, target: "BV/Projekt/foto.jpg", status: "copied" },
+    ]);
+    const j = loadJournal(ws);
+    expect(j.length).toBe(2);
+    expect(j.map((e) => e.runid).sort()).toEqual(["R-a", "R-b"]);
+  });
+  test("tolerates a UTF-8 BOM and skips garbled lines", () => {
+    fs.mkdirSync(journalDir(), { recursive: true });
+    fs.writeFileSync(
+      path.join(journalDir(), "bom.jsonl"),
+      "﻿" + JSON.stringify({ ts: "2026-07-01T09:00:00", target: "A/b.pdf", status: "copied" }) + "\n{garbled\n",
+      "utf8",
+    );
+    const j = loadJournal(ws);
+    expect(j.length).toBe(1);
+    expect(j[0].target).toBe("A/b.pdf");
+  });
+});
+
 // ── loadQueues ────────────────────────────────────────────────────────────────
 
 describe("loadQueues", () => {
@@ -196,7 +214,7 @@ describe("loadQueues", () => {
   });
 });
 
-// ── buildDashboard integration ────────────────────────────────────────────────
+// ── buildDashboard integration (stats & history only) ────────────────────────
 
 describe("buildDashboard integration", () => {
   const RUNID = "R-2026-06-08-belege-a";
@@ -228,200 +246,137 @@ describe("buildDashboard integration", () => {
     expect(html).toContain("Galant Bau GmbH");
   });
 
-  test("contains Belege process in inlined JSON with 1 item", () => {
+  test("statistics-only: no open-item content leaks into the artifact", () => {
     writeCompanyContext("Galant Bau GmbH");
     seedQueue();
     const html = buildDashboard(ws);
-    // Tab label present in server-rendered tab hint (JS tabs() uses p.label from C.processes)
-    expect(html).toContain("Belege");
-    // The inlined JSON has the process with 1 item
-    const jsonMatch = html.match(/var C=(\{.*?"processes".*?\});/s);
-    expect(jsonMatch).not.toBeNull();
-    const data = JSON.parse(jsonMatch![1]);
-    const belege = data.processes.find((p: any) => p.key === "receipt-filing");
-    expect(belege).toBeDefined();
-    expect(belege.label).toBe("Belege");
-    expect(belege.items.length).toBe(1);
+    // The pending item's data must NOT be rendered — items live in chat review
+    expect(html).not.toContain("Heinz Wilmers");
+    expect(html).not.toContain("476,00 EUR");
+    expect(html).not.toContain("Scan unklar");
+    expect(html).not.toContain(RUNID);
+    // Only the COUNT of waiting items surfaces, with the chat hint
+    expect(html).toContain("wartet auf deine Freigabe");
+    expect(html).toContain("zeig offene Freigaben");
   });
 
-  test("contains VORSCHLAG key-value fields", () => {
+  test("fully static: no script block, no buttons, no onclick", () => {
     writeCompanyContext("Galant Bau GmbH");
     seedQueue();
     const html = buildDashboard(ws);
-    expect(html).toContain("Heinz Wilmers GmbH");
-    expect(html).toContain("476,00 EUR");
-    expect(html).toContain("Kfz/Fahrzeug (Abschleppen)");
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain("onclick=");
+    expect(html).not.toContain(">Freigeben<");
+    expect(html).not.toContain(">Ablehnen<");
   });
 
-  test("contains BEGRÜNDUNG text", () => {
+  test("open count appears on the process card", () => {
     writeCompanyContext("Galant Bau GmbH");
     seedQueue();
     const html = buildDashboard(ws);
-    expect(html).toContain("Scan unklar — bitte Kategorie bestätigen");
+    expect(html).toContain("1 Vorschlag wartet");
   });
 
-  test("sendPrompt call string has correct shape: 'Freigeben: <runid> Aktion <id> (<label>)'", () => {
+  test("header names the artifact Statistik & Verlauf", () => {
     writeCompanyContext("Galant Bau GmbH");
-    seedQueue();
     const html = buildDashboard(ws);
-    // The act() function is called with these args; verify the call arguments are present in JS
-    expect(html).toContain(RUNID);
-    expect(html).toContain("Aktion");
-    // 'Freigeben: ' prefix is built inside act() at runtime, but the arg is in the onclick
-    expect(html).toContain("Freigeben");
-    expect(html).toContain("Ablehnen");
+    expect(html).toContain("Statistik &amp; Verlauf");
+    expect(html).toContain("Freigaben laufen im Chat");
   });
 
-  test("defaultTab is 'receipt-filing' when queue has items", () => {
+  test("Verlauf renders activity entries with summary and savings", () => {
     writeCompanyContext("Galant Bau GmbH");
-    seedQueue();
+    const dir = path.join(ws, "_firma", "_state");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "activity.jsonl"),
+      JSON.stringify({
+        run_id: "R-100", ts: "2026-06-20T10:00:00Z", process: "receipt-filing",
+        summary: "3 Belege abgelegt", items: 3, minutes_saved: 30, status: "done",
+      }) + "\n",
+      "utf8",
+    );
     const html = buildDashboard(ws);
-    // The C.active field in inlined data should be receipt-filing
-    expect(html).toContain('"active":"receipt-filing"');
+    expect(html).toContain("3 Belege abgelegt");
+    expect(html).toContain("20.06.2026");
+    expect(html).toContain("+0,5 Std");
   });
 
-  test("defaultTab is 'overview' when no open items", () => {
+  test("Zuletzt abgelegt renders journal entries with file and target dir", () => {
     writeCompanyContext("Galant Bau GmbH");
-    // no queue seeded
+    writeJournal("2026-07.jsonl", [
+      {
+        ts: "2026-07-01T09:00:00", runid: "R-x", id: 1,
+        target: "Buchhaltung/2026/07/2026-07-01_Beleg_4711.pdf", status: "copied",
+      },
+      {
+        ts: "2026-07-01T09:00:01", runid: "R-x", id: 1,
+        target: "BV/Testprojekt/Belege/2026-07-01_Beleg_4711.pdf", status: "skipped-identical",
+      },
+    ]);
     const html = buildDashboard(ws);
-    expect(html).toContain('"active":"overview"');
-  });
-
-  test("Überblick tab content always present in HTML", () => {
-    writeCompanyContext("Galant Bau GmbH");
-    const html = buildDashboard(ws);
-    expect(html).toContain("ueberblick-content");
-    expect(html).toContain("Überblick");
+    expect(html).toContain("Zuletzt abgelegt");
+    expect(html).toContain("2026-07-01_Beleg_4711.pdf");
+    expect(html).toContain("Buchhaltung/2026/07");
+    expect(html).toContain("abgelegt");
+    expect(html).toContain("schon vorhanden");
   });
 
   test("never crashes on completely empty workspace", () => {
-    // No _firma, no queues, no catalog override
     expect(() => buildDashboard(ws)).not.toThrow();
   });
 
-  test("never crashes on garbled queue file", () => {
+  test("never crashes on garbled queue and journal files", () => {
     fs.mkdirSync(reviewDir(), { recursive: true });
     fs.writeFileSync(path.join(reviewDir(), "R-bad.json"), "!!!not json", "utf8");
+    fs.mkdirSync(journalDir(), { recursive: true });
+    fs.writeFileSync(path.join(journalDir(), "bad.jsonl"), "!!!not json", "utf8");
     expect(() => buildDashboard(ws)).not.toThrow();
   });
 
-  test("targets rendered in Ziel row", () => {
+  test("empty states are friendly (Verlauf + Zuletzt abgelegt)", () => {
     writeCompanyContext("Galant Bau GmbH");
-    seedQueue();
     const html = buildDashboard(ws);
-    expect(html).toContain("001 Galant Bau GmbH/Buchhaltung/Ausgaben");
+    expect(html).toContain("Noch keine erledigten Vorgänge");
+    expect(html).toContain("Noch nichts abgelegt");
   });
 });
 
-// ── XSS hardening regression tests ───────────────────────────────────────────
-
-describe("jsonForScript", () => {
-  test("escapes </script> sequences to prevent script breakout", () => {
-    const payload = '</script><script>window.PWNED=1;</script>';
-    const result = jsonForScript(JSON.stringify({ reason: payload }));
-    // Raw closing tag must not appear — it becomes </script>
-    expect(result).not.toContain("</script>");
-    expect(result).toContain("\\u003c");
-  });
-  test("escapes U+2028 and U+2029 line terminators", () => {
-    const s = "a b c";
-    const result = jsonForScript(JSON.stringify(s));
-    expect(result).not.toContain(" ");
-    expect(result).not.toContain(" ");
-    expect(result).toContain("\\u2028");
-    expect(result).toContain("\\u2029");
-  });
-  test("leaves normal ASCII JSON unchanged", () => {
-    const data = { key: "value", num: 42 };
-    const raw = JSON.stringify(data);
-    expect(jsonForScript(raw)).toBe(raw);
-  });
-});
+// ── XSS hardening (server-rendered history is the only data path) ────────────
 
 describe("buildDashboard XSS hardening", () => {
-  const RUNID_XSS = "R-xss-test";
-
-  // Test 1: </script> in reason must not break out of the data const
-  test("reason with </script> payload does not produce raw script breakout in HTML", () => {
+  test("HTML-special activity summary renders escaped, never raw", () => {
     writeCompanyContext("Test Firma");
-    writeQueue(RUNID_XSS, [
-      {
-        id: 1,
-        verb: "kopieren",
-        tier: "sicher",
-        confidence: "sicher",
-        reason: "</script><script>window.PWNED=1;</script>",
-        source: "_eingang/receipt-filing/x.pdf",
-        filename: "test.pdf",
-        targets: ["A/B"],
-        values: { lieferant: "Harmlos GmbH", betrag: "1,00 EUR" },
-      },
-    ]);
+    const dir = path.join(ws, "_firma", "_state");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "activity.jsonl"),
+      JSON.stringify({
+        run_id: "R-xss", ts: "2026-06-21T10:00:00Z", process: "receipt-filing",
+        summary: '<img src=x onerror=alert(1)> & "quotes"', items: 1, status: "done",
+      }) + "\n",
+      "utf8",
+    );
     const html = buildDashboard(ws);
-    // The inlined var C= block must not contain a raw </script> that closes the data script
-    // The payload must be escaped: </script> → </script>
-    const dataBlockMatch = html.match(/var C=([\s\S]*?);[\s\S]*?var pi=/);
-    expect(dataBlockMatch).not.toBeNull();
-    const dataBlock = dataBlockMatch![1];
-    expect(dataBlock).not.toContain("</script>");
-    expect(dataBlock).toContain("\\u003c");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt; &amp; &quot;quotes&quot;");
+    expect(html).not.toContain("<img src=x onerror=");
   });
 
-  // Test 2: quote-injection in label (values.lieferant) must be escaped in onclick attribute.
-  // Note: the raw label legitimately appears (JSON-escaped) in the inlined var C= data blob;
-  // what we guard against is the label breaking OUT of an onclick="..." attribute.
-  test("label with quote injection does not produce unescaped attribute breakout in onclick", () => {
-    const maliciousLabel = '" onmouseover="alert(1)';
+  test("HTML-special journal target renders escaped, never raw", () => {
     writeCompanyContext("Test Firma");
-    writeQueue(RUNID_XSS, [
-      {
-        id: 2,
-        verb: "kopieren",
-        tier: "sicher",
-        confidence: "sicher",
-        reason: "Normal.",
-        source: "_eingang/receipt-filing/y.pdf",
-        filename: "normal.pdf",
-        targets: ["A/B"],
-        values: { lieferant: maliciousLabel, betrag: "5,00 EUR" },
-      },
+    writeJournal("xss.jsonl", [
+      { ts: "2026-07-01T09:00:00", target: 'A/<script>alert(1)</script>/"x".pdf', status: "copied" },
     ]);
     const html = buildDashboard(ws);
-    // Extract all onclick="..." attribute values from the HTML.
-    // These are the only places where an unescaped " would break out of the attribute.
-    const onclickAttrs = [...html.matchAll(/onclick="([^"]*?)"/g)].map((m) => m[1]);
-    // None of the onclick attribute values should contain a raw (unescaped) " character —
-    // that would mean the attribute was broken out of by the injected quote.
-    for (const attr of onclickAttrs) {
-      expect(attr).not.toContain('" onmouseover=');
-    }
-    // The escaped form must appear in the HTML (confirms the label is present but escaped)
-    expect(html).toContain("&quot;");
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
   });
 
-  // Test 3: sanity — normal label still produces a working act() call in onclick
-  test("normal label produces a functional act() onclick with the correct runid", () => {
-    const RUNID_NORMAL = "R-2026-06-10-normal";
-    writeCompanyContext("Test Firma");
-    writeQueue(RUNID_NORMAL, [
-      {
-        id: 7,
-        verb: "kopieren",
-        tier: "prüfen",
-        confidence: "prüfen",
-        reason: "Scan unklar.",
-        source: "_eingang/receipt-filing/inv.pdf",
-        filename: "Inv 7.pdf",
-        targets: ["Buchhaltung/2026"],
-        values: { lieferant: "Normal GmbH", betrag: "10,00 EUR" },
-      },
-    ]);
+  test("HTML-special firm name renders escaped", () => {
+    writeCompanyContext('Müller & Söhne <b>"GmbH"</b>');
     const html = buildDashboard(ws);
-    // The server-rendered onclick must contain the act() call with the runid
-    expect(html).toContain("act(");
-    expect(html).toContain(RUNID_NORMAL);
-    // Both buttons must be present
-    expect(html).toContain("Freigeben");
-    expect(html).toContain("Ablehnen");
+    expect(html).toContain("Müller &amp; Söhne &lt;b&gt;&quot;GmbH&quot;&lt;/b&gt;");
+    expect(html).not.toContain('<b>"GmbH"');
   });
 });

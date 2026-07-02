@@ -71,7 +71,7 @@ it became read-only (review moved to chat), but it remains separate from this op
 
 ## Overview + chat-review (v0.4.0 → v0.5.0)
 
-The dashboard Live Artifact is now a **read-only overview**: an "Überblick" tab (time saved, workflows, feed, how many items wait) plus one tab per process that pages through open review items — each showing the proposed VORSCHLAG fields, the BEGRÜNDUNG, and tier. **No action buttons.**
+The dashboard Live Artifact is a **pure statistics & history page** (since v0.9.2): fully static HTML — hero stats (time saved, Vorgänge, Läufe, open-count), process cards, the run history (Verlauf) and every filed file from the engine journal (Zuletzt abgelegt). It never lists open review items and carries **no script and no buttons** — reviewing lives entirely in chat (review-board skill / `reference/chat-review.md`).
 
 - **Queues** — prepared runs write `_firma/_review/R-<date>-<slug>.json` (contract: `reference/review-queue.md`). Writing a queue never moves files; it is the "prepared" state.
 - **Engine** — canonical: the workspace-resident `_firma/apply.py` (pure Python 3, installed by onboarding — see v0.7.0 below). It applies an approval: copy collision-safe to the target(s), append a reversible journal record in `_firma/_journal/`, remove the action, archive the emptied queue. Commands: `list`, `approve`, `reject`, `approve-safe`, `--dry`. `skills/dashboard/scripts/apply.ts` is an optional TypeScript port of the same contract (it additionally refuses any source/target that resolves outside the workspace); runnable via bun or Node ≥ 22.6.

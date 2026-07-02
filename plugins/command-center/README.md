@@ -53,7 +53,7 @@ See `reference/architecture.md` for the design rationale and the Phase-2 path (p
 
 ## Status
 
-**v0.9.1** — unified drop-zone intake + sequential interactive review board (incl. Modus B report scans) on top of onboarding, the live dashboard, and the business processes; canonical pure-Python apply engine (`_firma/apply.py`, md5-idempotent, journal-guarded, multi-target-safe, BOM-tolerant).
+**v0.9.2** — dashboard is now a pure statistics & history artifact (fully static: hero stats, Verlauf, Zuletzt abgelegt aus dem Journal — no open items, no buttons; reviewing lives entirely in chat via the review board). Plus everything from v0.9.1: unified drop-zone intake + sequential interactive review board (incl. Modus B report scans) on top of onboarding and the business processes; canonical pure-Python apply engine (`_firma/apply.py`, md5-idempotent, journal-guarded, multi-target-safe, BOM-tolerant).
 
 | Capability | Depth |
 |---|---|

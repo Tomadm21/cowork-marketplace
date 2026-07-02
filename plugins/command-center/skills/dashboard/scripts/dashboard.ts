@@ -2,14 +2,17 @@
 /**
  * Command Center — dashboard generator (deterministic, dependency-free).
  *
- * Emits ONE self-contained HTML cockpit (data inlined as a JS const — never fetch;
- * file:// can't fetch siblings). The HTML is the live artifact:
+ * Emits ONE self-contained, fully static HTML page (no <script>, no <button>,
+ * data server-rendered — never fetch; file:// can't fetch siblings).
  *
- *   • First tab: "Überblick" — hero (time saved), process cards, activity feed.
- *   • Per-process tabs: READ-ONLY review list (item pager, preview, VORSCHLAG,
- *     BEGRÜNDUNG, tier). No buttons — approving/editing/re-running happens in chat.
+ * The artifact is a pure STATISTICS & HISTORY view:
+ *   • Hero — estimated hours saved, items done, runs, active processes, next step.
+ *   • Process cards — what each workflow does, per-process stats, open-count hint.
+ *   • Verlauf — the run log (up to 50 runs: date, process, summary, savings).
+ *   • Zuletzt abgelegt — the engine journal (up to 30 filed files: date, file, target).
  *
- * Active tab: first workflow tab with open items; if none → Überblick.
+ * It never shows open review items and never carries actions: approving, editing,
+ * re-running and rejecting ALL happen in chat (review-board skill / chat-review.md).
  *
  *   bun dashboard.ts <workspace_root> [output.html]
  *
@@ -17,7 +20,8 @@
  *   <ws>/_firma/company-context.md          → firm name
  *   <ws>/_firma/config/<process>.json       → which processes are active
  *   <ws>/_firma/_state/activity.jsonl       → the run log
- *   <ws>/_firma/_review/*.json              → open review queues
+ *   <ws>/_firma/_review/*.json              → open review queues (COUNTS only)
+ *   <ws>/_firma/_journal/*.jsonl            → filed files (history)
  *   <ws>/_eingang/<process>/                → files waiting
  *   <plugin>/reference/workflows.json       → display catalog
  *
@@ -27,7 +31,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { tierOf, titleOf, ICON, runs, type Queue, type Action } from "./apply.ts";
+import { tierOf, titleOf, ICON, runs } from "./apply.ts";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,18 +41,6 @@ export const esc = (s: unknown): string =>
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-/**
- * Escape a JSON string for safe inlining inside an HTML <script> element.
- * JSON.stringify does NOT escape </script>, U+2028, or U+2029 — all of which
- * can break out of a script block when the JSON is emitted verbatim into HTML.
- */
-export const jsonForScript = (j: string): string =>
-  j
-    .replace(/</g, "\\u003c")
-    // U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH SEPARATOR) are JS line terminators;
-    // use RegExp constructor to avoid placing them as literal regex chars in source.
-    .replace(new RegExp("\u2028", "g"), "\\u2028")
-    .replace(new RegExp("\u2029", "g"), "\\u2029");
 function readFileSafe(p: string): string | null {
   try { return fs.readFileSync(p, "utf8"); } catch { return null; }
 }
@@ -135,7 +127,34 @@ export function loadActivity(ws: string): Entry[] {
   return [...byRun.values(), ...anon];
 }
 
-// ── queue loading ─────────────────────────────────────────────────────────────
+// ── engine journal (filed files — the "alte Ergebnisse") ─────────────────────
+export interface JournalEntry {
+  ts?: string; runid?: string; id?: string | number; verb?: string;
+  source?: string; target?: string; md5?: string; status?: string;
+}
+/** Read all journal lines from <ws>/_firma/_journal/*.jsonl — best-effort, BOM-tolerant. */
+export function loadJournal(ws: string): JournalEntry[] {
+  const dir = path.join(ws, "_firma", "_journal");
+  let files: string[] = [];
+  try { files = fs.readdirSync(dir).filter((f) => f.endsWith(".jsonl")).sort(); } catch { return []; }
+  const out: JournalEntry[] = [];
+  for (const f of files) {
+    const raw = readFileSafe(path.join(dir, f));
+    if (!raw) continue;
+    // strip a UTF-8 BOM (Windows PowerShell default) before line-splitting
+    for (const line of raw.replace(/^﻿/, "").split("\n")) {
+      const t = line.trim();
+      if (!t) continue;
+      try {
+        const e = JSON.parse(t) as JournalEntry;
+        if (e && typeof e === "object") out.push(e);
+      } catch { /* skip garbled line */ }
+    }
+  }
+  return out;
+}
+
+// ── queue counting (the artifact shows COUNTS only — items live in chat) ─────
 export interface QueueItem {
   id: string | number;
   runid: string;
@@ -207,41 +226,6 @@ export function countByProcess(queues: ProcessQueue[]): Record<string, number> {
   return out;
 }
 
-/**
- * Returns the first processKey that has open items, or "overview" if none.
- * Used to determine the default active tab.
- */
-export function defaultTab(queues: ProcessQueue[]): string {
-  for (const pq of queues) {
-    if (pq.items.length > 0) return pq.processKey;
-  }
-  return "overview";
-}
-
-// ── image inlining (cap ~150 KB) ──────────────────────────────────────────────
-const MAX_IMAGE_BYTES = 150 * 1024;
-const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic"]);
-
-function inlineImage(ws: string, relPath: string): string | null {
-  if (!relPath) return null;
-  const ext = path.extname(relPath).toLowerCase();
-  if (!IMAGE_EXTS.has(ext)) return null;
-  try {
-    const abs = path.resolve(ws, relPath);
-    // Safety: must stay inside workspace
-    const wsAbs = path.resolve(ws);
-    if (!abs.startsWith(wsAbs + path.sep) && abs !== wsAbs) return null;
-    const stat = fs.statSync(abs);
-    if (stat.size > MAX_IMAGE_BYTES) return null;
-    const buf = fs.readFileSync(abs);
-    const mime = ext === ".png" ? "image/png"
-      : ext === ".gif" ? "image/gif"
-      : ext === ".webp" ? "image/webp"
-      : "image/jpeg";
-    return `data:${mime};base64,${buf.toString("base64")}`;
-  } catch { return null; }
-}
-
 // ── stats helpers ────────────────────────────────────────────────────────────
 interface Stat { runs: number; doneRuns: number; items: number; minutes: number; last?: string }
 
@@ -263,10 +247,10 @@ export function buildDashboard(ws: string): string {
   const queues = loadQueues(ws);
   const counts = countByProcess(queues);
   const openItems = queues.reduce((s, pq) => s + pq.items.length, 0);
-  const activeDefault = defaultTab(queues);
+  const journal = loadJournal(ws);
   const stand = deDateTime(new Date());
 
-  // per-process stats (for Überblick)
+  // per-process stats (for the hero + cards)
   const stats: Record<string, Stat> = {};
   for (const k of keys) stats[k] = { runs: 0, doneRuns: 0, items: 0, minutes: 0 };
   for (const e of entries) {
@@ -327,6 +311,10 @@ export function buildDashboard(ws: string): string {
     const badge = on
       ? `<span class="badge on">● aktiv</span>`
       : `<span class="badge off">○ noch nicht aktiv</span>`;
+    const open = counts[k] ?? 0;
+    const openLine = open > 0
+      ? `<div class="cardopen">${deInt(open)} ${open === 1 ? "Vorschlag wartet" : "Vorschläge warten"} auf Freigabe — im Chat: „<b>zeig offene Freigaben</b>"</div>`
+      : "";
     const stat = on && s.doneRuns > 0
       ? `<div class="cardstat"><b>${deNum(hrs)} Std</b> gespart · ${deInt(s.doneRuns)}× gelaufen${s.last ? ` · zuletzt ${deDate(s.last)}` : ""}
            <div class="audit">${deInt(s.items)} ${esc(s.items === 1 ? (p.unit || "") : (p.unit_plural || ""))} × ${deNum(p.minutes_per_item ?? 0, 1)} Min ≈ ${deNum(hrs)} Std <span class="muted">(geschätzt)</span></div></div>`
@@ -340,15 +328,16 @@ export function buildDashboard(ws: string): string {
       <div class="howbox"><div class="howlabel">So funktioniert's</div><ol class="how">${how}</ol></div>
       <div class="ng"><span><b>Du gibst:</b> ${esc(p.needs)}</span><span><b>Du bekommst:</b> ${esc(p.gives)}</span></div>
       <div class="say">Sag einfach: „<b>${esc(p.trigger)}</b>"</div>
+      ${openLine}
       ${stat}
     </div>`;
   }).join("");
 
-  // ── activity feed ─────────────────────────────────────────────────────────
+  // ── Verlauf (run history) ─────────────────────────────────────────────────
   const feed = entries
     .filter((e) => e.ts)
     .sort((a, b) => (b.ts! > a.ts! ? 1 : -1))
-    .slice(0, 10)
+    .slice(0, 50)
     .map((e) => {
       const p = procs[e.process || ""] || {};
       const done = (e.status ?? "done") === "done";
@@ -362,6 +351,24 @@ export function buildDashboard(ws: string): string {
   const feedHtml = feed
     ? `<table class="feed"><thead><tr><th>Datum</th><th>Prozess</th><th>Was</th><th></th></tr></thead><tbody>${feed}</tbody></table>`
     : `<p class="empty">Noch keine erledigten Vorgänge — sobald der erste Prozess läuft, erscheint hier, was gemacht wurde.</p>`;
+
+  // ── Zuletzt abgelegt (engine journal — every filed file) ─────────────────
+  const filedRows = journal
+    .filter((j) => j.ts && j.target)
+    .sort((a, b) => (String(b.ts) > String(a.ts) ? 1 : -1))
+    .slice(0, 30)
+    .map((j) => {
+      const t = String(j.target);
+      const base = t.split("/").pop() || t;
+      const dir = t.slice(0, Math.max(0, t.length - base.length)).replace(/\/$/, "") || "—";
+      const st = j.status === "skipped-identical"
+        ? `<span class="muted">schon vorhanden</span>`
+        : `<span class="saved">abgelegt</span>`;
+      return `<tr><td class="d">${deDate(String(j.ts))}</td><td class="sum">${esc(base)}</td><td><span class="pathblock">${esc(dir)}</span></td><td class="r">${st}</td></tr>`;
+    }).join("");
+  const filedHtml = filedRows
+    ? `<table class="feed"><thead><tr><th>Datum</th><th>Datei</th><th>Ziel</th><th></th></tr></thead><tbody>${filedRows}</tbody></table>`
+    : `<p class="empty">Noch nichts abgelegt — nach der ersten Freigabe erscheint hier jede gespeicherte Datei mit ihrem Ziel.</p>`;
 
   // ── hero ──────────────────────────────────────────────────────────────────
   const heroCold = totalDoneRuns === 0;
@@ -378,6 +385,7 @@ export function buildDashboard(ws: string): string {
            <div class="kpi"><b>${deInt(totalItems)}</b><span>Vorgänge erledigt</span></div>
            <div class="kpi"><b>${deInt(totalDoneRuns)}</b><span>Läufe</span></div>
            <div class="kpi"><b>${active.length}/${keys.length}</b><span>Prozesse aktiv</span></div>
+           <div class="kpi"><b>${deInt(openItems)}</b><span>warten auf Freigabe</span></div>
          </div>
          <div class="next">→ ${nextStep}</div>
        </section>`;
@@ -385,116 +393,12 @@ export function buildDashboard(ws: string): string {
   const catNote = keys.length === 0
     ? `<p class="empty">Der Workflow-Katalog wurde nicht gefunden. (Plugin-Installation prüfen.)</p>` : "";
 
-  // ── cockpit data for JS ───────────────────────────────────────────────────
-  // Build processes list in ICON order, include all even if empty
-  const cockpitProcesses = queues.map((pq) => {
-    const items = pq.items.map((it) => {
-      // Try to inline preview image from source file
-      const dataUri = inlineImage(ws, it.source);
-      return {
-        id: it.id,
-        runid: it.runid,
-        tier: it.tier,
-        title: it.title,
-        source: it.source,
-        filename: it.filename,
-        targets: it.targets,
-        values: it.values,
-        reason: it.reason,
-        thumb: dataUri ?? null,
-      };
-    });
-    return {
-      key: pq.processKey,
-      label: pq.label,
-      items,
-    };
-  });
-
-  const dataJson = jsonForScript(JSON.stringify({ stand, active: activeDefault, processes: cockpitProcesses }));
-
-  // ── Server-side render helpers (mirror JS logic, produces static HTML) ───────
-  function pillHtmlSS(tier: string): string {
-    if (tier === "p") return `<span class="pill p">prüfen</span>`;
-    if (tier === "f") return `<span class="pill f">folgenreich</span>`;
-    return `<span class="pill s">sicher</span>`;
-  }
-
-  function pagerSS(count: number, idx: number): string {
-    if (count === 0) return "";
-    const dots = Array.from({ length: count }, (_, j) =>
-      `<button class="dot${j === idx ? " on" : ""}" onclick="si(${j})" aria-label="Posten ${j + 1}"></button>`,
-    ).join("");
-    return `<div class="pager"><div class="dots">${dots}</div><button class="pb" onclick="go(-1)">‹</button><span class="ct">${idx + 1} / ${count}</span><button class="pb" onclick="go(1)">›</button></div>`;
-  }
-
-  function renderItemSS(it: (typeof cockpitProcesses)[0]["items"][0], label: string, count: number, idx: number): string {
-    // HTML-escape the JSON-encoded label so that any " chars inside it are
-    // encoded as &quot; and cannot terminate the onclick="..." attribute.
-    // The browser un-escapes attribute values before passing them to the JS
-    // engine, so act() receives the correct raw label string at runtime.
-    const labelAttr = esc(JSON.stringify(label));
-    const idAttr = esc(JSON.stringify(it.id));
-    let rows = "";
-    for (const [k, v] of Object.entries(it.values ?? {})) {
-      rows += `<tr><td>${esc(k)}</td><td>${esc(String(v ?? ""))}</td></tr>`;
-    }
-    const targetsHtml = it.targets?.length
-      ? it.targets.map((t) => `<div class="pathblock">${esc(t)}</div>`).join("")
-      : `<span style="color:var(--mu)">—</span>`;
-    rows += `<tr><td>Ziel</td><td>${targetsHtml}</td></tr>`;
-    const previewHtml = it.thumb
-      ? `<div class="imgwrap"><img src="${it.thumb}" alt="Vorschau"></div>`
-      : `<div class="noprev">Keine Vorschau</div>`;
-    return `<div class="itemhead"><h2>${esc(it.title)}</h2>${pillHtmlSS(it.tier)}${pagerSS(count, idx)}</div>
-    <div class="itemgrid">
-      <div>${previewHtml}</div>
-      <div>
-        <div class="icard"><p class="ttl">Vorschlag</p><table class="vt"><tbody>${rows}</tbody></table></div>
-        <div class="icard"><p class="ttl">Begründung</p><div class="begruendung">${esc(it.reason)}</div>
-          <div class="chathint">Freigabe, Bearbeiten &amp; Nochmal laufen im <b>Chat</b> — sag z. B.: „<b>zeig offene Freigaben</b>"</div>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  function renderProcessSS(pq: (typeof cockpitProcesses)[0]): string {
-    if (pq.items.length === 0) {
-      return `<div class="empty-tab"><h3>Keine offenen Posten · ${esc(pq.label)}</h3><p>Wird hier vorgelegt, sobald der Prozess einen neuen Lauf abschließt.</p></div>`;
-    }
-    const it = pq.items[0];
-    const label = String((it.values as Record<string, unknown>)?.lieferant ?? it.filename ?? pq.label);
-    return renderItemSS(it, label, pq.items.length, 0);
-  }
-
-  // ── Server-side tab bar ──────────────────────────────────────────────────
-  const tabsHtml = [
-    `<button class="tab${activeDefault === "overview" ? " on" : ""}" onclick="sp('overview')">Überblick<span class="chip z">—</span></button>`,
-    ...cockpitProcesses.map((p) => {
-      const cnt = p.items.length;
-      const chipCls = `chip${cnt === 0 ? " z" : ""}`;
-      const isActive = activeDefault === p.key;
-      return `<button class="tab${isActive ? " on" : ""}" onclick="sp('${p.key}')">${esc(p.label)}<span class="${chipCls}">${cnt}</span></button>`;
-    }),
-  ].join("");
-
-  // ── Initial body content (server-rendered for instant first paint) ───────
-  let initialBody: string;
-  if (activeDefault === "overview") {
-    initialBody = ""; // Überblick content is already in #ueberblick-content, shown by default
-  } else {
-    const activePQ = cockpitProcesses.find((p) => p.key === activeDefault);
-    initialBody = activePQ ? renderProcessSS(activePQ) : "";
-  }
-
-  const ueberblickDisplay = activeDefault === "overview" ? "" : "display:none";
-
-  // ── HTML ──────────────────────────────────────────────────────────────────
+  // ── HTML (fully static — Freigaben laufen im Chat, hier gibt es nichts zu klicken) ──
   return `<!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Command Center — ${esc(name)}</title>
 <style>
-:root{color-scheme:light;--tx:#1b1f24;--mu:#6b7280;--bd:#e7e9ed;--ac:#2563cc;--sf:#f7f8fa;--am:#b45309;--amb:#fdf2e3;--amd:#f3d9a6;--gn:#15803d;--bg:#fff}
+:root{color-scheme:light;--tx:#1b1f24;--mu:#6b7280;--bd:#e7e9ed;--ac:#2563cc;--sf:#f7f8fa;--gn:#15803d;--bg:#fff}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--tx);background:var(--bg);line-height:1.5;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1120px;margin:0 auto;padding:18px 20px 40px}
@@ -503,47 +407,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
 .hd h1{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em}
 .hd .sub{font-size:12.5px;color:var(--mu)}
 .hd .stand{margin-left:auto;font-size:12px;color:var(--mu);white-space:nowrap}
-.tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px;overflow-x:auto}
-.tab{appearance:none;border:0;background:none;padding:10px 14px 12px;font:inherit;font-size:13.5px;color:var(--mu);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:8px;white-space:nowrap;flex-shrink:0}
-.tab:hover{color:var(--tx)}.tab.on{color:var(--ac);border-bottom-color:var(--ac);font-weight:500}
-.chip{font-size:11px;min-width:18px;text-align:center;border-radius:9px;padding:0 6px;background:#eef1f6;color:#576070}
-.tab.on .chip{background:#e1ebfc;color:#2152a8}.chip.z{opacity:.45}
-.itemhead{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.itemhead h2{font-size:16px;font-weight:600;margin:0}
-.pill{font-size:11.5px;border-radius:20px;padding:2px 10px;font-weight:500}
-.pill.p{background:var(--amb);color:var(--am);border:1px solid var(--amd)}
-.pill.f{background:#fde8e8;color:#b42318;border:1px solid #f5bfbb}
-.pill.s{background:#eaf6ee;color:var(--gn);border:1px solid #bfe3c9}
-.pager{margin-left:auto;display:flex;align-items:center;gap:8px}
-.pager .dots{display:flex;gap:5px}
-.pager .dot{width:7px;height:7px;border-radius:50%;background:#d4d8de;cursor:pointer;border:0;padding:0}
-.pager .dot.on{background:var(--ac)}
-.pager .pb{width:30px;height:30px;border-radius:8px;border:1px solid var(--bd);background:#fff;cursor:pointer;font-size:14px;color:#374151}
-.pager .pb:hover{background:var(--sf)}
-.pager .ct{font-size:12.5px;color:var(--mu);min-width:46px;text-align:center}
-.itemgrid{display:grid;grid-template-columns:minmax(0,0.92fr) minmax(0,1fr);gap:18px;align-items:start}
-@media(max-width:820px){.itemgrid{grid-template-columns:1fr}}
-.imgwrap{border:1px solid var(--bd);border-radius:12px;overflow:hidden;background:var(--sf)}
-.imgwrap img{display:block;width:100%;height:auto}
-.noprev{border:1px solid var(--bd);border-radius:12px;padding:32px 16px;text-align:center;background:var(--sf);color:var(--mu);font-size:13.5px}
-.icard{border:1px solid var(--bd);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(16,24,40,.05)}
-.icard+.icard{margin-top:12px}
-.ttl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#8a93a0;margin:0 0 8px}
-table.vt{width:100%;border-collapse:collapse;font-size:13px}
-table.vt td{padding:5px 0;border-bottom:1px solid #f0f1f4;vertical-align:top}
-table.vt tr:last-child td{border-bottom:0}
-table.vt td:first-child{color:var(--mu);width:90px;padding-right:10px}
-.pathblock{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;background:var(--sf);border:1px solid var(--bd);border-radius:7px;padding:7px 9px;word-break:break-all;color:var(--tx)}
-.begruendung{font-size:13px;color:#3a3f47;line-height:1.55}
-.actions{display:flex;gap:10px;margin-top:14px}
-.actions button{font:inherit;font-size:13.5px;border-radius:9px;padding:9px 16px;cursor:pointer;border:1px solid transparent}
-.ap{background:var(--gn);color:#fff}.ap:hover{background:#136a32}
-.rj{background:#fff;color:#b42318;border-color:#eccac6}.rj:hover{background:#fdf3f2}
-.chathint{margin-top:14px;background:#eef3ff;border:1px solid #d7e3fb;border-radius:9px;padding:10px 13px;font-size:13px;color:#27486f}
-.empty-tab{border:1px dashed var(--bd);border-radius:14px;padding:40px 28px;text-align:center;background:var(--sf)}
-.empty-tab h3{margin:0 0 5px;font-size:15px;font-weight:600}
-.empty-tab p{margin:0 auto;max-width:460px;font-size:13px;color:var(--mu)}
-.manual{display:none;margin-top:14px;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:9px;font-size:13px;color:#92400e}
+.pathblock{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;background:var(--sf);border:1px solid var(--bd);border-radius:7px;padding:2px 7px;word-break:break-all;color:var(--tx)}
 .foot{font-size:12px;color:var(--mu);margin-top:16px;border-top:1px solid var(--bd);padding-top:10px}
 .hero{background:linear-gradient(160deg,#f0f5ff,#f8fafb);border:1px solid var(--bd);border-radius:16px;padding:28px;margin-bottom:24px}
 .bignum{font-size:64px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--tx)}
@@ -575,6 +439,7 @@ ol.how li{margin:3px 0;color:var(--tx)}
 .ng{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--mu);margin:8px 0}
 .ng b{color:var(--tx);font-weight:600}
 .say{background:#eef3ff;border-radius:8px;padding:8px 10px;font-size:14px;margin:8px 0}
+.cardopen{background:#fdf2e3;border:1px solid #f3d9a6;border-radius:8px;padding:8px 10px;font-size:13px;color:#92400e;margin:8px 0}
 .cardstat{font-size:14px;margin-top:8px}
 .audit{font-size:12.5px;color:var(--mu);margin-top:2px}
 code{background:#f0f1f4;padding:1px 6px;border-radius:5px;font-size:.9em}
@@ -591,117 +456,19 @@ p.empty{color:var(--mu);background:var(--sf);border:1px solid var(--bd);border-r
 <body><div class="wrap">
   <div class="hd">
     <div class="mark"></div>
-    <div><h1>${esc(name)} · Command Center</h1><div class="sub">Übersicht — Freigaben laufen im Chat</div></div>
+    <div><h1>${esc(name)} · Command Center</h1><div class="sub">Statistik &amp; Verlauf — Freigaben laufen im Chat</div></div>
     <div class="stand">Stand: ${esc(stand)}</div>
   </div>
-  <div class="tabs" id="tabs">${tabsHtml}</div>
-  <div id="body">${initialBody}</div>
-  <div class="manual" id="manual"></div>
-  <div class="foot">Workflow oben wählen · ←→ blättern · Freigabe, Bearbeiten &amp; Nochmal laufen im Chat — sag „zeig offene Freigaben". Das Dashboard zeigt nur an, es verändert nichts.</div>
-  <div id="ueberblick-content" style="${ueberblickDisplay}">
-    ${hero}
-    ${catNote}
-    <h2 class="section">Was ich für dich tun kann</h2>
-    <div class="cardgrid">${cardHtml}</div>
-    <h2 class="section">Zuletzt erledigt</h2>
-    ${feedHtml}
-    <footer class="foot">Aktualisieren: sag „<b>zeig das Dashboard</b>". · „Stunden gespart" = pro erledigtem Vorgang eine <b>angenommene</b> manuelle Bearbeitungszeit × Anzahl — bewusst konservativ geschätzt, keine gemessene Zeit.</footer>
-  </div>
+  ${hero}
+  ${catNote}
+  <h2 class="section">Was ich für dich tun kann</h2>
+  <div class="cardgrid">${cardHtml}</div>
+  <h2 class="section">Verlauf</h2>
+  ${feedHtml}
+  <h2 class="section">Zuletzt abgelegt</h2>
+  ${filedHtml}
+  <footer class="foot">Aktualisieren: sag „<b>zeig das Dashboard</b>". · Freigeben, Bearbeiten &amp; Nochmal laufen im <b>Chat</b> — sag „<b>zeig offene Freigaben</b>". Diese Seite zeigt nur an, sie verändert nichts. · „Stunden gespart" = pro erledigtem Vorgang eine <b>angenommene</b> manuelle Bearbeitungszeit × Anzahl — bewusst konservativ geschätzt, keine gemessene Zeit.</footer>
 </div>
-<script>
-var C=${dataJson};
-var pi=C.active;
-var ii={};
-
-function e(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-function pillHtml(tier){
-  if(tier==='p')return '<span class="pill p">prüfen</span>';
-  if(tier==='f')return '<span class="pill f">folgenreich</span>';
-  return '<span class="pill s">sicher</span>';
-}
-
-function pagerHtml(count,idx){
-  if(!count)return '';
-  var dots=Array.from({length:count},function(_,j){return '<button class="dot'+(j===idx?' on':'')+'" onclick="si('+j+')" aria-label="Posten '+(j+1)+'"></button>';}).join('');
-  return '<div class="pager"><div class="dots">'+dots+'</div><button class="pb" onclick="go(-1)">‹</button><span class="ct">'+(idx+1)+' / '+count+'</span><button class="pb" onclick="go(1)">›</button></div>';
-}
-
-function renderProcess(proc){
-  if(!ii[proc.key]&&ii[proc.key]!==0)ii[proc.key]=0;
-  var idx=ii[proc.key]||0;
-  if(!proc.items.length){
-    return '<div class="empty-tab"><h3>Keine offenen Posten · '+e(proc.label)+'</h3><p>Wird hier vorgelegt, sobald der Prozess einen neuen Lauf abschließt.</p></div>';
-  }
-  if(idx>=proc.items.length)idx=0;
-  var it=proc.items[idx];
-  var label=String((it.values&&it.values.lieferant)||it.filename||proc.label);
-  var rows='';
-  var vkeys=Object.keys(it.values||{});
-  for(var ki=0;ki<vkeys.length;ki++){var k=vkeys[ki];rows+='<tr><td>'+e(k)+'</td><td>'+e(String(it.values[k]??''))+'</td></tr>';}
-  var targetsHtml=it.targets&&it.targets.length?it.targets.map(function(t){return '<div class="pathblock">'+e(t)+'</div>';}).join(''):'<span style="color:var(--mu)">—</span>';
-  rows+='<tr><td>Ziel</td><td>'+targetsHtml+'</td></tr>';
-  var prevHtml=it.thumb?'<div class="imgwrap"><img src="'+it.thumb+'" alt="Vorschau"></div>':'<div class="noprev">Keine Vorschau</div>';
-  // HTML-escape the JSON-encoded label so that any " inside it becomes &quot;
-  // and cannot terminate the onclick="..." attribute string.
-  // The browser un-escapes the attribute before passing it to the JS engine,
-  // so act() receives the correct raw label value at runtime.
-  var labelAttr=e(JSON.stringify(label));
-  var idAttr=e(JSON.stringify(it.id));
-  return '<div class="itemhead"><h2>'+e(it.title)+'</h2>'+pillHtml(it.tier)+pagerHtml(proc.items.length,idx)+'</div>'+
-    '<div class="itemgrid"><div>'+prevHtml+'</div><div>'+
-    '<div class="icard"><p class="ttl">Vorschlag</p><table class="vt"><tbody>'+rows+'</tbody></table></div>'+
-    '<div class="icard"><p class="ttl">Begründung</p><div class="begruendung">'+e(it.reason)+'</div>'+
-    '<div class="chathint">Freigabe, Bearbeiten &amp; Nochmal laufen im <b>Chat</b> — sag z. B.: „<b>zeig offene Freigaben</b>"</div>'+
-    '</div></div></div>';
-}
-
-function syncTabs(){
-  var btns=document.querySelectorAll('#tabs .tab');
-  var keys=['overview'].concat(C.processes.map(function(p){return p.key;}));
-  btns.forEach(function(btn,i){btn.classList.toggle('on',keys[i]===pi);});
-}
-
-function render(){
-  syncTabs();
-  var b=document.getElementById('body');
-  var ub=document.getElementById('ueberblick-content');
-  document.getElementById('manual').style.display='none';
-  if(pi==='overview'){
-    b.innerHTML='';
-    ub.style.display='';
-    return;
-  }
-  ub.style.display='none';
-  var proc=null;
-  for(var i=0;i<C.processes.length;i++){if(C.processes[i].key===pi){proc=C.processes[i];break;}}
-  if(!proc){b.innerHTML='<div class="empty-tab"><h3>Unbekannter Tab</h3></div>';return;}
-  b.innerHTML=renderProcess(proc);
-}
-
-function sp(key){pi=key;render();}
-
-function si(j){
-  var proc=null;for(var i=0;i<C.processes.length;i++){if(C.processes[i].key===pi){proc=C.processes[i];break;}}
-  if(!proc||!proc.items.length)return;
-  ii[pi]=((j%proc.items.length)+proc.items.length)%proc.items.length;
-  render();
-}
-
-function go(d){
-  var proc=null;for(var i=0;i<C.processes.length;i++){if(C.processes[i].key===pi){proc=C.processes[i];break;}}
-  if(!proc)return;
-  si((ii[pi]||0)+d);
-}
-
-// Review-Aktionen (annehmen / bearbeiten / nochmal / ablehnen) laufen im Chat — das Dashboard löst nichts aus.
-
-document.addEventListener('keydown',function(ev){
-  if(pi==='overview')return;
-  if(ev.key==='ArrowRight')go(1);
-  else if(ev.key==='ArrowLeft')go(-1);
-});
-</script>
 </body></html>`;
 }
 
