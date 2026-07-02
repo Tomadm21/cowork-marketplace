@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command Center v0.9.0 — So laufen die Workflows</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel2: #1d212d;
+    --line: #2c3242;
+    --text: #e8eaf0;
+    --muted: #9aa3b5;
+    --accent: #4f8ff7;
+    --receipt: #f0a832;
+    --photo: #4f8ff7;
+    --scan: #8b7cf7;
+    --report: #3ecf8e;
+    --invoice: #f06a7e;
+    --safe: #3ecf8e;
+    --check: #f0a832;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 40px 24px 80px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 42px; }
+  header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  header .sub { color: var(--muted); margin-top: 6px; font-size: 14px; }
+  header .badge {
+    display: inline-block; margin-top: 12px; padding: 4px 12px; border-radius: 99px;
+    background: var(--panel2); border: 1px solid var(--line); color: var(--muted); font-size: 12px;
+  }
+  h2.section {
+    font-size: 15px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
+    margin: 52px 0 20px; text-align: center;
+  }
+  h2.section:first-of-type { margin-top: 0; }
+
+  /* ---- vertical flow ---- */
+  .flow { display: flex; flex-direction: column; align-items: center; }
+  .node {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px 22px; width: 100%; max-width: 660px; text-align: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  }
+  .node .t { font-weight: 650; font-size: 15px; }
+  .node .d { color: var(--muted); font-size: 13px; margin-top: 5px; }
+  .node .chips { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .chip {
+    font-size: 11.5px; padding: 3px 10px; border-radius: 99px;
+    background: var(--panel2); border: 1px solid var(--line); color: var(--muted);
+  }
+  .arrow {
+    width: 2px; height: 26px; background: var(--line); position: relative; margin: 2px 0;
+  }
+  .arrow::after {
+    content: ""; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%);
+    border: 6px solid transparent; border-top-color: var(--line); border-bottom: 0;
+  }
+  .arrow.lbl::before {
+    content: attr(data-l); position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    white-space: nowrap; font-size: 11.5px; color: var(--muted);
+  }
+
+  /* fan-out to processes */
+  .bus { width: min(1160px, 100%); height: 2px; background: var(--line); margin-top: 26px; position: relative; }
+  .bus::before { content:""; position:absolute; top:-26px; left:50%; width:2px; height:26px; background:var(--line); }
+  .lanes {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px;
+    width: min(1160px, 100%); margin-top: 0;
+  }
+  .lane { display: flex; flex-direction: column; align-items: center; }
+  .lane .drop { width: 2px; height: 22px; background: var(--line); }
+  .pcard {
+    width: 100%; background: var(--panel); border: 1px solid var(--line);
+    border-top: 3px solid var(--c, var(--accent)); border-radius: 12px; padding: 14px 14px 12px;
+    min-height: 250px; display: flex; flex-direction: column;
+  }
+  .pcard .head { font-weight: 650; font-size: 13.5px; }
+  .pcard .trig { color: var(--muted); font-size: 11px; margin: 4px 0 10px; font-style: italic; }
+  .pcard ol { margin-left: 16px; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 5px; flex: 1; }
+  .pcard ol b { color: var(--text); font-weight: 600; }
+  .pcard .out {
+    margin-top: 10px; font-size: 11px; padding: 6px 8px; border-radius: 8px;
+    background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+  }
+  .pcard .out span { color: var(--muted); }
+  .new {
+    display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
+    background: var(--scan); color: #fff; border-radius: 5px; padding: 1.5px 6px; margin-left: 6px; vertical-align: 2px;
+  }
+  .dual {
+    margin-top: 8px; font-size: 10.5px; color: var(--scan); border: 1px dashed var(--scan);
+    border-radius: 8px; padding: 5px 8px;
+  }
+  .busdown { width: min(1160px, 100%); height: 2px; background: var(--line); position: relative; margin-bottom: 26px; }
+  .busdown::after { content:""; position:absolute; bottom:-26px; left:50%; width:2px; height:26px; background:var(--line); }
+  .lanes.down .drop2 { width: 2px; height: 22px; background: var(--line); margin: 0 auto; }
+
+  /* review board node */
+  .board { max-width: 760px; }
+  .board .cardrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; text-align: left; }
+  .minicard { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 12px; }
+  .minicard .mt { font-weight: 650; font-size: 12px; margin-bottom: 4px; }
+  .minicard .mm { color: var(--muted); font-size: 11.5px; }
+  .btn {
+    display: inline-block; margin-top: 12px; background: var(--safe); color: #06281a;
+    font-weight: 700; font-size: 12.5px; border-radius: 9px; padding: 7px 16px;
+  }
+  .tierrow { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+  .tier { font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 99px; }
+  .tier.s { background: rgba(62,207,142,.15); color: var(--safe); border: 1px solid rgba(62,207,142,.4); }
+  .tier.p { background: rgba(240,168,50,.15); color: var(--check); border: 1px solid rgba(240,168,50,.4); }
+  .tier.f { background: rgba(240,106,126,.15); color: var(--invoice); border: 1px solid rgba(240,106,126,.4); }
+
+  /* engine + targets */
+  .split { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; width: min(900px,100%); margin-top: 26px; position: relative; }
+  .split::before { content:""; position:absolute; top:-26px; left:50%; width:2px; height:26px; background:var(--line); }
+  .tgt { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; text-align: center; }
+  .tgt .t { font-size: 13px; font-weight: 650; }
+  .tgt .d { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+  /* principles */
+  .principles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .pr { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; text-align: center; }
+  .pr .ico { font-size: 20px; }
+  .pr .t { font-size: 12.5px; font-weight: 650; margin-top: 6px; }
+  .pr .d { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* side loops */
+  .siderow { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .side { background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 14px 16px; }
+  .side .t { font-size: 13px; font-weight: 650; }
+  .side .d { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+
+  footer { text-align: center; color: var(--muted); font-size: 11.5px; margin-top: 56px; }
+  code { background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; font-size: 0.92em; }
+  @media (max-width: 1000px) {
+    .lanes, .lanes.down { grid-template-columns: 1fr 1fr; }
+    .principles { grid-template-columns: 1fr 1fr; }
+    .siderow, .split { grid-template-columns: 1fr; }
+    .bus, .busdown { display: none; }
+    .lane .drop, .lanes.down .drop2 { display: none; }
+    .pcard { min-height: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>⚙️ Command Center — so laufen die Workflows</h1>
+  <div class="sub">Ein Eingang, fünf Prozesse, ein Review-Board, eine Engine. Nichts wird ohne deine Freigabe gespeichert.</div>
+  <div class="badge">Plugin v0.9.0 · Stand 02.07.2026 · inkl. Bericht-Scans (Modus B)</div>
+</header>
+
+<h2 class="section">Der Alltagsweg — „verarbeite alles"</h2>
+
+<div class="flow">
+
+  <div class="node">
+    <div class="t">📥 &nbsp;Ein gemeinsamer Eingang: <code>_eingang/</code></div>
+    <div class="d">Alles einfach reinwerfen — gemischt: Fotos, Belege, Bericht-Scans, ACHIM-Rapporte, Stundenzettel.<br>Auch externe Eingänge möglich (<code>intake.json</code>: Ordner-Routing, z.&nbsp;B. Netzwerk-Ordner).</div>
+  </div>
+
+  <div class="arrow lbl" data-l="„verarbeite alles“"></div>
+
+  <div class="node">
+    <div class="t">🔍 &nbsp;Intake — erkennen, entdoppeln, zuordnen</div>
+    <div class="d">Jede Datei wird nach ihrem <b>Inhalt</b> klassifiziert, nie nach Endung oder Ordner.</div>
+    <div class="chips">
+      <span class="chip">1 · md5-Dublettencheck (auch gegen früher Abgelegtes)</span>
+      <span class="chip">2 · Magic-Bytes: „PDF“ das ein Foto ist? → als Bild lesen</span>
+      <span class="chip">3 · Vision/Text-Klassifikation je Datei</span>
+      <span class="chip">4 · Notiz/unklar → Sammelfrage am Ende</span>
+    </div>
+  </div>
+
+  <div class="arrow lbl" data-l="ALLE Rückfragen gebündelt in EINEM Schritt (Fotos: Baustelle+Datum · Modus B: unklare Handschrift · Belege/Bericht: keine)"></div>
+
+  <div class="bus"></div>
+  <div class="lanes">
+    <div class="lane">
+      <div class="drop"></div>
+      <div class="pcard" style="--c: var(--receipt)">
+        <div class="head">🗂️ Belege ablegen</div>
+        <div class="trig">Rechnung · Lieferschein · Gutschrift · Quittung</div>
+        <ol>
+          <li><b>Auslesen:</b> Lieferant, Nr., Datum, Betrag, Typ (RG/LF/LS)</li>
+          <li><b>Firma ableiten</b> (Adressat ↔ company-context)</li>
+          <li><b>Namensschema + Ablageordner</b> vorschlagen</li>
+          <li>SEPA/offen? → nur als <b>„prüfen“</b> markieren, nie fragen</li>
+        </ol>
+        <div class="out">→ <span>Beleg richtig benannt im Buchhaltungs-Ordner</span></div>
+      </div>
+    </div>
+    <div class="lane">
+      <div class="drop"></div>
+      <div class="pcard" style="--c: var(--photo)">
+        <div class="head">📷 Fotos sortieren <span style="color:var(--muted);font-weight:400">(Modus A)</span></div>
+        <div class="trig">WhatsApp-/Handy-Bilder von der Baustelle</div>
+        <ol>
+          <li><b>Datum:</b> Dateiname/EXIF · Morgenbild (7–11&nbsp;Uhr) = Vortag</li>
+          <li><b>Baustelle:</b> Abgleich <code>stammdaten/projekte.json</code></li>
+          <li><b>Tätigkeit wörtlich aus dem Bautagesbericht</b> — Katalog nur als Fallback · Inhalt schlägt Zeitstempel</li>
+          <li><b>Name:</b> <code>Datum_Baustelle_Tätigkeit_Nr</code></li>
+        </ol>
+        <div class="out">→ <span>Projekt-/Bilder-Ordner, optional KW-Unterordner</span></div>
+      </div>
+    </div>
+    <div class="lane">
+      <div class="drop"></div>
+      <div class="pcard" style="--c: var(--scan)">
+        <div class="head">📄 Bericht-Scans<span class="new">NEU</span> <span style="color:var(--muted);font-weight:400">(Modus B)</span></div>
+        <div class="trig">abfotografierte handschriftliche Montage-/Serviceberichte</div>
+        <ol>
+          <li><b>Vision liest den Bericht:</b> Datum-Spalten → Jahr+KW (So-Anreise = laufende KW)</li>
+          <li><b>BV-Kurzform</b> (Ort + Kunde) aus dem Kopf</li>
+          <li><b>Monteure</b> in exakter Schreibweise aus <code>stammdaten/monteure.json</code> — unklare Handschrift → fragen, nie raten</li>
+          <li><b>Name:</b> <code>JJJJ KWnn BV V.Nachname …</code> (+&nbsp;<code>_Anreise</code>/<code>_Nachtrag</code>)</li>
+        </ol>
+        <div class="out">→ <span>Berichte-Ordner /</span> <code>KWnn/</code></div>
+        <div class="dual">↔ Doppel-Route: enthält der Scan Abrechnungs-Stunden, läuft <b>zusätzlich</b> „Rechnung“ mit derselben Quelle</div>
+      </div>
+    </div>
+    <div class="lane">
+      <div class="drop"></div>
+      <div class="pcard" style="--c: var(--report)">
+        <div class="head">📋 Tagesbericht</div>
+        <div class="trig">ACHIM-Rapport / Regiebericht (Rohdaten)</div>
+        <ol>
+          <li><b>Auslesen:</b> Projekt, KW, Personen, Von/Bis je Tag</li>
+          <li><b>Netto-Stunden</b> berechnen (Tages-Cap, transparent)</li>
+          <li><b>Firmen-Vorlage füllen</b> (DOCX)</li>
+          <li>Gecappte Tage → <b>„prüfen“</b></li>
+        </ol>
+        <div class="out">→ <span>fertiger Bautagesbericht in</span> <code>_ausgang/berichte</code> <span>— wird wieder Quelle für die Foto-Tätigkeiten!</span></div>
+      </div>
+    </div>
+    <div class="lane">
+      <div class="drop"></div>
+      <div class="pcard" style="--c: var(--invoice)">
+        <div class="head">🧾 Rechnung</div>
+        <div class="trig">Stundenzettel / Wochenstunden zur Abrechnung</div>
+        <ol>
+          <li><b>Stunden je Arbeiter</b> auslesen (Woche)</li>
+          <li><b>Pflicht-Skript</b> <code>compute.ts</code> rechnet Sätze, Spesen, MwSt — nie Kopfrechnen</li>
+          <li><b>Pro-forma-Rechnung</b> (XLSX) bauen</li>
+        </ol>
+        <div class="out">→ <span>prüffertige Rechnung in</span> <code>_ausgang/rechnungen</code></div>
+      </div>
+    </div>
+  </div>
+  <div class="lanes down" style="margin-top:14px">
+    <div class="drop2"></div><div class="drop2"></div><div class="drop2"></div><div class="drop2"></div><div class="drop2"></div>
+  </div>
+  <div class="busdown"></div>
+
+  <div class="node">
+    <div class="t">🗃️ &nbsp;Vorbereitet — noch nichts bewegt</div>
+    <div class="d">Je Prozess eine Review-Queue <code>_firma/_review/R-‹Datum›-‹Prozess›.json</code> + Activity-Log <code>prepared</code>.<br>Jeder Posten trägt eine Stufe:</div>
+    <div class="tierrow">
+      <span class="tier s">sicher</span>
+      <span class="tier p">prüfen</span>
+      <span class="tier f">folgenreich</span>
+    </div>
+  </div>
+
+  <div class="arrow lbl" data-l="optional: „alle sicheren sofort freigeben?“"></div>
+
+  <div class="node board">
+    <div class="t">📋 &nbsp;Review-Board — ein Prozess nach dem anderen</div>
+    <div class="d">Reihenfolge: Belege → Fotos/Scans → Tagesbericht → Rechnung. Pro Posten:</div>
+    <div class="cardrow">
+      <div class="minicard">
+        <div class="mt">🪪 Editierbare Karte</div>
+        <div class="mm">Dateiname, Speicherort, alle Werte (z.&nbsp;B. Betrag · Tätigkeit · <b>Jahr/KW/BV/Monteure</b>), Begründung, Stufen-Badge — Buttons „Übernehmen“ / „Ablehnen“</div>
+      </div>
+      <div class="minicard">
+        <div class="mt">📄 + 📎 Datei-Boxen darunter</div>
+        <div class="mm"><b>Ergebnis</b> (Vorschau unter Zielnamen) und <b>Quelle</b> (Original) — Klick öffnet nativ rechts in der Cowork-Sidebar</div>
+      </div>
+    </div>
+    <div class="btn">✅ Freigeben — ‹Prozess› speichern (N)</div>
+    <div class="d" style="margin-top:8px">… speichert diesen Prozess und zeigt sofort den nächsten.</div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <div class="node">
+    <div class="t">⚙️ &nbsp;Apply-Engine <code>_firma/apply.py</code></div>
+    <div class="d"><b>Kopiert</b> — Original bleibt immer unangetastet. Kollisionssicher (<code>_2</code> statt überschreiben), md5-idempotent (identische Datei wird nie doppelt geklont), atomar.</div>
+    <div class="chips">
+      <span class="chip">Journal-Zeile je Ablage → umkehrbar</span>
+      <span class="chip">Queue leer → Archiv <code>_erledigt/</code></span>
+      <span class="chip">Activity-Log → <code>done</code></span>
+    </div>
+  </div>
+
+  <div class="split">
+    <div class="tgt"><div class="t">🖥️ N:/S: verbunden</div><div class="d">direkt in die echten Firmen-Ordner</div></div>
+    <div class="tgt"><div class="t">📁 sonst <code>_ausgang/</code></div><div class="d">+ vorgesehener N:-Pfad wird notiert</div></div>
+    <div class="tgt"><div class="t">📊 Dashboard</div><div class="d">Live-Artefakt: Stunden gespart, erledigte Arbeit, nächster Schritt</div></div>
+  </div>
+
+</div>
+
+<h2 class="section">Läuft nebenher</h2>
+<div class="siderow">
+  <div class="side">
+    <div class="t">🏢 Firmen-Onboarding (einmalig)</div>
+    <div class="d">Interview → <code>company-context.md</code> + Workspace-Gerüst + Engine + Eingang-Mapping. Jeder Prozess erbt den Kontext und onboardet sich beim ersten Lauf selbst (detect-first, nummerierte Optionen + ✏️).</div>
+  </div>
+  <div class="side">
+    <div class="t">⏰ Sammel-Modus (stündlich)</div>
+    <div class="d">Gleicher Ablauf bis „vorbereitet“, aber ohne Rückfragen und ohne Board — Unklares wird „prüfen“. Kurze Notiz: „X Posten liegen zur Freigabe.“ <b>Gespeichert wird nie unbeaufsichtigt.</b></div>
+  </div>
+  <div class="side">
+    <div class="t">🔁 Lernschleife</div>
+    <div class="d">Neue Baustelle / neuer Lieferant / neuer Monteur → „prüfen“ + Fakt-Signal. Nach Freigabe einmalige Frage: „In Stammdaten übernehmen?“ → derselbe Fall ist künftig <b>sicher</b>.</div>
+  </div>
+</div>
+
+<h2 class="section">Die 5 Sicherheits-Prinzipien</h2>
+<div class="principles">
+  <div class="pr"><div class="ico">🔒</div><div class="t">Copy-only</div><div class="d">Originale werden nie umbenannt oder verschoben</div></div>
+  <div class="pr"><div class="ico">↩️</div><div class="t">Umkehrbar</div><div class="d">Jede Ablage steht als Journal-Zeile im <code>_journal/</code></div></div>
+  <div class="pr"><div class="ico">🚪</div><div class="t">Freigabe-Gate</div><div class="d">Gespeichert wird nur auf deinen Klick — nie im Hintergrund</div></div>
+  <div class="pr"><div class="ico">🧬</div><div class="t">Keine Dubletten</div><div class="d">md5 über Eingang, Ziel und Historie</div></div>
+  <div class="pr"><div class="ico">🏳️</div><div class="t">Firmen-neutral</div><div class="d">Alle Firmendaten in <code>stammdaten/</code> + Config — nichts hardcoded</div></div>
+</div>
+
+<footer>Command Center Cowork-Plugin v0.9.0 · <code>~/cowork-marketplace/plugins/command-center</code> · Diagramm generiert 02.07.2026</footer>
+
+</div>
+</body>
+</html>
