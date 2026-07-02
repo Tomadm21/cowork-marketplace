@@ -1,6 +1,6 @@
 ---
 name: intake
-description: Single drop-zone intake for the Command Center — the entry point when files are dropped without naming a process, or the user says "verarbeite alles", "ich hab was in den Eingang gelegt", "bearbeite die Ressourcen", "alles sortieren", "mach was draus", "ich hab Sachen reingedroppt". Reads every new file in the shared inbox `_eingang/`, classifies each by its ACTUAL content (Beleg/Rechnung, Baustellenfoto, ACHIM-Tagesbericht, Stundenzettel), de-duplicates, asks only the unavoidable questions (Fotos: welche Baustelle + Datum — einmal pro Stapel; Belege und Tagesbericht: keine), runs the right process for each group, and opens one interactive review board. Use whenever a mix of resources is dropped at once or the user wants the whole inbox handled.
+description: Single drop-zone intake for the Command Center — the entry point when files are dropped without naming a process, or the user says "verarbeite alles", "ich hab was in den Eingang gelegt", "bearbeite die Ressourcen", "alles sortieren", "mach was draus", "ich hab Sachen reingedroppt". Reads every new file in the shared inbox `_eingang/`, classifies each by its ACTUAL content (Beleg/Rechnung, Baustellenfoto, ACHIM-Tagesbericht, Stundenzettel, Montage-/Servicebericht-Scan), de-duplicates, asks only the unavoidable questions (Fotos: welche Baustelle + Datum — einmal pro Stapel; Belege und Tagesbericht: keine), runs the right process for each group, and opens one interactive review board. Use whenever a mix of resources is dropped at once or the user wants the whole inbox handled.
 ---
 
 # Intake — ein Eingang für alles
@@ -25,7 +25,7 @@ Für die verbleibenden NEUEN Dateien zuerst **Dubletten erkennen**: bilde je Dat
 
 ## Step 2 — Klassifiziere jede Datei nach INHALT
 Folge `${CLAUDE_PLUGIN_ROOT}/skills/intake/reference/classify.md`. Jede Datei bekommt genau ein Ziel:
-`receipt-filing` (Beleg/Rechnung/Lieferschein) · `photo-sorting` (Baustellenfoto) · `daily-report` (ACHIM-Rapport/Regiebericht) · `invoicing` (Stundenzettel/Montagebericht zur Abrechnung) · `notiz/unklar` (handschriftliche Notiz, Skizze, nicht zuordenbar).
+`receipt-filing` (Beleg/Rechnung/Lieferschein) · `photo-sorting` (Baustellenfoto — oder **Modus B**: Scan eines handschriftlichen Montage-/Serviceberichts zur Archiv-Umbenennung, bei `bericht_scans: an`) · `daily-report` (ACHIM-Rapport/Regiebericht) · `invoicing` (Stundenzettel/Montagebericht zur Abrechnung) · `notiz/unklar` (handschriftliche Notiz, Skizze, nicht zuordenbar). Einzige Ausnahme vom Genau-ein-Ziel: ein Bericht-Scan mit Abrechnungs-Stunden bekommt die **Doppel-Route** photo-sorting Modus B + invoicing (classify.md A4).
 
 Klassifiziere nach dem, was die Datei IST, nicht in welchem Unterordner sie liegt. Lies Bilder per Vision; lies PDFs per Text/Vision. Notiere je Datei eine kurze Begründung der Zuordnung.
 
@@ -39,6 +39,7 @@ Bevor du verarbeitest, frage in **einem** Schritt alles ab, was zum sauberen Bea
 - **Fotos (`photo-sorting`): die einzigen Rückfragen — und gebündelt.** Gruppiere die Fotos nach erkennbarer Baustelle. Der häufigste Fall ist **ein großer Stapel einer Baustelle** → dann **eine** Frage für den ganzen Stapel:
   - **Baustelle?** Optionen aus `stammdaten/projekte.json` + freie Eingabe. (Wenn alle Fotos klar zu einer bekannten Baustelle gehören, nur bestätigen statt fragen.)
   - **Datum?** Nur fragen, wenn es sich nicht aus EXIF/Dateiname ergibt — Optionen: aus EXIF (falls vorhanden) · ein Datum eingeben · ohne Datum (Platzhalter). Wenn mehrere Baustellen-Stapel da sind, pro Stapel eine Zeile.
+- **Bericht-Scans (`photo-sorting` Modus B): fast keine Rückfragen.** Jahr/KW/BV/Monteure kommen aus dem Bericht + `stammdaten/monteure.json`. Nur bei mehrdeutiger Handschrift (gleiche Initialen) gebündelt fragen; und **einmal** klären, ob die Berichte zusätzlich abgerechnet werden sollen (invoicing), falls das nicht aus dem Auftrag klar ist.
 - **Notiz/unklar:** am Ende eine kurze Sammelfrage, was damit geschehen soll.
 
 Stelle diese Fragen **einmal**, bevor die Verarbeitung läuft — nicht pro Datei.
@@ -46,7 +47,7 @@ Stelle diese Fragen **einmal**, bevor die Verarbeitung läuft — nicht pro Date
 ## Step 4 — Verarbeite je Gruppe mit dem zuständigen Prozess
 Für jede Zielgruppe die Regeln des jeweiligen Prozess-Skills anwenden (deren `reference/rules.md`):
 - `receipt-filing` → Namensschema + Ablage-Entscheidungsbaum, je Beleg eine Aktion.
-- `photo-sorting` → `<datum>_<baustelle>_<taetigkeit>_<lfd>` aus dem 38er-Katalog, je Foto eine Aktion.
+- `photo-sorting` → `<datum>_<baustelle>_<taetigkeit>_<lfd>` — Tätigkeit wörtlich aus dem Bautagesbericht, wenn einer zu Projekt+KW existiert, sonst Katalog; je Foto eine Aktion. **Modus B** (Bericht-Scans) → `JJJJ KWnn BV V.Nachname …` nach `skills/photo-sorting/reference/bericht-scans.md`, je Scan eine Aktion (`values`: `jahr, kw, bv, monteure, suffix`).
 - `daily-report` → Vorlage füllen (nur Vorarbeiter, 17:00-Cap), je Bericht eine Aktion.
 - `invoicing` → Pro-forma über das Pflicht-Skript, je Rechnung eine Aktion.
 

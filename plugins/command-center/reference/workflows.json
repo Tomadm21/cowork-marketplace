@@ -43,15 +43,16 @@
     },
     "photo-sorting": {
       "emoji": "📷",
-      "title": "Fotos & Berichte sortieren",
-      "what": "Benennt und sortiert Baustellen-Fotos (nach Datum + Tätigkeit) und Montagebericht-Scans (nach KW + Baustelle + Monteur).",
+      "title": "Fotos sortieren",
+      "what": "Benennt und sortiert die Baustellen-Fotos nach Datum und Tätigkeit — und auf Wunsch auch abfotografierte Berichte nach Woche, Baustelle und Team.",
       "how": [
-        "Du legst die Fotos vom Tag oder die Montagebericht-Scans in den Eingang.",
-        "Ich benenne sie sauber (Fotos nach Datum/Tätigkeit, Scans nach KW/Baustelle/Monteur) und lege sie in den richtigen Ordner.",
-        "Du siehst die Vorschläge und gibst sie frei, bevor etwas gespeichert wird."
+        "Du legst die Fotos vom Tag in den Eingang — Berichts-Scans dürfen einfach mit dabei sein.",
+        "Ich benenne die Fotos nach Datum und Tätigkeit; die Tätigkeit übernehme ich wörtlich aus eurem Tagesbericht, wenn es einen gibt.",
+        "Abfotografierte Berichte bekommen einen Namen mit Jahr, Kalenderwoche, Baustelle und Team und wandern in den passenden Wochen-Ordner.",
+        "Du siehst alle Vorschläge und gibst sie frei, bevor etwas verschoben wird."
       ],
-      "needs": "Fotos vom Tag oder Montagebericht-Scans",
-      "gives": "Sauber benannte, einsortierte Fotos & Berichte",
+      "needs": "Die Fotos vom Tag (Berichts-Scans optional dazu)",
+      "gives": "Sauber benannte, einsortierte Fotos und Berichte",
       "trigger": "Sortier die Baustellen-Fotos",
       "unit": "Foto",
       "unit_plural": "Fotos",

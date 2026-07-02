@@ -14,7 +14,7 @@ This is the productized version of the Command Center skeleton: a generic plugin
 2. **Process skills** — one per business process, each self-contained
    - `invoicing` — pro-forma invoices from timesheets (deterministic money math)
    - `daily-report` — fill the firm's daily/weekly report template
-   - `photo-sorting` — rename + file site/job photos by date and activity
+   - `photo-sorting` — rename + file site/job photos by date and activity (verbatim from the Bautagesbericht when one exists); Modus B archives scanned Montage-/Serviceberichte as `JJJJ KWnn BV V.Nachname …` into `KWnn` folders
    - `receipt-filing` — read receipts/invoices and file them to the right folders
    - `intake` — one shared inbox; auto-detects each file's type and routes it to the right process above
    - `review-board` — interactive cards (preview + editable fields), collect approvals, save in one click

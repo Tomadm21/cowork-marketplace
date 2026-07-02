@@ -1,89 +1,51 @@
 ---
 name: photo-sorting
-description: Rename and file construction-site documentation — jobsite photos AND Montagebericht/service-report scans — into the firm's structure. Use when the user drops jobsite photos or scans, or says "sortier die Baustellenfotos", "benenne die Bilder um", "file these photos", "Bautagesbericht-Bilder einsortieren", "benenne die Höcker-/Montageberichte um", "Montagebericht-Scans sortieren", "lose Bilder im KW-Ordner aufräumen". Modus A — photos → `YYYY-MM-DD_Ort_Tätigkeit_NN` from the Bautagesbericht (with morning/afternoon heuristic + Vision content-check). Modus B — Montagebericht scans (Höcker etc.) → `JJJJ KWnn BV V.Nachname` with the exact Galant Monteur spellings. Modus C — de-duplicate loose files by hash and sort them into KW folders by ISO week. Same Cowork flow: proposes, you review + approve, only then files.
+description: Rename and file site/job photos by date and activity — and (Modus B) rename/archive scanned handwritten Montage-/Serviceberichte by week, site, and crew. Use when the user drops jobsite photos or report scans, or says "sortier die Baustellenfotos", "benenne die Bilder um", "file these photos", "Bautagesbericht-Bilder einsortieren", "Bericht-Scans umbenennen", "Montageberichte einsortieren", "lose Bilder einsortieren". Reads each photo, infers date (from filename or image) and site/activity — matching activities verbatim against the Bautagesbericht when one exists — proposes consistent names, and files them after review.
 ---
 
-# Baustellen-Doku sortieren (Fotos + Montagebericht-Scans)
+# Photo sorting
 
-Ein Skill für die gesamte Baustellen-Bild-Ablage, in **drei Modi** — alle über denselben Cowork-Flow (intake klassifiziert → review-board Karte + 📄/📎-Boxen → apply speichert). Read `${CLAUDE_PLUGIN_ROOT}/reference/firm-config-contract.md` + `${CLAUDE_PLUGIN_ROOT}/skills/photo-sorting/reference/rules.md` first.
-
-**Modus-Wahl aus dem Input:**
-- Quell-Dateien sind reale Baustellen-Szenen (`IMG-…`, `WhatsApp Image…`, Maschinen/Graben/Pflaster) → **Modus A**.
-- Quell-Dateien sind Foto/Scan von handschriftlich ausgefüllten Bericht-Vordrucken (Höcker-Vordruck, Team-Zeile, Unterschrift) → **Modus B**.
-- Aufgabe ist „lose Bilder im Bilder-Wurzelordner aufräumen / entdubletten / in KW-Ordner" → **Modus C**.
-
-Im Zweifel kurz nachfragen, welcher Modus gemeint ist.
+Rename + file photos into the firm's structure with a consistent convention. Read `${CLAUDE_PLUGIN_ROOT}/reference/firm-config-contract.md` first.
 
 ## Step 0 — Self-verify (route, don't error)
-Read `workspace_root` + `company-context.md`, then `_firma/config/photo-sorting.json`. If missing/incomplete, say *"Ich habe die Foto-Einrichtung (Tätigkeiten, Namensschema, Zielordner) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding, asking per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`). Für Modus B zusätzlich `montagebericht.enabled` + `stammdaten/monteure.json` prüfen; fehlt es → Modus-B-Onboarding (rules.md §Onboarding Punkt 7).
+Read `workspace_root` + `company-context.md`, then `_firma/config/photo-sorting.json`. If missing/incomplete, say *"Ich habe die Foto-Einrichtung (Tätigkeiten, Namensschema, Zielordner) noch nicht — jetzt einrichten?"* and run onboarding (`reference/rules.md` §Onboarding, asking per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`).
 
----
+## Step 1 — Read each photo
+For photos in `_eingang/photo-sorting/` (oder von der **intake**-Skill aus dem gemeinsamen `_eingang/` hierher geroutet; or attached): determine the **date** (parse the filename first per `reference/rules.md`; apply the morning heuristic; else read the image / ask). Infer **site/project** (match against `stammdaten/projekte.json` if present, else ask) and **activity** — **Bautagesbericht zuerst**: suche den Bericht zu Projekt + Datum/KW (in `_ausgang/berichte/` und im konfigurierten `bericht_quelle`-Ordner) und übernimm die wörtliche Tages-Formulierung als Slug; erst danach Katalog / Bild / Frage (Reihenfolge + Content-over-Timestamp-Regel: `reference/rules.md`).
 
-## Modus A — Baustellen-Fotos
+### Modus B — Bericht-Scans (bei `bericht_scans: an`)
+Ist die Datei kein Baustellenfoto, sondern ein **abfotografierter/gescannter handschriftlicher Bericht-Vordruck** (Montage-/Servicebericht — von intake als Modus B geroutet): folge `reference/bericht-scans.md`. Schema `JJJJ KWnn BV V.Nachname [V.Nachname …][_Suffix].ext`, Monteur-Schreibweisen exakt aus `stammdaten/monteure.json`, Ziel `<zielordner>/KWnn/`. Queue-Posten mit `values`: `jahr, kw, bv, monteure, suffix`. Mehrdeutige Handschrift → `prüfen` + Rückfrage, nie raten.
 
-### Step A1 — Read each photo + den Bautagesbericht
-Für Fotos in `_eingang/photo-sorting/` (oder von der **intake**-Skill aus dem gemeinsamen `_eingang/` hierher geroutet; or attached): bestimme das **Datum** (Dateiname zuerst per `reference/rules.md`; Tageszeit-Heuristik anwenden; sonst Bild lesen / fragen). **Lies den zugehörigen Bautagesbericht** (PDF/DOCX), um die **wörtlichen Tages-Tätigkeiten** zu extrahieren — er ist die Quelle der Wahrheit für die Tätigkeit (der Katalog ist nur Fallback). Ermittle **Baustelle** (gegen `stammdaten/projekte.json`).
+### Lose Dateien im Bestand
+Sagt der Nutzer „lose Bilder einsortieren" (oder liegen Dateien direkt im Bilder-Wurzelordner): Hash-Check gegen die Zielstruktur, Dubletten ausweisen, Unikate per ISO-Woche in KW-Ordner vorschlagen — `reference/rules.md` §Lose Dateien. Alles über die normale Review-Queue.
 
-### Step A2 — Inhalt vs. Name verifizieren
-Lade **5–10 repräsentative Bilder per Read/Vision** und prüfe, ob der Inhalt zur Tätigkeit/zum Bericht passt (TerraTest ≠ Pflaster etc.). Widerspruch → `tier: "prüfen"` mit Begründung.
+## Step 2 — Propose names
+Build the filename per the configured convention (default `<datum>_<site-slug>_<taetigkeit>_<lfd:02d>.<ext>`). Show the full proposed name + target folder for each photo. Flag low-confidence inferences as "prüfen".
 
-### Step A3 — Propose names
-Baue `<datum>_<site-slug>_<taetigkeit>_<lfd:02d>.<ext>`. Zeige vollständigen Namen + Zielordner je Foto. Low-confidence als „prüfen".
-
-## Modus B — Montagebericht-Scans
-
-### Step B1 — Pro Scan den Bericht lesen
-Lies jeden Scan (Vision) und leite ab (rules.md §Modus B): **Jahr + KW** (aus den Datum-Spalten; KW endet sonntags), **BV** = `Ort Kunde` aus dem Bericht-Kopf, **Monteure** aus Team-Zeile + Unterschrift (exakte Schreibweise aus `stammdaten/monteure.json`).
-
-### Step B2 — Mehrdeutigkeit klären
-Handschrift mehrdeutig (welcher Hamrol? P.Hamrol vs. P. Drgas?) → **AskUserQuestion**, nie raten. Mehrere Berichte zur selben KW+BV+Crew → Suffix `_2`/`_Anreise`/`_Heimfahrt`.
-
-### Step B3 — Propose names
-Baue `JJJJ KWnn BV V.Nachname [V.Nachname ...].ext` (KW zweistellig, Leerzeichen als Trenner). Zielordner = konfigurierter Scan-Ordner (`montagebericht.scan_output_base`, z. B. `…/Montageberichte ‹BV›/`). Die umbenannten Scans sind später Eingang für `invoicing`.
-
----
-
-## Step 3 — Review → file (Modus A + B, gemeinsamer Flow)
-Nach Freigabe **kopiert** die Engine (Original bleibt im Eingang) jede Datei unter dem neuen Namen in den Zielordner (Modus A: `_ausgang/bilder` bzw. Projekt-Subpfad; Modus B: Scan-Ordner). Kollisionssicher — nie überschreiben.
+## Step 3 — Review → file
+After approval, **copy** (don't move originals unless asked) each photo to its target folder (default `_ausgang/bilder`, or the firm's project subpath e.g. `<kunde>/<ordner>/Bilder`). Collision-safe lfd numbering — never overwrite.
 
 ## Step 4 — Confirm
-Liste, was abgelegt wurde, plus alle „prüfen"-Posten.
+List what was filed and any "prüfen" items.
 
 ## Step 4b — Signal loggen (best-effort)
-Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per `${CLAUDE_PLUGIN_ROOT}/reference/signals.md` — one JSON line each, never blocking:
-- unbekannte Baustelle, die der User benannt hat → `{type:"correction", key:"photo:unknown-site"}`
-- korrigiertes Low-confidence-Datum → `{type:"correction", key:"photo:low-confidence-date"}`
-- neuer Monteur (nicht in Stammdaten) → `{type:"fact", key:"fact:monteur-<slug>", severity:"folgenreich"}`
-- Inhalt-vs-Name-Widerspruch entdeckt → `{type:"observation", key:"photo:content-mismatch", detail:"…"}`
-- „wäre gut wenn…/merk dir…" → `{type:"observation", key:"observation:<slug>", detail:"…"}`
-- Projektordner/Struktur geändert → `{type:"tech_change", key:"tech:pfad-geaendert", detail:"…"}`
+Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per
+`${CLAUDE_PLUGIN_ROOT}/reference/signals.md` — one JSON line each, never blocking the run:
+- if the site was unknown and the user named it → `{type:"correction", key:"photo:unknown-site"}`
+- if a low-confidence date had to be corrected → `{type:"correction", key:"photo:low-confidence-date"}`
+- if the user said "wäre gut wenn…/merk dir…" → `{type:"observation", key:"observation:<slug>", detail:"…"}`
+- if a project folder/structure had changed → `{type:"tech_change", key:"tech:pfad-geaendert", detail:"…"}`
 
 ## Step 5 — Log the run
-Nach Freigabe + Ablage eine Zeile ans Activity-Log (`${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): stabile `run_id` `photo-sorting-<YYYY-MM-DD>`, `process: photo-sorting`, `items` = Anzahl abgelegter Dateien, `summary` „<N> Fotos/Scans sortiert · <Projekt>", `status: done`. Geplanter, unreviewter Lauf → `status: prepared`. Best-effort, nie blockierend.
-
----
-
-## Modus C — Lose-Datei-Bereinigung
-Für „lose Bilder im `7.Bilder`-Wurzelordner aufräumen": nutze das Helfer-Skript und das **Freigabe-Gate** (rules.md §Modus C).
-
-1. **Plan erzeugen:** `python3 ${CLAUDE_PLUGIN_ROOT}/skills/photo-sorting/scripts/loose-files.py plan --root "<Bilder-Root>"` → JSON: je lose Datei `duplicate` (Hash existiert schon in Subordner → löschen) oder `unique` (→ KW-Ordner per ISO-Woche verschieben).
-2. **Plan zeigen + explizit freigeben lassen** (welche gelöscht, welche wohin). Ohne OK **nichts** ausführen. Löschrecht einmalig via `mcp__cowork__allow_cowork_file_delete`.
-3. **Ausführen:** `… loose-files.py apply --root "<Bilder-Root>" --plan <plan.json>` — **löscht nur bestätigte Hash-Duplikate, verschiebt Unikate**, nie umgekehrt. Umbenennungen mit Kollision immer über Temp-Namen-Stage.
-4. **Verifizieren:** danach Datei-Listen (lokal + Netzwerk) prüfen; beide Seiten identisch halten.
-
-Modus C nutzt **nicht** die Copy-Engine (die kopiert nur) — Verschieben/Löschen laufen über das Helfer-Skript nach Freigabe.
-
----
+After approval + filing, append one line to the activity log so the dashboard reflects it (see `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`): a stable `run_id` like „photo-sorting-<YYYY-MM-DD>" (so a re-run updates the entry instead of double-counting), `process: photo-sorting`, `items` = number of photos filed, `summary` like „<N> Fotos sortiert · <Projekt>", `status: done`. A scheduled run left in review logs `status: prepared` instead (shown in the feed, not counted as time saved). Best-effort — logging must never block the run.
 
 ## Loop- / Sammel-Modus (stündlich)
-Vorschläge vorbereiten und im Review-State stoppen; nie unbeaufsichtigt bewegen. Dieser Prozess läuft stündlich über den gemeinsamen Sammel-Task (`${CLAUDE_PLUGIN_ROOT}/reference/automation.md`). Jeder Lauf ist idempotent:
+Propose the renames/filings and stop at the review state; never move files unattended. See `${CLAUDE_PLUGIN_ROOT}/reference/automation.md`.
 
-- **Nur neuer Input.** Bevor eine Quelldatei eingereiht wird, prüfe, ob ihr workspace-relativer Pfad bereits (a) in einer offenen Queue `_firma/_review/`, (b) im Journal `_firma/_journal/*.jsonl`, oder (c) in `_firma/_state/seen-photo-sorting.json` steht → dann überspringen. Nichts Neues → sofort beenden ohne Queue.
-- **Bündeln.** Alle neuen Quellen eines Laufs in EINE Queue (an heutige offene Queue anhängen, `rechecked` setzen). Nie pro Datei eine eigene Queue.
-- **Merkliste pflegen.** Neu eingereihte Quellpfade in `_firma/_state/seen-photo-sorting.json` ergänzen. Modus C läuft nicht automatisch (destruktiv) — nur auf Ansage.
+Dieser Prozess läuft stündlich über einen gemeinsamen Sammel-Task (siehe `${CLAUDE_PLUGIN_ROOT}/reference/automation.md`). Jeder Lauf ist idempotent:
 
-When a run is prepared but not reviewed inline, write/append one review-queue file per `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md` at `<workspace>/_firma/_review/R-<YYYY-MM-DD>-photo-sorting.json`. `runid` = `photo-sorting-<YYYY-MM-DD>`, `process: "photo-sorting"`. Jede Datei = eine Aktion mit `verb: "kopieren"`, `tier` (`sicher` nur bei durchweg sicherer Ableitung + gestützter Bild-Stichprobe, sonst `prüfen`), `reason` (was verifiziert, was unsicher), `source` = Eingangspfad, `filename` = kollisionssicherer Zielname, `targets` = Zielordner, und `values`:
-- **Modus A (Foto):** `standort`, `datum`, `taetigkeit`.
-- **Modus B (Scan):** `jahr`, `kw`, `bv`, `monteure`.
+- **Nur neuer Input.** Bevor eine Quelldatei eingereiht wird, prüfe, ob ihr workspace-relativer Pfad bereits (a) in einer offenen Queue unter `_firma/_review/`, (b) im Journal `_firma/_journal/*.jsonl`, oder (c) in der Merkliste `_firma/_state/seen-photo-sorting.json` steht. Wenn ja: überspringen. Ist nichts Neues da, beende den Lauf sofort ohne Queue — best-effort, nie blockierend.
+- **Bündeln.** Alle neuen Quellen eines Laufs kommen in EINE Queue: existiert für heute schon eine offene Queue dieses Prozesses, hänge die neuen Aktionen dort an (fortlaufende `id`) und setze `rechecked`; sonst lege eine neue an. Niemals pro Datei eine eigene Queue.
+- **Merkliste pflegen.** Nach dem Vorbereiten ergänze die neu eingereihten Quellpfade in `_firma/_state/seen-photo-sorting.json` (JSON-Array; Datei/Ordner anlegen, falls fehlend). Best-effort.
 
-Das Activity-Log bleibt `status: prepared`; kopiert wird nur über review-board / `apply.py`.
+When a run is prepared but not reviewed inline (scheduled runs or any run where the user is not present to approve in chat), write one review-queue file (bzw. an die heutige offene Queue anhängen) per `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md` at `<workspace>/_firma/_review/R-<YYYY-MM-DD>-photo-sorting.json`. Use `runid` matching the activity-log entry (e.g. `photo-sorting-<YYYY-MM-DD>`), `process: "photo-sorting"`. Each photo becomes one action with `verb: "kopieren"`, `tier: "sicher"` when the date, site, and activity were all inferred with high confidence, `tier: "prüfen"` for any inference flagged as low-confidence, `reason` being the same justification shown in the inline review (what was verified, what is uncertain), `source` the `_eingang/photo-sorting/` path, `filename` the proposed collision-safe target name, `targets` the configured destination folder (inkl. KW-Subordner, wenn `kw_subfolder: an`), and `values` carrying: `standort`, `datum`, `taetigkeit` — bei Modus-B-Posten stattdessen `jahr`, `kw`, `bv`, `monteure`, `suffix`. The activity-log entry stays `status: prepared`; copying files happens only via the cockpit / `apply.ts`.
