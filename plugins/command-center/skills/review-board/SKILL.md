@@ -38,7 +38,7 @@ Nach allen Posten des Prozesses **ein** kleines Freigabe-Widget: **„Freigeben 
 
 ## Step 5 — Intents
 - **Bearbeiten**: `bearbeite <runid> <id>: <feld>=<wert>; …` → Aktion in der Queue patchen (`filename`/`targets`/`values`), `rechecked` setzen, nichts bewegen. Betroffene Karte neu rendern.
-- **Ablehnen**: `lehne ab: <runid> <id>` → `apply.ts reject`; Karte verschwindet.
+- **Ablehnen**: `lehne ab: <runid> <id>` → `python3 <workspace_root>/_firma/apply.py <workspace_root> reject <runid> <id>`; Karte verschwindet.
 - **Prozess freigeben (Hauptklick)**: `freigeben prozess <process>` → **alle verbliebenen** Posten dieses Prozesses speichern (Step 6), Queue archivieren, dann **sofort den nächsten offenen Prozess** rendern (zurück zu Step 3). Gibt es keinen mehr → Abschluss-Zusammenfassung.
 - Vorschau passiert in den nativen Boxen (kein Chat).
 

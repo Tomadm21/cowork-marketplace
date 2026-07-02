@@ -14,7 +14,7 @@ This arithmetic (cap + break subtraction) is intentionally done inline by the sk
 2. **Time cap** `cap_time` — default `17:00` (the „Bis"-Zeit is capped to it and netto recomputed). Options: `17:00` · `keine Kappung` · ✏️.
 3. **Whose hours** `roles_in_report` — default `nur Vorarbeiter` (others on the source are ignored). Options: `nur Vorarbeiter` · `alle` · ✏️.
 4. **Project-title parsing** `title_parts` — how the project title splits into fields. Default order `Ort · Netzbetreiber · GU · Nummer · Bauleiter` (e.g. „Musterstadt M-Netz Musterbau 1234 Vorname"). Confirm/reorder; ✏️.
-5. **Template fields** 🔍 `fields` — read the template's placeholders and propose the mapping (Standort, PLZ, Straße, Projekt, KW, Bauleiter, roles) in bulk to confirm.
+5. **Template fields** 🔍 `fields` — read the template's placeholders and propose the mapping (Standort, PLZ, Straße, Projekt, KW, Bauleiter, roles) in bulk to confirm. **Has the template no placeholders at all** (a real filled GU form, e.g. EWE/Hochtief ARBEITSEINSATZ)? Then set `template_mode: "anchor"` and point `template_path` at the folder of filled KW reports — filling follows `reference/form-anchors.md` (base = last filled report, duplicated XML, fill both copies).
 6. **Day labels** `day_labels` — default `Montag…Sonntag` · ✏️.
 7. **Pause & Tages-Obergrenze** — Pflichtpause pro Tag (Vorschlag 0,5h) und Obergrenze Arbeit+Reise pro Tag (Vorschlag 17h). Optionen: `Vorschläge übernehmen` · ✏️. *(gespeichert als `pflicht_pause_h`, `daily_cap_total_h`)*
 8. **Filename schema** `filename_schema` — default `{standort} Bautagesbericht KW {kw}` · tagesbasiert `{standort}_Bautagesbericht_{datum}` · ✏️.

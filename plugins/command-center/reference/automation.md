@@ -52,7 +52,7 @@ Command-Center-Prozesse nutzen Vision/LLM-Extraktion — nicht deterministisch. 
 
 ## Freigabe passiert im Chat — nicht im Dashboard
 
-Das Dashboard (`skills/dashboard/`) ist **reine Übersicht**: es zeigt, was lief, wie viel Zeit gespart wurde und wie viele Posten warten — löst aber **nichts** aus. **Annehmen, Bearbeiten, Nochmal-Rechnen und Ablehnen machst du im Chat.** Sag „**zeig offene Freigaben**". Vollständiger Ablauf: `reference/chat-review.md`. Nur die Apply-Engine (`skills/dashboard/scripts/apply.ts`) bewegt am Ende Dateien — ausgelöst durch dein Wort im Chat, nie durch Task oder Dashboard.
+Das Dashboard (`skills/dashboard/`) ist **reine Übersicht**: es zeigt, was lief, wie viel Zeit gespart wurde und wie viele Posten warten — löst aber **nichts** aus. **Annehmen, Bearbeiten, Nochmal-Rechnen und Ablehnen machst du im Chat.** Sag „**zeig offene Freigaben**". Vollständiger Ablauf: `reference/chat-review.md`. Nur die Apply-Engine (`_firma/apply.py`, kanonisch) bewegt am Ende Dateien — ausgelöst durch dein Wort im Chat, nie durch Task oder Dashboard.
 
 ## Der Sammel-Task: genauer Prompt
 

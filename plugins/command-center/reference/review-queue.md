@@ -158,7 +158,7 @@ All paths in the journal are workspace-relative (relative to workspace root).
 python3 <workspace_root>/_firma/apply.py <workspace_root> \
     list | approve <runid> <action_id> | reject <runid> <action_id> | approve-safe \
     [--dry]
-# optional, identischer Vertrag:
+# optional, identischer Vertrag (bun oder Node ≥ 22.6):
 bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> …
 ```
 

@@ -41,6 +41,8 @@ Then, in the firm's Cowork workspace:
 
 …or just say *"richte mein Command Center ein"* / *"set up my command center"*.
 
+**Runtime requirements (honest):** the review/apply path needs only **Python 3** — the canonical engine `_firma/apply.py` is pure stdlib. The TypeScript helpers (`dashboard.ts`, `compute.ts`, `apply.ts`) are written for **bun**, but plain **Node ≥ 22.6** runs them too (Node 24 executes `.ts` directly: `node skills/dashboard/scripts/dashboard.ts …`) — bun is not required on Windows.
+
 ## How it's built (for the operator/developer)
 
 - **Skill-first.** Most processes are SKILL.md instructions + bundled reference rules + templates, using Cowork's native abilities (vision, docx/xlsx/pdf, file ops). Determinism is reserved for money/legal math — `invoicing` ships a `compute.ts` helper and the skill is forbidden from doing the arithmetic itself.
@@ -51,7 +53,7 @@ See `reference/architecture.md` for the design rationale and the Phase-2 path (p
 
 ## Status
 
-**v0.6.0** — unified drop-zone intake + interactive review board on top of onboarding, the live dashboard, and the business processes.
+**v0.9.1** — unified drop-zone intake + sequential interactive review board (incl. Modus B report scans) on top of onboarding, the live dashboard, and the business processes; canonical pure-Python apply engine (`_firma/apply.py`, md5-idempotent, journal-guarded, multi-target-safe, BOM-tolerant).
 
 | Capability | Depth |
 |---|---|
