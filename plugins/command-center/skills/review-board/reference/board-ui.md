@@ -52,7 +52,7 @@ Beispiele:
 - `freigeben prozess receipt-filing`
 
 ## Speicherziel-Auflösung (SKILL Step 6)
-Beim „freigeben prozess": je Posten Ziel real bestimmen → N:/S: verbunden? direkt dorthin (kollisionssicher, Journal); sonst `_ausgang/<prozess>/` + vorgesehenen N:-Pfad. Workspace-intern über `apply.ts approve`; verbundene Fremdlaufwerke direkt + gleiche Journal-Zeile. Danach nächsten offenen Prozess rendern; keiner offen → Abschluss-Zusammenfassung.
+Beim „freigeben prozess": je Posten Ziel real bestimmen → N:/S: verbunden? direkt dorthin (kollisionssicher, Journal); sonst `_ausgang/<prozess>/` + vorgesehenen N:-Pfad. Workspace-intern über `python3 <workspace_root>/_firma/apply.py <workspace_root> approve <runid> <id>`; verbundene Fremdlaufwerke direkt + gleiche Journal-Zeile. Danach nächsten offenen Prozess rendern; keiner offen → Abschluss-Zusammenfassung.
 
 ## Robustheit
 - `present_files` nicht möglich → Pfad als Klartext.

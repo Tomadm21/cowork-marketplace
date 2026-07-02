@@ -8,8 +8,12 @@
 3. **Plain ISO** start `YYYY-MM-DD` / `YYYYMMDD`.
 4. Else read the image's visible date or EXIF, or ask.
 
-## Morning heuristic
-If a time is known and it's **07:00–10:59**, subtract one day — photos taken in the morning usually document the **previous** day's work. (Configurable on/off.)
+## Tageszeit-Heuristik (welcher Bautag wird dokumentiert?)
+Das Datum im Dateinamen ist das Datum **des Versands/der Aufnahme**, nicht immer der gezeigten Arbeit:
+- **Morgenbilder (07:00–10:59):** dokumentieren häufig den **Stand des Vortages** (der Vorarbeiter fotografiert beim Eintreffen den gestrigen Zustand) → auf den **Vortag** re-datieren. *(configurable on/off — `morning_heuristic`)*
+- **Nachmittagsbilder (15:00–19:00):** dokumentieren i. d. R. die **Arbeit DES Tages** (Tagesende-Status) → Datum bleibt.
+
+Beispiel: 20 Bilder alle vom `2026-05-12` → 9 von 08:33 morgens → `2026-05-11`; 11 von 16:20 nachmittags → bleiben `2026-05-12`.
 
 ## Inhalt schlägt Zeitstempel
 Der Zeitstempel ist nur eine Heuristik. Liegt ein Bautagesbericht vor (§Site & activity matching), gilt: zeigt ein Foto eindeutig eine Tätigkeit, die der Bericht einem **anderen** Tag zuordnet, bekommt das Foto das Datum aus dem Bericht — egal wann es aufgenommen oder gesendet wurde. Widerspruch ohne klare Auflösung → tier `prüfen`.
@@ -30,11 +34,19 @@ Default `_ausgang/bilder`. If the firm mirrors into project folders, use `<base>
 
 **KW-Subordner** (`kw_subfolder: an`): unterhalb des Bilder-Ziels je Kalenderwoche ein Unterordner. Schreibweise: **vorhandene Konvention im Zielordner beibehalten** (`KW 19` vs. `KW19` — erst schauen, dann anlegen); für neue Ordner gilt `kw_folder_prefix` (Default `"KW "` mit Leerzeichen). Die Woche ist die **ISO-Woche** (ISO 8601, Montag-Start) aus dem Foto-Datum — bei Unsicherheit per `python3 -c "import datetime; print(datetime.date(J,M,T).isocalendar()[:2])"` prüfen (liefert ISO-Jahr + KW, auch am Jahreswechsel korrekt).
 
-## Lose Dateien im Bilder-Bestand säubern
+## Lose Dateien im Bilder-Bestand säubern (Modus C)
 Auf Zuruf („lose Bilder einsortieren") oder wenn beim Ablegen Dateien direkt im Bilder-Wurzelordner liegen (statt in KW-/Projekt-Subordnern):
 1. **Hash-Check gegen die Zielstruktur**: md5 jeder losen Datei gegen alle Dateien der Subordner. Treffer = **Dublette** → als Karte „Dublette — bereits einsortiert unter `<pfad>`" ausweisen, nichts kopieren (Löschen des losen Originals nur auf ausdrücklichen Wunsch).
 2. **Unikat** → normaler Posten: Datum aus dem Dateinamen (§Date parsing), KW per ISO-Woche, Vorschlag in den passenden KW-Ordner (anlegen falls fehlend, Konvention s. o.).
 3. Alles läuft über die normale Review-Queue — nie unbeaufsichtigt verschieben.
+
+**Helfer-Skript** `${CLAUDE_PLUGIN_ROOT}/skills/photo-sorting/scripts/loose-files.py` (reines Python 3) übernimmt die Mechanik in zwei hart getrennten Stufen:
+- `plan --root <bilder-ordner>` — hasht lose Dateien gegen alle Subordner-Dateien und schreibt einen JSON-Plan (Dublette → löschen / Unikat → per ISO-Woche in KW-Ordner verschieben). Bewegt nichts.
+- `apply --root <dir> --plan <plan.json> [--dry]` — führt NUR den freigegebenen Plan aus. **Löscht ausschließlich bestätigte Hash-Dubletten, niemals Unikate**; Unikate werden nur verschoben. Vorher explizite Freigabe zeigen (welche gelöscht, welche wohin) + Löschrecht einmalig via `mcp__cowork__allow_cowork_file_delete`. (Die Copy-Engine `apply.py` kann nicht verschieben/löschen — dafür ist dieses Skript da.)
+
+**Temp-Namen-Stage:** Bei Umbenennungen mit Kollisionen/Renumbering immer zweistufig — erst alle Quellen auf `tmp_NN.ext`, dann von Temp auf Zielnamen (sonst sind Tausch-Umbenennungen unmöglich).
+
+**Lokal + Netzwerk parallel:** Existieren parallele Strukturen (lokale Kopie + Netzwerk-Ordner), jede Umbenennung auf **beide** anwenden (konsequente Reihenfolge) und danach verifizieren, dass beide Dateilisten identisch sind.
 
 ## Anti-Patterns
 - **Vorhandenen Dateinamen blind vertrauen** — auch halbautomatisch erzeugte Namen sind oft falsch (klassischer Fall: „Schalungen_Fundamente" auf Fotos, die in Wahrheit einen Lastplattendruckversuch zeigen). Vor großen Umbenennungen 5–10 Stichproben per Vision lesen.
