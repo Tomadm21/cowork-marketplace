@@ -123,7 +123,9 @@ export function runs(revDir: string): Array<[string, Queue]> {
     if (!name.endsWith(".json")) continue;
     const fp = path.join(revDir, name);
     try {
-      const raw = fs.readFileSync(fp, "utf8");
+      // strip a UTF-8 BOM (Windows PowerShell default) — JSON.parse would throw
+      // on it and the queue would be silently skipped as garbled
+      const raw = fs.readFileSync(fp, "utf8").replace(/^\uFEFF/, "");
       const q = JSON.parse(raw) as Queue;
       out.push([fp, q]);
     } catch { /* skip garbled */ }

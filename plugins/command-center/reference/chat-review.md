@@ -1,8 +1,8 @@
 # Chat-Review — Freigeben, Bearbeiten, Nochmal, Ablehnen im Chat
 
-Das Dashboard ist **reine Übersicht** (read-only). Die eigentliche Freigabe-Interaktion läuft im **Chat**: die KI legt die vorbereiteten Posten vor, du antwortest in normaler Sprache, die KI führt aus. Nur die Apply-Engine (`skills/dashboard/scripts/apply.ts`) bewegt am Ende Dateien — und nur auf deinen ausdrücklichen Zuruf.
+Das Dashboard ist **reine Übersicht** (read-only). Die eigentliche Freigabe-Interaktion läuft im **Chat**: die KI legt die vorbereiteten Posten vor, du antwortest in normaler Sprache, die KI führt aus. Nur die Apply-Engine (`_firma/apply.py`, kanonisch) bewegt am Ende Dateien — und nur auf deinen ausdrücklichen Zuruf.
 
-Dieser Vertrag beschreibt, wie die `dashboard`-Skill natürliche Sprache auf Aktionen abbildet. Queue-Format: `reference/review-queue.md`. Engine: `apply.ts`.
+Dieser Vertrag beschreibt, wie die `dashboard`-Skill natürliche Sprache auf Aktionen abbildet. Queue-Format: `reference/review-queue.md`. Engine: `_firma/apply.py` (kanonisch; `apply.ts` optional).
 
 ---
 

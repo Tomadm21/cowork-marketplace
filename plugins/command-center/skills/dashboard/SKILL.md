@@ -1,6 +1,6 @@
 ---
 name: dashboard
-description: Show the firm's live Command Center overview — a read-only at-a-glance artifact with time saved, every workflow (and how it works), the work already done, the recommended next step, and how many items are waiting for review. Approving, editing and re-running happen in chat, not in the artifact. Use when the user says "zeig das Dashboard", "show dashboard", "übersicht", "wie läuft es", "was wurde gemacht", "wie viel Zeit habe ich gespart", "was kann das command center", "wie funktioniert dieser Prozess", "stats", "zeig offene Freigaben", "freigaben", "was liegt zur freigabe", "review board", "freigeben", "ablehnen". Also good as the home screen for a returning firm.
+description: Show the firm's live Command Center overview — a read-only at-a-glance artifact with time saved, every workflow (and how it works), the work already done, the recommended next step, and how many items are waiting for review. Approving, editing and re-running happen in chat, not in the artifact. Use when the user says "zeig das Dashboard", "show dashboard", "übersicht", "wie läuft es", "was wurde gemacht", "wie viel Zeit habe ich gespart", "was kann das command center", "wie funktioniert dieser Prozess", "stats". Also good as the home screen for a returning firm. NOT for acting on approvals: "zeig offene Freigaben", "freigaben", "was liegt zur freigabe", "freigeben", "ablehnen", "review board" → use the review-board skill instead (this skill only routes there).
 ---
 
 # Dashboard — the overview (read-only)
@@ -31,20 +31,22 @@ Present the generated HTML to the user as a **Live Artifact** so it opens in Cow
 
 The dashboard is read-only; **all approving and editing happens here in chat.** Full mechanics — exact commands, the edit-patch format, and the re-run procedure — are in `${CLAUDE_PLUGIN_ROOT}/reference/chat-review.md`. Summary:
 
-**Trigger.** When the user says *"zeig offene Freigaben"*, "was liegt zur Freigabe", "freigaben", "review" (or a scheduled collector just prepared work and they want to act), list the open queues:
+**Trigger.** When the user says *"zeig offene Freigaben"*, "was liegt zur Freigabe", "freigaben", "review" (or a scheduled collector just prepared work and they want to act), prefer handing over to the **review-board** skill (cards + bulk approval). For the typed chat fallback, list the open queues via the canonical workspace engine:
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> list
+python3 <workspace_root>/_firma/apply.py <workspace_root> list
 ```
+
+(pure Python 3, installed by `firm-onboarding` Step 2b — if `_firma/apply.py` is missing, run that step first. `bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts` is only an optional alternative; without bun, Node ≥ 22.6 runs it too: `node apply.ts …`.)
 
 Parse the JSON and present, grouped by process, each open action numbered with its VORSCHLAG fields, BEGRÜNDUNG, and tier. Then handle the user's natural-language answer — four intents:
 
 > **Grafische Freigabe (Karten):** Wünscht der Nutzer Karten mit Vorschau, editierbaren Feldern und Sammel-Freigabe statt Tippen, rufe die **review-board**-Skill auf (`${CLAUDE_PLUGIN_ROOT}/skills/review-board/SKILL.md`) — gleiches Queue-Format und gleiche Apply-Engine, nur als interaktives Widget. Das Dashboard selbst bleibt read-only.
 
-1. **Annehmen / Freigeben** — `apply.ts <workspace_root> approve <runid> <id>`. For "alle sicheren freigeben" use `approve-safe`. This is the **only** step that moves files (collision-safe copy + reversible journal entry).
+1. **Annehmen / Freigeben** — `python3 <workspace_root>/_firma/apply.py <workspace_root> approve <runid> <id>`. For "alle sicheren freigeben" use `approve-safe`. This is the **only** step that moves files (collision-safe copy + reversible journal entry).
 2. **Bearbeiten (voll)** — the user corrects a field, the target folder, or the filename. Patch that action inside its queue file `_firma/_review/R-…json` (edit `values`, `targets`, and/or `filename`), set the queue's `rechecked`, then re-show the corrected proposal. Editing moves nothing. Append a `correction` signal (`${CLAUDE_PLUGIN_ROOT}/reference/signals.md`). Approve only when the user then says so.
 3. **Nochmal (KI neu rechnen)** — the user says the reading/routing is wrong; re-run the owning process skill on that action's `source` only, replace the action in place (bump `rechecked`), and re-show. Procedure in `chat-review.md`.
-4. **Ablehnen** — `apply.ts <workspace_root> reject <runid> <id>` — removes the action, copies nothing.
+4. **Ablehnen** — `python3 <workspace_root>/_firma/apply.py <workspace_root> reject <runid> <id>` — removes the action, copies nothing.
 
 **After any approve / approve-safe / reject / edit**, regenerate the overview so its counts refresh, then present it again as a Live Artifact:
 
@@ -52,7 +54,7 @@ Parse the JSON and present, grouped by process, each open action numbered with i
 bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/dashboard.ts <workspace_root>
 ```
 
-Report in plain German what happened (what was filed where, what was corrected, what was rejected). Use `--dry` on any `apply.ts` command to preview without touching files.
+Report in plain German what happened (what was filed where, what was corrected, what was rejected). Use `--dry` on any `apply.py` command to preview without touching files.
 
 **Honest semantics to communicate:**
 - `approve` performs a collision-safe copy to every target directory and writes a journal entry — nothing was applied before this step.
@@ -60,7 +62,7 @@ Report in plain German what happened (what was filed where, what was corrected, 
 - `reject` removes the action from the queue without copying anything.
 - `approve-safe` applies all `sicher`-tier actions in one pass; `prüfen` and `folgenreich` always require individual approval.
 
-> **Backward compatibility:** if a message still arrives in the old button form `Freigeben: <runid> Aktion <id> (...)` or `Ablehnen: <runid> Aktion <id> (...)` (e.g. from an older cached artifact), treat it as the approve / reject intent above and run the same `apply.ts` command.
+> **Backward compatibility:** if a message still arrives in the old button form `Freigeben: <runid> Aktion <id> (...)` or `Ablehnen: <runid> Aktion <id> (...)` (e.g. from an older cached artifact), treat it as the approve / reject intent above and run the same `apply.py` command.
 
 ## Explain one workflow on demand
 If the user asks *"wie funktioniert dieser Prozess"* (or "was macht der Tagesbericht"), read that process's entry in `${CLAUDE_PLUGIN_ROOT}/reference/workflows.json` and answer in plain language: what it does, the `how` steps, what they give, what they get, and the exact phrase to start it. No need to regenerate the whole overview for a single explainer.

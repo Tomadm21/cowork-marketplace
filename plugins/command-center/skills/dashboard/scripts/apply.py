@@ -41,7 +41,9 @@ def load_queues(P):
         return out
     for fp in sorted(glob.glob(os.path.join(P["review"], "R-*.json"))):
         try:
-            with open(fp, encoding="utf-8") as fh:
+            # utf-8-sig: Windows PowerShell writes a BOM by default; plain utf-8
+            # would make such a queue invisible (json.load chokes on the BOM)
+            with open(fp, encoding="utf-8-sig") as fh:
                 q = json.load(fh)
             q["_path"] = fp
             out.append(q)
@@ -88,18 +90,23 @@ def cmd_list(P):
     print(json.dumps({"ok": True, "stand": now_iso(), "total": total,
                       "ns": ns, "np": np, "nf": nf, "groups": groups}, ensure_ascii=False))
 
-def journal_has(P, runid, aid, target_base):
-    """atomic/idempotent guard: was this (runid,id,target) already applied?"""
-    month = datetime.date.today().strftime("%Y-%m")
+def norm_dir(p):
+    return os.path.normpath(p).replace("\\", "/")
+
+def journal_has(P, runid, aid, target_dir):
+    """atomic/idempotent guard: was this (runid,id) already applied into target_dir?
+    Compares the journaled target's directory, not just the filename — an action
+    with several targets must be delivered to every one of them."""
+    want = norm_dir(target_dir)
     for jf in glob.glob(os.path.join(P["journal"], "*.jsonl")):
         try:
-            for line in open(jf, encoding="utf-8"):
+            for line in open(jf, encoding="utf-8-sig"):
                 line = line.strip()
                 if not line:
                     continue
                 r = json.loads(line)
                 if r.get("runid") == runid and r.get("id") == aid and \
-                   os.path.basename(r.get("target", "")) == target_base:
+                   norm_dir(os.path.dirname(r.get("target", ""))) == want:
                     return True
         except Exception:
             pass
@@ -115,7 +122,7 @@ def record_filed_md5(P, m):
     os.makedirs(P["state"], exist_ok=True)
     fp = os.path.join(P["state"], "filed-md5.json")
     try:
-        data = json.load(open(fp, encoding="utf-8")) if os.path.exists(fp) else []
+        data = json.load(open(fp, encoding="utf-8-sig")) if os.path.exists(fp) else []
     except Exception:
         data = []
     if m not in data:
@@ -153,8 +160,10 @@ def apply_action(root, P, q, a, dry):
             fb = os.path.join(root, "_ausgang", q.get("process", "sonstiges"))
             results.append({"status": "fallback", "intended": target, "dir": fb})
             tdir = fb
-        # journal guard (atomic re-run safety)
-        if journal_has(P, q.get("runid"), a.get("id"), fname):
+        # journal guard (atomic re-run safety) — keyed by target DIR so every
+        # target of a multi-target action gets delivered (BV + Buchhaltung)
+        tdir_rel = os.path.relpath(tdir, root) if tdir.startswith(root) else tdir
+        if journal_has(P, q.get("runid"), a.get("id"), tdir_rel):
             results.append({"status": "already-journaled", "target": os.path.join(target, fname)})
             continue
         dest = os.path.join(tdir, fname)
@@ -249,6 +258,13 @@ def cmd_approve_safe(P, root, dry):
     print(json.dumps({"ok": True, "applied": applied, "dry": dry}, ensure_ascii=False))
 
 def main():
+    # Windows: stdout defaults to the console codepage (cp1252) — umlauts in
+    # values would garble the JSON for the caller. Force UTF-8.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     args = [x for x in sys.argv[1:] if x != "--dry"]
     dry = "--dry" in sys.argv
     if len(args) < 2:
