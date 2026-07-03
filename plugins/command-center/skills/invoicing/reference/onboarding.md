@@ -17,6 +17,7 @@ Confirm in bulk where you can; ask one-at-a-time only for the numbers you can't 
 7. **[math] Daily cap** on arbeit+fahrt per day — default `17h` · ✏️. *Montagebau-Preset:* wird nicht automatisch gekürzt, nur als „prüfen"-Warnung gemeldet.
 8. **[math] Hotel / night** — default `85 €` · ✏️.
 9. **[math] KFZ rate / km** — default `0,75 €` · ✏️.
+9b. **Anreise-km ab Firmensitz** (nur Montagebau-Preset) — werden An-/Heimreisen immer als Strecke Firmensitz→Baustelle abgerechnet (statt Report-/Tacho-Wert)? Default **ja** (`anreise_km_ab_firmensitz: true`). Die Strecke je Baustelle landet in `sites.<baustelle>.anreise_km` — beim Onboarding für bekannte Baustellen gleich miterfassen, sonst fragt die Skill beim ersten Lauf einmal nach. Die Firmensitz-Adresse kommt aus `company-context.md` (nicht neu erfragen).
 10. **[math] Weekend days** — default `Sa+So` · ✏️.
 11. **Per-site overrides** ◦ — some sites pay no hotel (client covers it) or have a fixed invoice recipient. For each such site: `match` keyword, `hotel: ja/nein`, recipient name + email. Skippable — otherwise ask per case at run time.
 12. **Invoice filename schema** — default `{jahr} KW{kw} {baustelle} {monteure}` · ✏️.

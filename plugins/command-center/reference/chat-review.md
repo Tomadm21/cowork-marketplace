@@ -80,13 +80,13 @@ Entfernt die Aktion aus der Queue; kopiert nichts. Die Quelldatei im Eingang ble
 ---
 
 ## Nach jeder Aktion
-Übersicht neu erzeugen, damit die Zähler stimmen, und wieder als Live Artifact zeigen:
+In klarem Deutsch **kurz im Chat** berichten: was wohin abgelegt, was korrigiert, was abgelehnt wurde — plus der neue Offen-Zähler (steht in der `apply.py`-Ausgabe, kein Extra-Lauf nötig).
+
+**Das Dashboard-Artefakt NICHT nach jeder Aktion neu erzeugen** — das kostet pro Posten einen vollen Generator+Artifact-Roundtrip und bremst die Review-Session spürbar. Es veraltet auch nicht: der Generator rechnet beim Rendern frisch aus den Logs. Erst **am Ende der Review-Session** (oder wenn der Nutzer das Dashboard sehen will) einmal:
 
 ```
 bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/dashboard.ts <workspace_root>
-```
-
-Dann in klarem Deutsch berichten: was wohin abgelegt, was korrigiert, was abgelehnt wurde. Leert sich eine Queue vollständig, verschiebt die Engine sie nach `_firma/_review/_erledigt/`.
+``` Leert sich eine Queue vollständig, verschiebt die Engine sie nach `_firma/_review/_erledigt/`.
 
 ## Phrasen → Intent (Schnellreferenz)
 

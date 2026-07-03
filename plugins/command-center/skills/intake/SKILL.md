@@ -9,6 +9,8 @@ Ein einziger Drop-Ordner, aus dem heraus das Command Center selbst erkennt, **wa
 
 > Leitidee: Der Nutzer wirft Ressourcen rein und sagt höchstens „verarbeite alles". Die KI klassifiziert, stellt **sofort und gebündelt** nur die wirklich nötigen Rückfragen, arbeitet alles durch und legt am Ende **ein** interaktives Review-Board vor.
 
+> **Tempo-Regel (gilt für den ganzen Lauf):** unabhängige Lese-Schritte **bündeln** — `company-context.md`, `config/intake.json`, offene Queues, Journal und `seen-*.json` in EINEM Schritt lesen statt nacheinander; einmal Gelesenes im Lauf nicht erneut lesen. Pro-Datei-Kommandos (Prüfsummen, Magic-Bytes) als EIN gebatchtes Kommando über alle Dateien, nie ein Prozess-Spawn pro Datei.
+
 ## Step 0 — Self-verify (route, don't error) + Eingang-Mapping
 Read `workspace_root` + `company-context.md`. Fehlen sie → *„Ich richte das Command Center zuerst kurz ein"* und `firm-onboarding`. Stelle sicher, dass `_firma/apply.py` existiert (sonst `firm-onboarding` Step 2b) und das Löschrecht geholt ist (`mcp__cowork__allow_cowork_file_delete`, einmalig).
 
@@ -21,13 +23,23 @@ Liste alle Dateien unter `_eingang/` (rekursiv). Eine Quelldatei gilt als **scho
 
 Scanne **alle** in `intake.json` definierten Quellen (`inbox_roots` + `externe_eingaenge`), nicht nur `_eingang/`. Eine Quelldatei gilt zusätzlich als **schon abgelegt**, wenn ihre Inhalts-Prüfsumme bereits in `_firma/_state/filed-md5.json` steht (gleicher Inhalt wurde an einem früheren Tag freigegeben) → dann **nicht erneut einreihen** (verhindert genau die `_2`-Re-Lauf-Duplikate).
 
-Für die verbleibenden NEUEN Dateien zuerst **Dubletten erkennen**: bilde je Datei eine Inhalts-Prüfsumme (`md5sum`; wo es fehlt — z. B. macOS — portabel `python3 -c "import hashlib,sys;print(hashlib.md5(open(sys.argv[1],'rb').read()).hexdigest())" <datei>`). Gleiche Prüfsumme = dieselbe Datei (auch über Ordner/Endungen hinweg) → nur **eine** verarbeiten, die übrigen als Dublette markieren. Prüfe außerdem **Magic-Bytes gegen Endung**: eine als `.pdf` benannte JPEG ist ein Bild, kein PDF — nach Inhalt behandeln, nie nach Endung. Portabel (auf Windows/Git Bash gibt es kein `file -b`): `python3 -c "import sys;print(open(sys.argv[1],'rb').read(8).hex())" <datei>` — `25504446`=PDF, `ffd8ff`=JPEG, `89504e47`=PNG; wo `file -b` existiert, ist es gleichwertig.
+Für die verbleibenden NEUEN Dateien zuerst **Dubletten erkennen** — Prüfsumme **und** Magic-Bytes für ALLE Dateien in **einem** Kommando (nie ein Aufruf pro Datei):
+
+```
+python3 -c "import hashlib,sys
+for p in sys.argv[1:]:
+    b=open(p,'rb').read(); print(p, hashlib.md5(b).hexdigest(), b[:8].hex())" <datei1> <datei2> …
+```
+
+Gleiche Prüfsumme = dieselbe Datei (auch über Ordner/Endungen hinweg) → nur **eine** verarbeiten, die übrigen als Dublette markieren. Die Magic-Bytes-Spalte prüft **Endung gegen Inhalt**: eine als `.pdf` benannte JPEG ist ein Bild, kein PDF — nach Inhalt behandeln, nie nach Endung (`25504446`=PDF, `ffd8ff`=JPEG, `89504e47`=PNG).
 
 ## Step 2 — Klassifiziere jede Datei nach INHALT
 Folge `${CLAUDE_PLUGIN_ROOT}/skills/intake/reference/classify.md`. Jede Datei bekommt genau ein Ziel:
 `receipt-filing` (Beleg/Rechnung/Lieferschein) · `photo-sorting` (Baustellenfoto — oder **Modus B**: Scan eines handschriftlichen Montage-/Serviceberichts zur Archiv-Umbenennung, bei `bericht_scans: an`) · `daily-report` (ACHIM-Rapport/Regiebericht) · `invoicing` (Stundenzettel/Montagebericht zur Abrechnung) · `notiz/unklar` (handschriftliche Notiz, Skizze, nicht zuordenbar). Einzige Ausnahme vom Genau-ein-Ziel: ein Bericht-Scan mit Abrechnungs-Stunden bekommt die **Doppel-Route** photo-sorting Modus B + invoicing (classify.md A4).
 
 Klassifiziere nach dem, was die Datei IST, nicht in welchem Unterordner sie liegt. Lies Bilder per Vision; lies PDFs per Text/Vision. Notiere je Datei eine kurze Begründung der Zuordnung.
+
+**Tempo — jede Datei nur EINMAL lesen:** Vision-/PDF-Lesen ist der teuerste Schritt des ganzen Laufs. Extrahiere deshalb **beim Klassifizieren sofort** die Felder, die der Zielprozess braucht (Beleg: Lieferant/Nummer/Datum/Betrag/Typ · Foto: Baustelle/Datum-Anhaltspunkte · Bericht-Scan: Jahr/KW/BV/Monteure · Stundenzettel: die Rows) — Step 4 arbeitet dann mit den bereits extrahierten Daten und liest **keine Datei ein zweites Mal**. Zwei Abkürzungen davor: (a) liegt eine Datei in einem per `ordner_routing` explizit gemappten Ordner, steht ihr Zielprozess fest — es entfällt nur die Klassifikations-Frage, gelesen wird sie trotzdem genau einmal (für die Extraktion); (b) mehrere kleine Bilder desselben Stapels in einem Schritt zusammen lesen statt einzeln.
 
 `notiz/unklar` wird **nicht** in einen Prozess gezwängt: kurz sammeln und am Ende einmal nachfragen (Default-Vorschlag: liegen lassen bzw. zu den Prozess-Notizen). Aktiviert die Firma einen Prozess nicht (kein `_firma/config/<prozess>.json`), sammle die betroffenen Dateien und biete am Ende an, den Prozess einzurichten — blockiere die anderen nicht.
 

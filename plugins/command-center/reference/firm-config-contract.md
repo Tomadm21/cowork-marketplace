@@ -80,3 +80,14 @@ Every `config/<process>.json` is a flat, keyed JSON object. Re-running a process
 - Never auto-send anything (email, messages). Never delete the firm's originals.
 - Consequential writes (renaming/moving the firm's files, producing an invoice) are shown for review before they happen; in scheduled runs they land in a review state and wait.
 - For regulated firms: note that Cowork activity is not captured in Anthropic's Compliance API.
+
+## 8. Tempo (all skills)
+
+Every avoidable round-trip makes the firm wait. Rules:
+
+- **Batch independent reads.** Read `company-context.md`, the process config, stammdaten and state files in **one** step at run start — not one file per step. Within a run, never re-read something already read.
+- **Read each dropped file once.** Vision/PDF reads are the most expensive step there is: classify **and** extract in the same pass; later steps work from the extracted data, never from a second read of the file.
+- **One batched command instead of N per-file commands.** Checksums, magic-bytes, file listings: a single command over all files, never one process spawn per file.
+- **Load references lazily.** Read a `reference/*.md` only when the current run actually enters that territory (e.g. `montagebau-preset.md` only when the preset is active; `automation.md` only for scheduled runs).
+- **Heavy artifacts regenerate lazily.** The dashboard computes fresh from the logs at render time — regenerate it once at the end of a session or on request, never after every single action.
+- Best-effort steps (signals, activity log) stay one quick append — never a reason for extra reads or re-checks.

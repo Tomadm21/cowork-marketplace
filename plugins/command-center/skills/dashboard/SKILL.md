@@ -50,7 +50,7 @@ Parse the JSON and present, grouped by process, each open action numbered with i
 3. **Nochmal (KI neu rechnen)** — the user says the reading/routing is wrong; re-run the owning process skill on that action's `source` only, replace the action in place (bump `rechecked`), and re-show. Procedure in `chat-review.md`.
 4. **Ablehnen** — `python3 <workspace_root>/_firma/apply.py <workspace_root> reject <runid> <id>` — removes the action, copies nothing.
 
-**After any approve / approve-safe / reject / edit**, regenerate the overview so its counts refresh, then present it again as a Live Artifact:
+**Do NOT regenerate the artifact after every single approve / reject / edit** — that round-trip is what makes review sessions feel slow, and nothing goes stale: the generator computes everything fresh from the logs at render time. Instead, confirm each action in one short chat line (what was filed/rejected, new open count) and regenerate **once** — when the review session is finished, or whenever the user asks to see the dashboard:
 
 ```
 bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/dashboard.ts <workspace_root>

@@ -53,6 +53,27 @@ sonst 0,5 h), und die km entsprechend verdoppelt. Wird beim Lesen des Reports er
   `ST GA 1002`, wenn das die hinterlegte Bezeichnung für …1002 ist).
 - `vehicle` je Row optional überschreibbar; sonst greift `people[person].vehicle` als Default.
 
+## Anreise-/Heimfahrt-km: immer ab Firmensitz
+
+Bei Montagebau-Baustellen (Höcker-Konvention) werden **An- und Heimreise immer als Strecke
+Firmensitz → Baustelle** abgerechnet — unabhängig davon, von wo der Fahrer tatsächlich losgefahren
+ist und was der Report/Tacho für den Tag notiert. Die Firmensitz-Adresse steht in
+`company-context.md` (`cc:identity`); sie wird hier nie neu erfragt.
+
+- Die Strecke pro Baustelle lebt in `config/invoicing.json` unter `sites.<baustelle>.anreise_km`
+  (einfache Strecke in km). Fehlt sie beim ersten Auftauchen einer Baustelle: **einmal** ermitteln
+  (Route Firmensitz→Baustellen-Adresse), vom Nutzer bestätigen lassen und dort nachtragen — danach
+  läuft es automatisch.
+- Beim Erfassen (Step 1 der Skill) bekommt jeder reine An-/Heimreisetag `km = anreise_km` auf der
+  Fahrer-Row (eine Fahrt = einfache Strecke). Weicht der im Report notierte Wert ab, gilt trotzdem
+  die Firmensitz-Strecke — die Abweichung wird als „prüfen"-Hinweis im Review genannt, nie still
+  überschrieben ohne Sichtbarkeit.
+- **Pendel-km Hotel↔Baustelle** (`2 × 30`-Notation, Regen-Doppelfahrten) bleiben davon unberührt —
+  die Regel betrifft nur Anreise und Heimfahrt.
+- Schalter: `anreise_km_ab_firmensitz` in der Config (im Montagebau-Preset Default `true`). Wird
+  von der Skill beim Erfassen angewandt, nicht von `compute.ts` — das Skript rechnet die Rows, die
+  es bekommt.
+
 ## Spesen (§ 9 EStG, Variante "b" — im Skript bereits Standard)
 
 Erster aktiver Tag mit Hotel = Anreise (Halbtag 8/H), letzter aktiver Tag ohne Hotel = Abreise (Halbtag 8/H),
@@ -99,6 +120,7 @@ Am Ende: Zusammenstellung pro Monteur + Geräte, `summe_netto`, `mwst_betrag`, `
   "pflicht_pause_h": 0.5,
   "daily_cap_total_h": 17,
   "pause_pre_applied": true,
+  "anreise_km_ab_firmensitz": true,
   "spesen": { "volltag_24h": 30, "halbtag_8h": 15 },
   "hotel_cost": 85,
   "kfz_rate_per_km": 0.75,

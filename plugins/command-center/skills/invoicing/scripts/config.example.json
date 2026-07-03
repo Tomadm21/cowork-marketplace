@@ -27,9 +27,10 @@
   "spesen": { "volltag_24h": 30, "halbtag_8h": 15 },
   "hotel_cost": 85,
   "kfz_rate_per_km": 0.75,
+  "anreise_km_ab_firmensitz": false,
   "sites": {
-    "_comment": "OPTIONAL per-site overrides. Omit a site to use the defaults + ask hotel per run. 'match' = how the site appears on timesheets.",
-    "musterstrasse": { "match": "musterstr", "hotel": false, "recipient_name": "Max Muster", "recipient_email": "rechnung@example.com" }
+    "_comment": "OPTIONAL per-site overrides. Omit a site to use the defaults + ask hotel per run. 'match' = how the site appears on timesheets. 'anreise_km' = one-way distance Firmensitz->Baustelle, used at extraction time when anreise_km_ab_firmensitz is true (Montagebau-Preset) — not read by compute.ts.",
+    "musterstrasse": { "match": "musterstr", "hotel": false, "anreise_km": 120, "recipient_name": "Max Muster", "recipient_email": "rechnung@example.com" }
   },
   "filename_schema": "{jahr} KW{kw} {baustelle} {monteure}",
   "output_paths": {

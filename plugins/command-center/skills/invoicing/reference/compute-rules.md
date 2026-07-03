@@ -5,7 +5,7 @@ The deterministic rules the invoice math follows. **These are implemented in `sc
 ## Inputs
 
 - **config** (`_firma/config/invoicing.json`): VAT rate, rate tiers (**separate Montage-/Fahrt-Satz** per tier), Sa-/So-Zuschlag (independent percentages), people→tier(+vehicle) mapping, named vehicles, statutory break, daily cap, `pause_pre_applied` flag, spesen (per-diem) amounts, hotel cost, KFZ rate, weekend days, output paths.
-- **run input**: KW, year, site, and per-person per-day rows: `arbeit_h`, `fahrt_h`, `pause_h`, `hotel`, `km`, optional `vehicle`. (These come from reading the timesheet photo/PDF with Cowork vision, or from a manual form.) See `reference/montagebau-preset.md` for how to derive `fahrt_h` (Pendelanteil, not full travel window) when that preset is active.
+- **run input**: KW, year, site, and per-person per-day rows: `arbeit_h`, `fahrt_h`, `pause_h`, `hotel`, `km`, optional `vehicle`. (These come from reading the timesheet photo/PDF with Cowork vision, or from a manual form.) See `reference/montagebau-preset.md` for how to derive `fahrt_h` (Pendelanteil, not full travel window) and Anreise-/Heimfahrt-`km` (always Firmensitz→Baustelle from `sites.<baustelle>.anreise_km`, never the reported odometer value) when that preset is active — both are extraction-time rules; `compute.ts` computes the rows it receives.
 
 ## Per-day math (per person, per date)
 
