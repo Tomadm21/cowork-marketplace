@@ -12,7 +12,7 @@ This is the productized version of the Command Center skeleton: a generic plugin
    A friendly chat interview collects everything about the firm — identity, locations, team, tools, bank, accounting, file conventions, which processes they run. It then scaffolds a standardized workspace folder structure and writes one `company-context.md` that gives Cowork 100% context. Every process reads this.
 
 2. **Process skills** — one per business process, each self-contained
-   - `invoicing` — pro-forma invoices from timesheets (deterministic money math)
+   - `invoicing` — pro-forma invoices from timesheets (deterministic money math); optional **Montagebau/Service-Report-Preset** (`reference/montagebau-preset.md`) for firms billing skilled-trade crews — separate Montage-/Fahrt-Sätze, independent Sa-/So-Zuschlag, per-vehicle Geräte-Abrechnung
    - `daily-report` — fill the firm's daily/weekly report template
    - `photo-sorting` — rename + file site/job photos by date and activity (verbatim from the Bautagesbericht when one exists); Modus B archives scanned Montage-/Serviceberichte as `JJJJ KWnn BV V.Nachname …` into `KWnn` folders
    - `receipt-filing` — read receipts/invoices and file them to the right folders
@@ -53,12 +53,14 @@ See `reference/architecture.md` for the design rationale and the Phase-2 path (p
 
 ## Status
 
-**v0.9.2** — dashboard is now a pure statistics & history artifact (fully static: hero stats, Verlauf, Zuletzt abgelegt aus dem Journal — no open items, no buttons; reviewing lives entirely in chat via the review board). Plus everything from v0.9.1: unified drop-zone intake + sequential interactive review board (incl. Modus B report scans) on top of onboarding and the business processes; canonical pure-Python apply engine (`_firma/apply.py`, md5-idempotent, journal-guarded, multi-target-safe, BOM-tolerant).
+**v0.10.0** — `invoicing` gained the **Montagebau/Service-Report-Preset**: separate Montage-/Fahrt-Sätze per tier, independent Samstags-/Sonntags-Zuschlag (instead of one blended weekend rate), per-vehicle Geräte-/KFZ-Abrechnung, and an `pause_pre_applied` mode for firms whose hour extraction already nets out breaks (Fahrt-h = Pendelanteil, not the full travel window). All of it stays inside `compute.ts`'s hard rule — the skill still never calculates by hand; every new edge case (unresolved vehicle, over-cap day, spesen/hotel-flag mismatch) surfaces as a `warnings[]` line instead of a silent guess. See `skills/invoicing/reference/montagebau-preset.md`.
+
+Plus everything from v0.9.2: dashboard is a pure statistics & history artifact (fully static: hero stats, Verlauf, Zuletzt abgelegt aus dem Journal — no open items, no buttons; reviewing lives entirely in chat via the review board). Plus v0.9.1: unified drop-zone intake + sequential interactive review board (incl. Modus B report scans) on top of onboarding and the business processes; canonical pure-Python apply engine (`_firma/apply.py`, md5-idempotent, journal-guarded, multi-target-safe, BOM-tolerant).
 
 | Capability | Depth |
 |---|---|
 | **Firm onboarding** | Full — detect-first interview, workspace scaffold, one source-of-truth context file |
-| **Invoicing** | Full — deterministic `compute.ts` for every figure (hours, tiers, per-diems, VAT) + a documented end-to-end dry-run |
+| **Invoicing** | Full — deterministic `compute.ts` for every figure (hours, tiers, per-diems, VAT, Geräte) + a documented end-to-end dry-run; simple single-rate mode or the Montagebau-Preset (getrennte Montage-/Fahrt-Sätze, Sa/So-Zuschlag, Fahrzeug-Abrechnung) |
 | **Dashboard** | Full — live time-saved artifact, workflow transparency, work log |
 | **Daily report · Photo sorting · Receipt filing** | Skill-complete — self-onboarding, reference rules, review-gated output, running on Cowork's native vision/document abilities |
 
