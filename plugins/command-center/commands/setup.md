@@ -6,6 +6,8 @@ description: Set up the Command Center for this firm — runs firm onboarding, t
 
 Drive the full 3-step setup for the firm in this workspace. Be warm and non-technical; the user never edits files or uses a terminal.
 
+> **Erstnutzer?** Wirkt der Nutzer neu bei Cowork/KI (oder sagt „erklär es mir", „ich bin neu", „zeig mir wie das geht"), biete zuerst den geführten Rundgang an — invoke **`guided-setup`** (`/command-center:start`): gleiche Einrichtung, aber mit Cowork-Erklärung und einem echten Probelauf. Dieses `setup` hier ist der **schnelle Weg ohne Erklärung**.
+
 Throughout, follow `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`: **look at the firm's folder first** and offer **numbered options the user picks by tapping a number** — they can always type their own answer (✏️) or skip (⏭️). Paths are **browsed, not typed** (the path-picker). The goal is a setup that feels like confirming, not filling a form.
 
 1. **Firm onboarding** — invoke the `firm-onboarding` skill. It interviews the user for the company context, scaffolds the workspace folder structure, and writes `_firma/company-context.md`. (If it already exists, run it as an update.)

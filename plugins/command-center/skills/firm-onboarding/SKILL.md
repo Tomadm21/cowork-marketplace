@@ -9,6 +9,8 @@ Goal: capture the firm's full context **once**, scaffold a clean workspace, and 
 
 This runs in interactive chat. Be warm, plain, and non-technical. The user should never edit a file or open a terminal.
 
+> **Erstnutzer erkannt?** Wirkt der Nutzer neu bei Cowork/KI (oder bittet um Erklärung), schlag **einmal** den geführten Rundgang vor (`guided-setup` / `/command-center:start`) — er umschließt genau dieses Onboarding plus Cowork-Basics und einen echten Probelauf. Sagt der Nutzer nein oder will nur einrichten, mach hier normal weiter.
+
 **Read `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md` first** — it defines how to ask: detect-first, numbered selectable options with a ✏️ free-text escape on every question, bulk confirm-by-exception, and the path-picker. Follow it for every question below.
 
 ## Step 0 — Workspace + scan

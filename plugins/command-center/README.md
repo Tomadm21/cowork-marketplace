@@ -6,6 +6,8 @@ This is the productized version of the Command Center skeleton: a generic plugin
 
 ## How it works (onboard once, then run, then watch)
 
+00. **Geführter Rundgang für Erstnutzer** (`guided-setup` skill / `/command-center:start`) — wer Cowork/KI zum ersten Mal nutzt, wird **einmal warm durch alles** geführt: kurze Cowork-Grundlagen (Chat = Bedienung, Ordner = Aktenschrank, reinwerfen/freigeben/Dashboard), dann die Firmen-Einrichtung, dann ein **echter Probelauf** mit einem Beispiel-Beleg (reinlegen → „verarbeite alles" → im Chat freigeben → Ergebnis → Dashboard). Am Ende kennt der Nutzer alle Funktionen — weil er sie einmal selbst gemacht hat. Erklären durch Tun; jederzeit überspringbar.
+
 0. **Alles reinwerfen** (`intake` skill) — der Alltagsweg: leg jede Datei (Belege, Fotos, Tagesbericht — gemischt) in den **einen** Eingang `_eingang/` und sag „verarbeite alles". Die intake-Skill erkennt jeden Typ selbst, fragt nur das Nötige und öffnet ein interaktives Review-Board.
 
 1. **Firm onboarding** (`firm-onboarding` skill / `/command-center:setup`)
@@ -52,6 +54,8 @@ Then, in the firm's Cowork workspace:
 See `reference/architecture.md` for the design rationale and the Phase-2 path (per-process deterministic engines + MCP, the way `jan-kapitalfluss` does it).
 
 ## Status
+
+**v0.10.3 — geführter Rundgang für Erstnutzer.** Neue `guided-setup`-Skill + `/command-center:start`: ein einziger warmer Durchlauf, der Cowork **und** das Plugin erklärt (neue `reference/cowork-basics.md`) und den Nutzer **einmal komplett durch einen echten Zyklus** führt — Beispiel-Beleg reinlegen → „verarbeite alles" → im Chat freigeben → Ergebnis → Dashboard. Prinzip: erklären durch Tun, ein Häppchen pro Station, jederzeit überspringbar; am Ende kennt der Nutzer alle Funktionen und die drei Zauberformeln. `firm-onboarding`/`setup` bieten den Rundgang für Erstnutzer aktiv an. Firm-neutrale Demo-Datei zum gefahrlosen Üben (auf Wunsch danach entfernt).
 
 **v0.10.2 — security & correctness hardening** (full-plugin review, all findings fixed):
 - **Apply engine containment** (`_firma/apply.py`): sources, relative targets and filenames from queue JSON can no longer escape the workspace (`../` → `skipped-unsafe`, action stays open); absolute targets are honoured only if configured as `output_paths` in `_firma/config/*.json`, otherwise they fall back to `_ausgang/<process>`. Structured errors instead of tracebacks; `reject` errors on unknown ids instead of claiming success; corrupt journal lines no longer blind the replay guard; garbled queues surface in `queue_warnings`. **Re-run onboarding Step 2b (or re-copy apply.py) in existing workspaces to get the fix.**

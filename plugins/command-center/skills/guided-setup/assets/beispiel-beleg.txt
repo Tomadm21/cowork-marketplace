@@ -1,0 +1,27 @@
+*** BEISPIEL — erfundener Beleg nur zum Üben im Command-Center-Rundgang ***
+*** Keine echte Firma, keine echten Daten. Nach der Übung löschbar.        ***
+
+RECHNUNG
+
+Musterbaustoffe GmbH
+Musterstraße 12
+49999 Musterstadt
+
+Rechnungs-Nr.:   RG-2026-000123
+Rechnungsdatum:  03.07.2026
+Kundo-Nr.:       4711
+
+Leistung: Lieferung Baumaterial (Beispielposten)
+
+Menge   Bezeichnung                Einzelpreis    Gesamt
+  10    Musterträger 2m             25,00 EUR    250,00 EUR
+   5    Musterschrauben-Set          8,00 EUR     40,00 EUR
+
+Nettobetrag:                                     290,00 EUR
+zzgl. 19% MwSt:                                   55,10 EUR
+------------------------------------------------------------
+Rechnungsbetrag:                                 345,10 EUR
+
+Zahlbar innerhalb 14 Tagen ohne Abzug.
+
+*** Ende Beispiel-Beleg ***
