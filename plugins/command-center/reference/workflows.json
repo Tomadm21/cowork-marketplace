@@ -6,10 +6,10 @@
     "invoicing": {
       "emoji": "🧾",
       "title": "Rechnungen",
-      "what": "Macht aus den Stundenzetteln einer Woche eine fertige Rechnung.",
+      "what": "Macht aus den Stundenzetteln oder Montage-/Serviceberichten einer Woche eine fertige Rechnung.",
       "how": [
-        "Du gibst die Stundenzettel der Woche rein — als Foto oder PDF.",
-        "Ich lese die Stunden aus und rechne Sätze, Spesen und Mehrwertsteuer zusammen.",
+        "Du gibst die Stundenzettel oder Service-Reports der Woche rein — als Foto oder PDF.",
+        "Ich lese die Stunden aus und rechne Sätze, Spesen und Mehrwertsteuer zusammen — auf Wunsch mit getrenntem Montage-/Fahrt-Satz, Sa/So-Zuschlag und Fahrzeug-km (Montagebau-Modus).",
         "Du bekommst die fertige Rechnung zur Kontrolle — erst nach deinem OK wird sie gespeichert."
       ],
       "needs": "Die Stundenzettel der Woche",

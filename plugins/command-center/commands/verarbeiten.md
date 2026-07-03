@@ -13,4 +13,4 @@ Invoke the **`intake`** skill. Sie:
 4. bereitet pro Prozess die Arbeit vor (Review-Queues, nichts wird bewegt),
 5. öffnet **ein** interaktives Review-Board (`review-board` skill) zum Sammeln der Freigaben und gebündelten Speichern.
 
-Nichts wird gespeichert, bis der Nutzer im Board auf „Freigegebene speichern" klickt.
+Nichts wird gespeichert, bis der Nutzer im Board auf **„Freigeben (Prozess)"** klickt (bzw. im Chat freigibt).

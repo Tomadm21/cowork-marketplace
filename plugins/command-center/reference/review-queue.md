@@ -2,8 +2,9 @@
 
 A **review queue** is the handoff layer between a prepared workflow run and the workspace.
 When a process finishes its analysis it writes one JSON file; nothing is copied or moved until
-a human explicitly approves. The dashboard (Live Artifact) **displays** the open queues read-only;
-the actual review — approve, edit, re-run, reject — happens in **chat** (see `reference/chat-review.md`).
+a human explicitly approves. The dashboard (Live Artifact) shows only the **count** of open items
+(since v0.9.2 it never lists them); the actual review — approve, edit, re-run, reject — happens
+in **chat** (review-board skill / `reference/chat-review.md`).
 Only the apply engine ever touches workspace files — skills write (and patch) queues, the engine
 applies them.
 
@@ -18,7 +19,10 @@ applies them.
 | `<workspace>/_firma/_journal/<YYYY-MM>.jsonl` | journal — one line per applied action |
 
 `slug` should match the process + a short differentiator, e.g. `belege-a`, `tagesbericht-2026-06-10`.
-The filename becomes the `runid` (without the `.json` extension) and must be stable after creation.
+The **filename** always follows `R-<YYYY-MM-DD>-<slug>.json`; the **`runid` field inside** is the
+stable identifier the engine keys on (it must match the activity-log `run_id`, e.g.
+`invoicing-2026-KW21`). They may coincide (intake writes runid = filename stem) but don't have to —
+never rename a queue file or change its `runid` after creation.
 
 ---
 
@@ -26,7 +30,7 @@ The filename becomes the `runid` (without the `.json` extension) and must be sta
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `runid` | string | yes | Stable identifier; matches `activity-log` `run_id`; equals the filename without `.json` |
+| `runid` | string | yes | Stable identifier the engine keys on; matches `activity-log` `run_id` (may, but need not, equal the filename stem) |
 | `process` | string | yes | Process key: `receipt-filing`, `invoicing`, `daily-report`, `photo-sorting` |
 | `created` | string | yes | ISO 8601 timestamp; offset allowed (e.g. `+00:00`) |
 | `rechecked` | string | no | ISO 8601 timestamp; updated when a process re-analyses an existing queue |
@@ -107,7 +111,7 @@ Only keys relevant to the document type need to be present. The engine does not 
 ```
 process writes queue file            → status: prepared  (activity log)
          ↓
-dashboard displays *.json (read-only) → review happens in chat
+dashboard counts open items (read-only) → review happens in chat/review-board
          ↓
 reviewer takes action per action id
          ↓
@@ -158,8 +162,8 @@ All paths in the journal are workspace-relative (relative to workspace root).
 python3 <workspace_root>/_firma/apply.py <workspace_root> \
     list | approve <runid> <action_id> | reject <runid> <action_id> | approve-safe \
     [--dry]
-# optional, identischer Vertrag (bun oder Node ≥ 22.6):
-bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> …
+# optionaler READ-ONLY-Lister (bun oder Node ≥ 22.6) — kann NICHT freigeben:
+bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> list
 ```
 
 | Command | Effect |
@@ -172,10 +176,13 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> …
 
 `<workspace_root>` is the absolute path to the workspace directory (parent of `_firma/`).
 
-> **Engine note:** the **canonical** engine is `_firma/apply.py` (pure Python 3), written into the
-> workspace by `firm-onboarding` Step 2b — it runs everywhere without `bun`. The bundled
-> `skills/dashboard/scripts/apply.ts` implements the identical contract and is optional. Queues are
-> interchangeable between both engines; do not write engine-specific fields.
+> **Engine note:** the **one and only** engine that applies approvals is `_firma/apply.py`
+> (pure Python 3), written into the workspace by `firm-onboarding` Step 2b — it runs everywhere
+> without `bun`. Since v0.10.2 it enforces **containment**: sources, relative targets and
+> filenames must stay inside the workspace; absolute targets are honoured only if configured in
+> `_firma/config/*.json` (`output_paths`), otherwise they fall back to `_ausgang/<process>`.
+> The bundled `skills/dashboard/scripts/apply.ts` is a **read-only lister** (`list` only) — its
+> apply commands were removed in v0.10.2. Do not write engine-specific fields into queues.
 
 ---
 
@@ -185,7 +192,7 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> …
 |---|---|
 | Process / skill | Write queue files to `_firma/_review/`; **patch actions on edit / re-run**; update `rechecked`; append signals |
 | Apply engine | Read queues; copy files; append journal; move empty queues to `_erledigt/` |
-| Dashboard | **Read-only** — display open queues; trigger nothing |
+| Dashboard | **Read-only** — count open queues (statistics artifact); trigger nothing |
 | Chat (on the user's word) | Trigger engine commands (`approve` / `reject` / `approve-safe`) and queue patches as an explicit human action — never automatic |
 
 **Applying is always a deliberate human action.** No skill, hook, dashboard, or background cron may call

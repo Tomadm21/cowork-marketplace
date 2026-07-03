@@ -24,6 +24,8 @@ Run the generator (it reads the firm's own state + `reference/workflows.json` + 
 bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/dashboard.ts <workspace_root>
 ```
 
+(No bun — e.g. Windows: `node …/dashboard.ts <workspace_root>`, Node ≥ 22.6.)
+
 It prints the path to the written file (default `<workspace_root>/_firma/dashboard.html`). It is best-effort and never crashes on missing/partial state — a brand-new firm gets a friendly zero-state, not an error.
 
 ## Step 2 — Show it as a Live Artifact
@@ -39,7 +41,7 @@ The dashboard is read-only; **all approving and editing happens here in chat.** 
 python3 <workspace_root>/_firma/apply.py <workspace_root> list
 ```
 
-(pure Python 3, installed by `firm-onboarding` Step 2b — if `_firma/apply.py` is missing, run that step first. `bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts` is only an optional alternative; without bun, Node ≥ 22.6 runs it too: `node apply.ts …`.)
+(pure Python 3, installed by `firm-onboarding` Step 2b — if `_firma/apply.py` is missing, run that step first. `bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts` is a **read-only lister** (`list` only, since v0.10.2 it cannot approve); bun or Node ≥ 22.6 runs it.)
 
 Parse the JSON and present, grouped by process, each open action numbered with its VORSCHLAG fields, BEGRÜNDUNG, and tier. Then handle the user's natural-language answer — four intents:
 

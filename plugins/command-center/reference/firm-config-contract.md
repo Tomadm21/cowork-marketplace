@@ -24,7 +24,7 @@ The firm works inside a Cowork-granted folder (the **workspace root**). All firm
 │       ├── personen.json          # staff / workers
 │       └── lieferanten.json       # vendors / suppliers
 ├── _eingang/                      # drop zones (inbox) per process
-│   ├── invoicing/  receipt-filing/  photo-sorting/
+│   ├── invoicing/  receipt-filing/  photo-sorting/  daily-report/
 └── _ausgang/                      # default outputs per process
     └── rechnungen/  berichte/  belege/  bilder/
 ```
@@ -80,6 +80,9 @@ Every `config/<process>.json` is a flat, keyed JSON object. Re-running a process
 - Never auto-send anything (email, messages). Never delete the firm's originals.
 - Consequential writes (renaming/moving the firm's files, producing an invoice) are shown for review before they happen; in scheduled runs they land in a review state and wait.
 - For regulated firms: note that Cowork activity is not captured in Anthropic's Compliance API.
+- **Datenschutz:** where personal data lives, retention periods, deletion routines and the
+  Art.-30 building block are defined in `reference/datenschutz.md` — the operator runs the
+  deletion rotation with every `/command-center:review`.
 
 ## 8. Tempo (all skills)
 

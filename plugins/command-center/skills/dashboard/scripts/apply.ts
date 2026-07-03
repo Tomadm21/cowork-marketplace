@@ -1,14 +1,15 @@
 #!/usr/bin/env bun
 /**
- * Command Center — review queue apply engine (TypeScript port of apply.py). Dependency-free.
- * Never crashes on missing/garbled queue files. One deliberate hardening vs. the original:
- * tier:"prüfen" is never bulk-approved (apply.py only checked confidence) — matches
- * reference/review-queue.md tier semantics.
+ * Command Center — review queue LISTER + shared helpers for dashboard.ts.
+ * Dependency-free; never crashes on missing/garbled queue files.
  *
- *   bun apply.ts <workspace_root> list
- *   bun apply.ts <workspace_root> approve <runid> <id> [--dry]
- *   bun apply.ts <workspace_root> reject  <runid> <id> [--dry]
- *   bun apply.ts <workspace_root> approve-safe [--dry]
+ * v0.10.2: the approve/reject/approve-safe commands were REMOVED. This file
+ * used to be a partial port of apply.py and a partial port of an apply engine
+ * is more dangerous than none (it lacked the journal guard, md5 idempotency
+ * and the missing-source refusal). The one and only engine that applies
+ * approvals is the workspace-resident `_firma/apply.py` (pure Python 3).
+ *
+ *   bun apply.ts <workspace_root> list        # read-only
  */
 
 import * as fs from "node:fs";
@@ -46,12 +47,17 @@ export interface Action {
   [k: string]: unknown;
 }
 
-/** Derives display tier: folgenreich → "f"; confidence=="prüfen" → "p"; else "s" */
+/**
+ * Derives display tier: folgenreich → "f"; confidence=="prüfen" → "p";
+ * tier=="sicher" → "s"; ANYTHING else (missing/unknown/typo) → "p".
+ * Fail-closed on purpose: "sicher" is an earned label, never a default —
+ * an action with no tier must never look bulk-approvable.
+ */
 export function tierOf(a: Action): "f" | "p" | "s" {
   if (a.tier === "folgenreich") return "f";
   if (a.confidence === "prüfen") return "p";
-  if (a.tier === "prüfen") return "p";
-  return "s";
+  if (a.tier === "sicher") return "s";
+  return "p";
 }
 
 /** Derives cockpit row title from values fields or filename/Posten fallback. */
@@ -90,19 +96,6 @@ function localDateTime(d: Date = new Date()): string {
   );
 }
 
-/**
- * Formats a Date as local ISO-like "YYYY-MM-DDTHH:MM:SS" (mirrors apply.py
- * datetime.now().isoformat() — local time, no Z suffix).
- * Note: signals.md mandates UTC-Z for SIGNAL ts; journal follows apply.py's local convention.
- */
-function localISOString(d: Date = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-  );
-}
-
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 export interface Queue {
@@ -114,13 +107,13 @@ export interface Queue {
   [k: string]: unknown;
 }
 
-/** Reads all *.json files from _review/ (except _erledigt/), silently skips garbled files. */
+/** Reads queue files (R-*.json only, like apply.py) from _review/, silently skips garbled files. */
 export function runs(revDir: string): Array<[string, Queue]> {
   const out: Array<[string, Queue]> = [];
   let entries: string[];
   try { entries = fs.readdirSync(revDir); } catch { return out; }
   for (const name of entries.sort()) {
-    if (!name.endsWith(".json")) continue;
+    if (!name.startsWith("R-") || !name.endsWith(".json")) continue;
     const fp = path.join(revDir, name);
     try {
       // strip a UTF-8 BOM (Windows PowerShell default) — JSON.parse would throw
@@ -131,84 +124,6 @@ export function runs(revDir: string): Array<[string, Queue]> {
     } catch { /* skip garbled */ }
   }
   return out;
-}
-
-function appendJournal(journDir: string, rec: object): void {
-  fs.mkdirSync(journDir, { recursive: true });
-  const ym = new Date().toISOString().slice(0, 7);
-  const fp = path.join(journDir, `${ym}.jsonl`);
-  fs.appendFileSync(fp, JSON.stringify(rec, null, 0) + "\n", "utf8");
-}
-
-/** Returns true if `p` (resolved relative to `wsRoot`) stays inside the workspace tree. */
-function insideWorkspace(wsRoot: string, p: string): boolean {
-  const root = path.resolve(wsRoot);
-  const resolved = path.resolve(root, p);
-  return resolved === root || resolved.startsWith(root + path.sep);
-}
-
-/**
- * Copies source to dest (collision-safe) and journals it.
- * Returns { filed, skipped_unsafe }.
- * Any target whose resolved dir escapes the workspace is refused and recorded in skipped_unsafe.
- * If the source path itself escapes the workspace the whole action's copy is refused.
- */
-function applyAction(
-  a: Action,
-  wsRoot: string,
-  journDir: string,
-  dry: boolean,
-): { filed: string[]; skipped_unsafe: string[] } {
-  const filed: string[] = [];
-  const skipped_unsafe: string[] = [];
-
-  const srcRel = a.source ?? "";
-  if (srcRel && !insideWorkspace(wsRoot, srcRel)) {
-    // Source escapes workspace — refuse the whole action
-    skipped_unsafe.push(`source:${srcRel}`);
-    return { filed, skipped_unsafe };
-  }
-
-  const src = path.join(wsRoot, srcRel);
-
-  for (const t of (a.targets ?? [])) {
-    if (!insideWorkspace(wsRoot, t)) {
-      skipped_unsafe.push(t);
-      continue;
-    }
-    const d = path.join(wsRoot, t);
-    const dest = collisionSafe(path.join(d, a.filename ?? ""));
-    if (!dry) {
-      fs.mkdirSync(d, { recursive: true });
-      if (fs.existsSync(src)) {
-        fs.copyFileSync(src, dest);
-      } else {
-        // apply.py creates an empty file when source does not exist
-        fs.writeFileSync(dest, "", "utf8");
-      }
-      appendJournal(journDir, {
-        ts: localISOString(),
-        verb: a.verb ?? "kopieren",
-        source: srcRel,
-        target: path.relative(wsRoot, dest),
-        reversible: true,
-      });
-    }
-    filed.push(path.relative(wsRoot, dest));
-  }
-  return { filed, skipped_unsafe };
-}
-
-/** Rewrites the queue file if actions remain, or archives it to _erledigt/. */
-function rewriteOrArchive(fp: string, q: Queue, doneDir: string, dry: boolean): void {
-  if (q.actions.length > 0) {
-    if (!dry) fs.writeFileSync(fp, JSON.stringify(q, null, 2), "utf8");
-  } else {
-    if (!dry) {
-      fs.mkdirSync(doneDir, { recursive: true });
-      fs.renameSync(fp, path.join(doneDir, path.basename(fp)));
-    }
-  }
 }
 
 // ── Command implementations ───────────────────────────────────────────────────
@@ -263,73 +178,37 @@ function doList(revDir: string): void {
   );
 }
 
-function doOp(
-  op: "approve" | "reject" | "approve-safe",
-  wsRoot: string,
-  revDir: string,
-  doneDir: string,
-  journDir: string,
-  runid: string | null,
-  aid: string | null,
-  dry: boolean,
-): void {
-  const filed: string[] = [];
-  const skipped_unsafe: string[] = [];
-  let touched = 0;
-
-  for (const [fp, q] of runs(revDir)) {
-    if (runid && q.runid !== runid) continue;
-    const keep: Action[] = [];
-    for (const a of (q.actions ?? [])) {
-      const sel =
-        (op === "approve-safe" && tierOf(a) === "s") ||
-        ((op === "approve" || op === "reject") && String(a.id) === String(aid));
-      if (!sel) { keep.push(a); continue; }
-      touched++;
-      if (op === "approve" || op === "approve-safe") {
-        const result = applyAction(a, wsRoot, journDir, dry);
-        filed.push(...result.filed);
-        skipped_unsafe.push(...result.skipped_unsafe);
-      }
-    }
-    q.actions = keep;
-    rewriteOrArchive(fp, q, doneDir, dry);
-  }
-
-  process.stdout.write(
-    JSON.stringify({ ok: true, op, touched, filed, skipped_unsafe, dry }, null, 0) + "\n",
-  );
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 function main(): void {
-  const rawArgs = process.argv.slice(2);
-  const dry = rawArgs.includes("--dry");
-  const args = rawArgs.filter((a) => a !== "--dry");
+  const args = process.argv.slice(2).filter((a) => a !== "--dry");
 
   const wsRoot = args[0] ?? "";
   if (!wsRoot) {
-    process.stderr.write("usage: apply.ts <workspace_root> list|approve|reject|approve-safe [--dry]\n");
+    process.stderr.write("usage: apply.ts <workspace_root> list\n");
     process.exit(1);
   }
-
-  const revDir  = path.join(wsRoot, "_firma", "_review");
-  const doneDir = path.join(revDir, "_erledigt");
-  const journDir = path.join(wsRoot, "_firma", "_journal");
 
   const cmd = args[1] ?? "list";
 
   if (cmd === "list") {
-    doList(revDir);
-  } else if (cmd === "approve-safe") {
-    doOp("approve-safe", wsRoot, revDir, doneDir, journDir, null, null, dry);
-  } else if (cmd === "approve" || cmd === "reject") {
-    const runid = args[2] ?? null;
-    const aid   = args[3] ?? null;
-    doOp(cmd, wsRoot, revDir, doneDir, journDir, runid, aid, dry);
+    doList(path.join(wsRoot, "_firma", "_review"));
   } else {
-    process.stdout.write(JSON.stringify({ ok: false, error: "unknown cmd" }, null, 0) + "\n");
+    // approve/reject/approve-safe were removed in v0.10.2 — the canonical
+    // engine _firma/apply.py is the only code path that applies approvals.
+    process.stdout.write(
+      JSON.stringify(
+        {
+          ok: false,
+          error:
+            `"${cmd}" gibt es hier nicht mehr — Freigaben laufen ausschließlich über die ` +
+            `kanonische Engine: python3 <workspace>/_firma/apply.py <workspace> ${cmd} …`,
+        },
+        null,
+        0,
+      ) + "\n",
+    );
+    process.exit(1);
   }
 }
 

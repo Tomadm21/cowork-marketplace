@@ -25,7 +25,7 @@ The deterministic rules the invoice math follows. **These are implemented in `sc
 
 ## Geräte / Fahrzeugkosten
 
-- Every row with `km > 0` resolves a vehicle: `row.vehicle` if set, else `config.people[person].vehicle`. Unresolvable → warning, km still counted against no vehicle (visible for review, nothing silently dropped).
+- Every row with `km > 0` resolves a vehicle: `row.vehicle` if set, else `config.people[person].vehicle`. Unresolvable → the km land in a visible **`(kein Fahrzeug)`** pseudo position inside `vehicles[]` (counted into `geraete_betrag`) plus a warning — the reviewer reassigns or removes them deliberately; nothing is silently dropped.
 - km are summed **per vehicle** (not per person) across all rows; `betrag = km_total × kfz_rate_per_km`.
 - Output as a separate top-level `vehicles[]` array + `geraete_betrag` — this is its own invoice block ("Geräte [KW]"), not folded into any person's Zwischensumme.
 
@@ -44,6 +44,19 @@ The deterministic rules the invoice math follows. **These are implemented in `sc
 ## Output
 
 `compute.ts` prints one JSON block: per-person day breakdown (with `montage_betrag`/`fahrt_betrag` per day), spesen days, the per-day-kind `subtotals` block per person (feeds the up-to-9 invoice sub-positions), the `vehicles[]`/`geraete_betrag` block, and the netto/MwSt/brutto totals, plus `warnings[]`. The skill reproduces this block verbatim and uses it to fill the invoice — it never recomputes the numbers. See `reference/montagebau-preset.md` for how the sub-positions map to a Höcker-Service-Report-style invoice layout.
+
+## Input validation (v0.10.2 — fail loud, never compute on garbage)
+
+- **Config:** every tier must be `{montage, fahrt}` (finite numbers) — legacy shapes (single
+  number, `weekday`/`weekend`) abort with a migration message; `weekend_days` may only contain
+  `6` (Sa) and/or `0` (So); all money/threshold keys must be numbers ≥ 0.
+- **Rows:** `person` and `date` (`YYYY-MM-DD`) required; `arbeit_h` required (explicit `0` on pure
+  travel days); all hour/km fields must be finite numbers ≥ 0 — a vision-extracted string `"8"`
+  aborts instead of string-concatenating; the legacy field `reisezeit_h` aborts with a pointer
+  to `fahrt_h`.
+- **Warnings (computed, but loud):** duplicate `(person, date)` rows; hotel night with zero hours
+  (Schlechtwetter-Standtag — hotel billed, no spesen day); Volltag-spesen day without a hotel
+  night; a single active day flagged `hotel` (multi-week continuation?); row year ≠ `input.jahr`.
 
 ## Confidence-Kalibrierung (v0.7.0)
 - **`sicher`** nur, wenn alle Stunden vollständig/lesbar sind, Sätze/Stufen/Spesen/MwSt deterministisch über das Pflicht-Skript berechnet wurden und keine Position geschätzt ist.

@@ -48,7 +48,7 @@ Galant onboards exactly this way — it is firm #1, with no special-casing in th
 1. `mkdir skills/<process>` with a `SKILL.md` (frontmatter `name` + trigger-rich `description`) + `reference/rules.md` + `reference/onboarding.md`.
 2. Obey the config contract: self-verify gate, own `config/<process>.json`, read firm facts from `company-context.md`, resolve I/O against `workspace_root`.
 3. If the process has money/legal math, add a `scripts/` helper and forbid inline computation in the SKILL.md.
-4. Add it to `skills/process-catalog/SKILL.md` and `reference/automation.md`.
+4. Register it in `reference/workflows.json` (order, card texts, minutes_per_item — dashboard, process-catalog and review-board all read it; without this entry the process is invisible) and mention it in `reference/automation.md`.
 
 ## Phase-2 (deterministic engines per process)
 
@@ -74,7 +74,7 @@ it became read-only (review moved to chat), but it remains separate from this op
 The dashboard Live Artifact is a **pure statistics & history page** (since v0.9.2): fully static HTML — hero stats (time saved, Vorgänge, Läufe, open-count), process cards, the run history (Verlauf) and every filed file from the engine journal (Zuletzt abgelegt). It never lists open review items and carries **no script and no buttons** — reviewing lives entirely in chat (review-board skill / `reference/chat-review.md`).
 
 - **Queues** — prepared runs write `_firma/_review/R-<date>-<slug>.json` (contract: `reference/review-queue.md`). Writing a queue never moves files; it is the "prepared" state.
-- **Engine** — canonical: the workspace-resident `_firma/apply.py` (pure Python 3, installed by onboarding — see v0.7.0 below). It applies an approval: copy collision-safe to the target(s), append a reversible journal record in `_firma/_journal/`, remove the action, archive the emptied queue. Commands: `list`, `approve`, `reject`, `approve-safe`, `--dry`. `skills/dashboard/scripts/apply.ts` is an optional TypeScript port of the same contract (it additionally refuses any source/target that resolves outside the workspace); runnable via bun or Node ≥ 22.6.
+- **Engine** — canonical: the workspace-resident `_firma/apply.py` (pure Python 3, installed by onboarding — see v0.7.0 below). It applies an approval: copy collision-safe to the target(s), append a reversible journal record in `_firma/_journal/`, remove the action, archive the emptied queue. Commands: `list`, `approve`, `reject`, `approve-safe`, `--dry`. Since v0.10.2 it enforces workspace containment (sources/relative targets/filenames; absolute targets only if configured as `output_paths`). `skills/dashboard/scripts/apply.ts` is a **read-only lister** (`list` only — its apply commands were removed in v0.10.2 because a partial engine port is more dangerous than none); runnable via bun or Node ≥ 22.6.
 - **Review in chat (v0.5.0)** — approving, **editing (full: values/targets/filename), re-running**, and rejecting all happen in chat, not from the artifact. The dashboard skill maps natural language to engine commands and queue patches (`reference/chat-review.md`). The dashboard triggers nothing; the role boundary is unchanged — apply is always a deliberate human step in chat.
 
 ## Unified intake + interactive review (v0.6.0)
@@ -93,6 +93,6 @@ From an end-to-end audit of the first real run:
 - **Learning loop + confidence.** Confirmed `fact:` signals (new site/vendor) are written into `stammdaten/` after approval; per-process confidence calibration makes clear cases `sicher` (eligible for one-click `approve-safe`).
 - **Severity axis.** `improvement-review` lets a `severity:"folgenreich"` signal bypass the recurrence-≥3 gate, surfacing a structurally damaging issue on first occurrence.
 
-## Hourly loop (v0.5.0)
+## Hourly loop (v0.5.0, heutige Form seit v0.7.0)
 
-Each process is driven by **one** hourly collector scheduled task (`reference/automation.md`). It scans every active `_eingang/<process>/`, skips anything already seen/prepared/filed (dedupe via open queues + journal + `_firma/_state/seen-<process>.json`), batches new inputs into one queue per process, and lands them in the read-only overview for chat review. Honest limit: scheduled tasks only run while the app is open and the Mac is awake.
+One shared hourly collector task drives everything (`reference/automation.md`): it runs **intake** over the shared `_eingang/` (plus configured `externe_eingaenge`), skips anything already seen/prepared/filed (dedupe via open queues + journal + `_firma/_state/seen-<process>.json`), batches new inputs into one queue per process — the dashboard then shows the open **count**, review happens in chat. Honest limit: scheduled tasks only run while the app is open and the Mac is awake.

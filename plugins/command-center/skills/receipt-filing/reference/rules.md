@@ -1,7 +1,7 @@
 # Receipt filing — rules & onboarding
 
 ## Filename
-Default: `<datum>_<entity-abbr>_<belegtyp>_<nummer>.<ext>` (configurable). Collision-safe: append `_2`, `_3`… up to a sane limit; never overwrite.
+The firm's configured `naming` schemas (Onboarding item 3, e.g. RG `{firma} RG {nr} von {datum} - {summe}`) are **authoritative** once onboarded. Only before onboarding — or for a doc type with no configured schema — use the generic fallback `<datum>_<entity-abbr>_<belegtyp>_<nummer>.<ext>`. Collision-safe: append `_2`, `_3`… up to a sane limit; never overwrite.
 
 ## Routing (configurable, multi-target)
 A document can be copied to **several** targets at once. Default target set (rename/disable per firm):

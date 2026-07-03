@@ -1,5 +1,5 @@
 {
-  "_comment": "EXAMPLE invoicing config (v0.10.0 schema). Copied + filled per firm at onboarding into <workspace>/_firma/config/invoicing.json. All names/values here are synthetic placeholders — no real client data. Keys read by compute.ts: vat_rate, tiers (montage/fahrt per tier), default_tier, zuschlag_samstag, zuschlag_sonntag, weekend_days, people (incl. optional vehicle), vehicles, pflicht_pause_h, daily_cap_total_h, pause_pre_applied, spesen, hotel_cost, kfz_rate_per_km. The rest (mandant, sites, filename_schema, output_paths) are used by the skill, not the math.",
+  "_comment": "EXAMPLE invoicing config (v0.10.2 schema). Copied + filled per firm at onboarding into <workspace>/_firma/config/invoicing.json. All names/values here are synthetic placeholders — no real client data. Keys read by compute.ts: vat_rate, tiers (ALWAYS montage/fahrt per tier — legacy single-rate shapes abort with a migration message), default_tier, zuschlag_samstag, zuschlag_sonntag, weekend_days (only 6 and/or 0), people (incl. optional vehicle), vehicles, pflicht_pause_h, daily_cap_total_h, pause_pre_applied, spesen, hotel_cost, kfz_rate_per_km. The rest (mandant, sites incl. anreise_km, anreise_km_ab_firmensitz, filename_schema, output_paths) are used by the skill, not the math.",
   "mandant": "Muster Montage GmbH",
   "vat_rate": 0.19,
   "tiers": {

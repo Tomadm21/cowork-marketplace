@@ -20,8 +20,10 @@ describe("tierOf", () => {
   test("sicher tier no confidence → s", () => {
     expect(tierOf({ tier: "sicher" })).toBe("s");
   });
-  test("unknown tier, no confidence → s", () => {
-    expect(tierOf({})).toBe("s");
+  test("unknown/missing tier → p (fail-closed: 'sicher' is earned, never a default)", () => {
+    expect(tierOf({})).toBe("p");
+    expect(tierOf({ tier: "Sicher" })).toBe("p");   // typo'd tier must not look bulk-approvable
+    expect(tierOf({ tier: null as unknown as string })).toBe("p");
   });
 });
 
@@ -39,20 +41,19 @@ describe("titleOf", () => {
     expect(titleOf(a)).toBe("Acme GmbH LF 999 · Lieferschein");
   });
   test("lieferant only, no nummer, no betrag", () => {
-    const a = { values: { lieferant: "Acme GmbH" } };
-    expect(titleOf(a)).toBe("Acme GmbH");
+    const a = { values: { lieferant: "Solo GmbH" } };
+    expect(titleOf(a)).toBe("Solo GmbH");
   });
   test("lieferant only, no nummer, no betrag, no belegtyp", () => {
-    const a = { values: { lieferant: "Acme GmbH" } };
-    expect(titleOf(a)).toBe("Acme GmbH");
+    const a = { values: { lieferant: "Solo GmbH" }, filename: "x.pdf" };
+    expect(titleOf(a)).toBe("Solo GmbH");
   });
   test("no lieferant, no values → falls back to filename", () => {
-    const a = { filename: "receipt.pdf", values: {} };
-    expect(titleOf(a)).toBe("receipt.pdf");
+    const a = { filename: "fallback.pdf" };
+    expect(titleOf(a)).toBe("fallback.pdf");
   });
   test("no lieferant, no filename → Posten", () => {
-    const a = {};
-    expect(titleOf(a)).toBe("Posten");
+    expect(titleOf({})).toBe("Posten");
   });
   test("RG belegtyp with no betrag → no Lieferschein fallback", () => {
     const a = { values: { lieferant: "X", nummer: "1", belegtyp: "RG" } };
@@ -68,10 +69,7 @@ const RUNID_B = "R-2026-06-10-belege-b";
 
 function reviewDir(): string { return path.join(ws, "_firma", "_review"); }
 function erledigt(): string { return path.join(reviewDir(), "_erledigt"); }
-function journalPath(date: Date = new Date()): string {
-  const ym = date.toISOString().slice(0, 7);
-  return path.join(ws, "_firma", "_journal", `${ym}.jsonl`);
-}
+function journalDir(): string { return path.join(ws, "_firma", "_journal"); }
 
 function writeQueue(runid: string, actions: object[], proc = "receipt-filing") {
   const fp = path.join(reviewDir(), `${runid}.json`);
@@ -87,12 +85,10 @@ function seedSourceFile(relPath: string, content = "dummy content"): string {
   return abs;
 }
 
-async function runApply(...args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+/** apply.ts is list-only since v0.10.2 — used for the list-schema tests. */
+async function runTsList(...args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const scriptPath = path.join(import.meta.dir, "apply.ts");
-  const proc = Bun.spawn(["bun", scriptPath, ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = Bun.spawn(["bun", scriptPath, ...args], { stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -101,10 +97,24 @@ async function runApply(...args: string[]): Promise<{ stdout: string; stderr: st
   return { stdout, stderr, exitCode };
 }
 
+/** The canonical engine — every mutation test runs against apply.py. */
+async function runPy(...args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const scriptPath = path.join(import.meta.dir, "apply.py");
+  const proc = Bun.spawn(["python3", scriptPath, ...args], { stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { stdout, stderr, exitCode };
+}
+
+const statuses = (result: { results: Array<{ status: string }> }) => result.results.map((r) => r.status);
+
 // collisionSafe uses real fs against tmp dirs
 describe("collisionSafe", () => {
   let tmpDir: string;
-  beforeEach(() => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "apply-test-")); });
+  beforeEach(() => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cs-test-")); });
   afterEach(() => { fs.rmSync(tmpDir, { recursive: true, force: true }); });
 
   test("free path → returned unchanged", () => {
@@ -168,416 +178,396 @@ function makeActions() {
   ];
 }
 
-test("list: correct total/ns/np/nf and item fields", async () => {
-  writeQueue(RUNID_A, makeActions());
-  const { stdout } = await runApply(ws, "list");
-  const result = JSON.parse(stdout);
-  expect(result.ok).toBe(true);
-  expect(result.total).toBe(2);
-  expect(result.ns).toBe(0);   // confidence prüfen overrides sicher → p
-  expect(result.np).toBe(1);
-  expect(result.nf).toBe(1);
-  expect(result.groups.length).toBe(1);
-  const g = result.groups[0];
-  expect(g.group).toBe("Belege");
-  expect(g.icon).toBe("receipt");
-  expect(g.items.length).toBe(2);
-  const item = g.items[0];
-  expect(item.id).toBe(1);
-  expect(item.runid).toBe(RUNID_A);
-  expect(item.tier).toBe("p");
-  expect(item.title).toBe("Heinz Wilmers GmbH RG 2605176 · 476,00 EUR");
-  expect(item.vals).toBe("GB · Kfz/Fahrzeug");
-  expect(item.why).toBe("Sicher but needs check");
-  expect(item.target).toContain(FILENAME.split(".pdf")[0] + ".pdf");
-});
+// ── apply.ts list schema (the lister the dashboard shares helpers with) ──────
 
-test("list: empty queue dir → ok:true, total:0, Nichts offen", async () => {
-  fs.mkdirSync(path.join(ws, "_firma", "_review"), { recursive: true });
-  const { stdout } = await runApply(ws, "list");
-  const result = JSON.parse(stdout);
-  expect(result.ok).toBe(true);
-  expect(result.total).toBe(0);
-  expect(result.stand).toContain("Nichts offen");
-});
-
-test("approve: file copied collision-safe to every target, journal appended, action removed", async () => {
-  writeQueue(RUNID_A, makeActions());
-  seedSourceFile(SOURCE_REL);
-  const { stdout } = await runApply(ws, "approve", RUNID_A, "1");
-  const result = JSON.parse(stdout);
-  expect(result.ok).toBe(true);
-  expect(result.op).toBe("approve");
-  expect(result.touched).toBe(1);
-  expect(result.dry).toBe(false);
-  expect(result.filed.length).toBe(1);
-  // Verify file was actually copied
-  const destDir = path.join(ws, TARGET_REL);
-  const destFile = path.join(destDir, FILENAME);
-  expect(fs.existsSync(destFile)).toBe(true);
-  // Verify journal entry
-  const jPath = journalPath();
-  expect(fs.existsSync(jPath)).toBe(true);
-  const lines = fs.readFileSync(jPath, "utf8").trim().split("\n");
-  expect(lines.length).toBe(1);
-  const entry = JSON.parse(lines[0]);
-  expect(entry.verb).toBe("kopieren");
-  expect(entry.reversible).toBe(true);
-  expect(typeof entry.ts).toBe("string");
-  expect(entry.source).toBe(SOURCE_REL);
-  expect(entry.target).toContain(FILENAME);
-  // Verify action removed from queue (but other action remains)
-  const qPath = path.join(reviewDir(), `${RUNID_A}.json`);
-  expect(fs.existsSync(qPath)).toBe(true);
-  const q = JSON.parse(fs.readFileSync(qPath, "utf8"));
-  expect(q.actions.length).toBe(1);
-  expect(q.actions[0].id).toBe(2);
-});
-
-test("approve same id again → touched 0", async () => {
-  writeQueue(RUNID_A, makeActions());
-  seedSourceFile(SOURCE_REL);
-  await runApply(ws, "approve", RUNID_A, "1");
-  const { stdout } = await runApply(ws, "approve", RUNID_A, "1");
-  const result = JSON.parse(stdout);
-  expect(result.touched).toBe(0);
-});
-
-test("reject: action removed, nothing copied, archive if queue empty", async () => {
-  // Queue with only one action to make it archiveable
-  writeQueue(RUNID_A, [makeActions()[0]]);
-  const before = path.join(reviewDir(), `${RUNID_A}.json`);
-  expect(fs.existsSync(before)).toBe(true);
-  const { stdout } = await runApply(ws, "reject", RUNID_A, "1");
-  const result = JSON.parse(stdout);
-  expect(result.ok).toBe(true);
-  expect(result.op).toBe("reject");
-  expect(result.touched).toBe(1);
-  expect(result.filed).toEqual([]);
-  // Queue archived
-  expect(fs.existsSync(before)).toBe(false);
-  const archived = path.join(erledigt(), `${RUNID_A}.json`);
-  expect(fs.existsSync(archived)).toBe(true);
-  // No file copied to target
-  const destFile = path.join(ws, TARGET_REL, FILENAME);
-  expect(fs.existsSync(destFile)).toBe(false);
-});
-
-test("reject remaining action → queue archived to _erledigt", async () => {
-  writeQueue(RUNID_A, makeActions());
-  seedSourceFile(SOURCE_REL);
-  // Approve action 1 first
-  await runApply(ws, "approve", RUNID_A, "1");
-  // Reject action 2
-  const { stdout } = await runApply(ws, "reject", RUNID_A, "2");
-  const result = JSON.parse(stdout);
-  expect(result.touched).toBe(1);
-  const qPath = path.join(reviewDir(), `${RUNID_A}.json`);
-  expect(fs.existsSync(qPath)).toBe(false);
-  const archived = path.join(erledigt(), `${RUNID_A}.json`);
-  expect(fs.existsSync(archived)).toBe(true);
-});
-
-test("--dry: reports filed paths but nothing written", async () => {
-  writeQueue(RUNID_A, makeActions());
-  seedSourceFile(SOURCE_REL);
-  const { stdout } = await runApply(ws, "approve", RUNID_A, "1", "--dry");
-  const result = JSON.parse(stdout);
-  expect(result.ok).toBe(true);
-  expect(result.dry).toBe(true);
-  expect(result.filed.length).toBe(1);
-  // Nothing actually copied
-  const destFile = path.join(ws, TARGET_REL, FILENAME);
-  expect(fs.existsSync(destFile)).toBe(false);
-  // Journal not written
-  const jPath = journalPath();
-  expect(fs.existsSync(jPath)).toBe(false);
-  // Queue unchanged
-  const q = JSON.parse(fs.readFileSync(path.join(reviewDir(), `${RUNID_A}.json`), "utf8"));
-  expect(q.actions.length).toBe(2);
-});
-
-test("collision: pre-created dest filename → approve lands _2 variant", async () => {
-  writeQueue(RUNID_A, [makeActions()[0]]);
-  seedSourceFile(SOURCE_REL);
-  // Pre-create the destination file
-  const destDir = path.join(ws, TARGET_REL);
-  fs.mkdirSync(destDir, { recursive: true });
-  fs.writeFileSync(path.join(destDir, FILENAME), "existing");
-  const { stdout } = await runApply(ws, "approve", RUNID_A, "1");
-  const result = JSON.parse(stdout);
-  expect(result.filed[0]).toContain("_2");
-  // The _2 variant should exist
-  const base = path.basename(FILENAME, ".pdf");
-  const collision = path.join(destDir, `${base}_2.pdf`);
-  expect(fs.existsSync(collision)).toBe(true);
-});
-
-test("approve-safe: approves only tier sicher (not p or f) across all queues", async () => {
-  // actions[0] has tier sicher + confidence prüfen → tier_of = "p" → NOT included in approve-safe
-  // actions[1] has tier folgenreich → tier_of = "f" → NOT included
-  writeQueue(RUNID_A, makeActions());
-  seedSourceFile(SOURCE_REL);
-  const { stdout } = await runApply(ws, "approve-safe");
-  const result = JSON.parse(stdout);
-  expect(result.ok).toBe(true);
-  expect(result.op).toBe("approve-safe");
-  expect(result.touched).toBe(0); // none are tier "s"
-});
-
-test("approve-safe: approves plain sicher actions (no confidence override)", async () => {
-  const actions = [
-    {
-      id: 10,
-      verb: "kopieren",
-      tier: "sicher",
-      reason: "Plain sicher",
-      source: SOURCE_REL,
-      filename: FILENAME,
-      targets: [TARGET_REL],
-      values: {},
-    },
-  ];
-  writeQueue(RUNID_A, actions);
-  seedSourceFile(SOURCE_REL);
-  const { stdout } = await runApply(ws, "approve-safe");
-  const result = JSON.parse(stdout);
-  expect(result.touched).toBe(1);
-  const destFile = path.join(ws, TARGET_REL, FILENAME);
-  expect(fs.existsSync(destFile)).toBe(true);
-});
-
-test("approve-safe across two queue files", async () => {
-  const sicherAction = (id: number) => ({
-    id, verb: "kopieren", tier: "sicher", reason: "ok",
-    source: SOURCE_REL, filename: `file-${id}.pdf`, targets: [TARGET_REL], values: {},
+describe("apply.ts list (read-only)", () => {
+  test("correct total/ns/np/nf and item fields", async () => {
+    writeQueue(RUNID_A, makeActions());
+    const { stdout } = await runTsList(ws, "list");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(result.total).toBe(2);
+    expect(result.ns).toBe(0);   // confidence prüfen overrides sicher → p
+    expect(result.np).toBe(1);
+    expect(result.nf).toBe(1);
+    const g = result.groups[0];
+    expect(g.group).toBe("Belege");
+    expect(g.icon).toBe("receipt");
+    const item = g.items[0];
+    expect(item.id).toBe(1);
+    expect(item.runid).toBe(RUNID_A);
+    expect(item.tier).toBe("p");
+    expect(item.title).toBe("Heinz Wilmers GmbH RG 2605176 · 476,00 EUR");
+    expect(item.vals).toBe("GB · Kfz/Fahrzeug");
+    expect(item.why).toBe("Sicher but needs check");
   });
-  writeQueue(RUNID_A, [sicherAction(1)]);
-  writeQueue(RUNID_B, [sicherAction(2)]);
-  seedSourceFile(SOURCE_REL);
-  const { stdout } = await runApply(ws, "approve-safe");
-  const result = JSON.parse(stdout);
-  expect(result.touched).toBe(2);
-  expect(result.filed.length).toBe(2);
-  // Both queues should be archived
-  expect(fs.existsSync(path.join(erledigt(), `${RUNID_A}.json`))).toBe(true);
-  expect(fs.existsSync(path.join(erledigt(), `${RUNID_B}.json`))).toBe(true);
+
+  test("empty queue dir → ok:true, total:0, Nichts offen", async () => {
+    fs.mkdirSync(reviewDir(), { recursive: true });
+    const { stdout } = await runTsList(ws, "list");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(result.total).toBe(0);
+    expect(result.stand).toContain("Nichts offen");
+  });
+
+  test("non-queue *.json in _review/ is ignored (only R-*.json are queues)", async () => {
+    writeQueue(RUNID_A, [makeActions()[0]]);
+    fs.writeFileSync(path.join(reviewDir(), "config.json"), JSON.stringify({ some: "config" }), "utf8");
+    const { stdout } = await runTsList(ws, "list");
+    expect(JSON.parse(stdout).total).toBe(1);
+  });
+
+  test("target display: filename + arrows + full relative path", async () => {
+    const actions = [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
+      source: "_eingang/file.pdf", filename: "file.pdf",
+      targets: ["001 Galant/Buchhaltung/Eingang"],
+      values: {},
+    }];
+    writeQueue(RUNID_A, actions);
+    const { stdout } = await runTsList(ws, "list");
+    const item = JSON.parse(stdout).groups[0].items[0];
+    expect(item.target).toContain("  →  ");
+    expect(item.target).toContain("001 Galant/Buchhaltung/Eingang");
+  });
+
+  test("vals field: entity · kategorie stripped of padding", async () => {
+    const actions = [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
+      source: "_eingang/file.pdf", filename: "file.pdf", targets: [],
+      values: { entity: "GB", kategorie: "Kfz" },
+    }];
+    writeQueue(RUNID_A, actions);
+    const { stdout } = await runTsList(ws, "list");
+    expect(JSON.parse(stdout).groups[0].items[0].vals).toBe("GB · Kfz");
+  });
+
+  test("vals field: only entity present → no trailing ·", async () => {
+    const actions = [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
+      source: "_eingang/file.pdf", filename: "file.pdf", targets: [],
+      values: { entity: "GB" },
+    }];
+    writeQueue(RUNID_A, actions);
+    const { stdout } = await runTsList(ws, "list");
+    expect(JSON.parse(stdout).groups[0].items[0].vals).toBe("GB");
+  });
+
+  test("process not in ICON map → process name as group, receipt icon", async () => {
+    const actions = [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
+      source: "_eingang/f.pdf", filename: "f.pdf", targets: [], values: {},
+    }];
+    writeQueue(RUNID_A, actions, "custom-process");
+    const { stdout } = await runTsList(ws, "list");
+    const g = JSON.parse(stdout).groups[0];
+    expect(g.group).toBe("custom-process");
+    expect(g.icon).toBe("receipt");
+  });
+
+  test("approve/reject/approve-safe were removed → error pointing to apply.py, exit 1", async () => {
+    for (const cmd of ["approve", "reject", "approve-safe", "frobnicate"]) {
+      const { stdout, exitCode } = await runTsList(ws, cmd, RUNID_A, "1");
+      const result = JSON.parse(stdout);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("apply.py");
+      expect(exitCode).toBe(1);
+    }
+  });
 });
 
-test("garbled extra queue file → skipped, ops still work", async () => {
-  writeQueue(RUNID_A, [makeActions()[0]]);
-  // Write a garbled JSON file in the review dir
-  fs.writeFileSync(path.join(reviewDir(), "R-garbled.json"), "{not valid json!!!", "utf8");
-  seedSourceFile(SOURCE_REL);
-  // list should not crash
-  const { stdout: listOut } = await runApply(ws, "list");
-  const listResult = JSON.parse(listOut);
-  expect(listResult.ok).toBe(true);
-  expect(listResult.total).toBe(1); // garbled file skipped
-  // approve should still work
-  const { stdout: approveOut } = await runApply(ws, "approve", RUNID_A, "1");
-  const approveResult = JSON.parse(approveOut);
-  expect(approveResult.ok).toBe(true);
-  expect(approveResult.touched).toBe(1);
+// ── apply.py — the canonical engine (all mutations) ──────────────────────────
+
+describe("apply.py approve/reject/approve-safe", () => {
+  test("approve: copied to target, journal entry carries the guard key, action removed", async () => {
+    writeQueue(RUNID_A, makeActions());
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(statuses(result)).toEqual(["copied"]);
+    expect(fs.existsSync(path.join(ws, TARGET_REL, FILENAME))).toBe(true);
+    // journal entry must carry runid/id/md5/status — that's the replay guard
+    const jFiles = fs.readdirSync(journalDir()).filter((f) => f.endsWith(".jsonl"));
+    const entry = JSON.parse(fs.readFileSync(path.join(journalDir(), jFiles[0]), "utf8").trim().split("\n")[0]);
+    expect(entry.runid).toBe(RUNID_A);
+    expect(entry.id).toBe(1);
+    expect(typeof entry.md5).toBe("string");
+    expect(entry.status).toBe("copied");
+    expect(entry.reversible).toBe(true);
+    // action removed, sibling action stays
+    const q = JSON.parse(fs.readFileSync(path.join(reviewDir(), `${RUNID_A}.json`), "utf8"));
+    expect(q.actions.length).toBe(1);
+    expect(q.actions[0].id).toBe(2);
+  });
+
+  test("approve same id again → ok:false action nicht gefunden (already applied+removed)", async () => {
+    writeQueue(RUNID_A, makeActions());
+    seedSourceFile(SOURCE_REL);
+    await runPy(ws, "approve", RUNID_A, "1");
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("nicht gefunden");
+  });
+
+  test("journal guard: same action re-queued after crash → already-journaled, no _2 clone", async () => {
+    writeQueue(RUNID_A, [makeActions()[0]]);
+    seedSourceFile(SOURCE_REL);
+    await runPy(ws, "approve", RUNID_A, "1");
+    // simulate a crash between copy and queue removal: the action re-appears
+    writeQueue(RUNID_A, [makeActions()[0]]);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(statuses(result)).toEqual(["already-journaled"]);
+    const destDir = path.join(ws, TARGET_REL);
+    const clones = fs.readdirSync(destDir).filter((f) => f.includes("_2"));
+    expect(clones).toEqual([]);
+  });
+
+  test("approve missing source → structured error, action stays, nothing written", async () => {
+    writeQueue(RUNID_A, [makeActions()[0]]);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(false);
+    expect(statuses(result)).toEqual(["error"]);
+    expect(result.results[0].detail).toContain("source fehlt");
+    expect(fs.existsSync(path.join(ws, TARGET_REL, FILENAME))).toBe(false);
+    const q = JSON.parse(fs.readFileSync(path.join(reviewDir(), `${RUNID_A}.json`), "utf8"));
+    expect(q.actions.length).toBe(1);
+  });
+
+  test("reject: action removed, nothing copied, archive if queue empty", async () => {
+    writeQueue(RUNID_A, [makeActions()[0]]);
+    const { stdout } = await runPy(ws, "reject", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(fs.existsSync(path.join(reviewDir(), `${RUNID_A}.json`))).toBe(false);
+    expect(fs.existsSync(path.join(erledigt(), `${RUNID_A}.json`))).toBe(true);
+    expect(fs.existsSync(path.join(ws, TARGET_REL, FILENAME))).toBe(false);
+  });
+
+  test("reject unknown id → ok:false (no silent success)", async () => {
+    writeQueue(RUNID_A, [makeActions()[0]]);
+    const { stdout } = await runPy(ws, "reject", RUNID_A, "99");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("nicht gefunden");
+    const q = JSON.parse(fs.readFileSync(path.join(reviewDir(), `${RUNID_A}.json`), "utf8"));
+    expect(q.actions.length).toBe(1);
+  });
+
+  test("reject with string id in queue still matches numeric argv id", async () => {
+    writeQueue(RUNID_A, [{ ...makeActions()[0], id: "1" }]);
+    const { stdout } = await runPy(ws, "reject", RUNID_A, "1");
+    expect(JSON.parse(stdout).ok).toBe(true);
+    expect(fs.existsSync(path.join(erledigt(), `${RUNID_A}.json`))).toBe(true);
+  });
+
+  test("--dry: reports would-be statuses, nothing written", async () => {
+    writeQueue(RUNID_A, makeActions());
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1", "--dry");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(result.dry).toBe(true);
+    expect(statuses(result)[0]).toStartWith("DRY:");
+    expect(fs.existsSync(path.join(ws, TARGET_REL, FILENAME))).toBe(false);
+    expect(fs.existsSync(journalDir())).toBe(false);
+    const q = JSON.parse(fs.readFileSync(path.join(reviewDir(), `${RUNID_A}.json`), "utf8"));
+    expect(q.actions.length).toBe(2);
+  });
+
+  test("md5 idempotency: identical file already at dest → skipped-identical, no _2", async () => {
+    writeQueue(RUNID_A, [makeActions()[0]]);
+    seedSourceFile(SOURCE_REL, "same bytes");
+    const destDir = path.join(ws, TARGET_REL);
+    fs.mkdirSync(destDir, { recursive: true });
+    fs.writeFileSync(path.join(destDir, FILENAME), "same bytes");
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    expect(statuses(JSON.parse(stdout))).toEqual(["skipped-identical"]);
+    expect(fs.readdirSync(destDir).filter((f) => f.includes("_2"))).toEqual([]);
+  });
+
+  test("collision: different file at dest → _2 variant", async () => {
+    writeQueue(RUNID_A, [makeActions()[0]]);
+    seedSourceFile(SOURCE_REL, "new content");
+    const destDir = path.join(ws, TARGET_REL);
+    fs.mkdirSync(destDir, { recursive: true });
+    fs.writeFileSync(path.join(destDir, FILENAME), "existing other content");
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.results[0].target).toContain("_2");
+  });
+
+  test("multiple targets → delivered to every one", async () => {
+    const actions = [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
+      source: SOURCE_REL, filename: FILENAME, targets: ["dest-a", "dest-b"], values: {},
+    }];
+    writeQueue(RUNID_A, actions);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    expect(statuses(JSON.parse(stdout))).toEqual(["copied", "copied"]);
+    expect(fs.existsSync(path.join(ws, "dest-a", FILENAME))).toBe(true);
+    expect(fs.existsSync(path.join(ws, "dest-b", FILENAME))).toBe(true);
+  });
+
+  test("approve-safe: only plain tier sicher is bulk-approved", async () => {
+    writeQueue(RUNID_A, makeActions()); // p + f — none eligible
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve-safe");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(result.applied.length).toBe(0);
+  });
+
+  test("approve-safe across two queues, both archived", async () => {
+    const sicherAction = (id: number) => ({
+      id, verb: "kopieren", tier: "sicher", reason: "ok",
+      source: SOURCE_REL, filename: `file-${id}.pdf`, targets: [TARGET_REL], values: {},
+    });
+    writeQueue(RUNID_A, [sicherAction(1)]);
+    writeQueue(RUNID_B, [sicherAction(2)]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve-safe");
+    const result = JSON.parse(stdout);
+    expect(result.applied.length).toBe(2);
+    expect(fs.existsSync(path.join(erledigt(), `${RUNID_A}.json`))).toBe(true);
+    expect(fs.existsSync(path.join(erledigt(), `${RUNID_B}.json`))).toBe(true);
+  });
+
+  test("approve-safe --dry reports but does not write", async () => {
+    writeQueue(RUNID_A, [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
+      source: SOURCE_REL, filename: FILENAME, targets: [TARGET_REL], values: {},
+    }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve-safe", "--dry");
+    const result = JSON.parse(stdout);
+    expect(result.dry).toBe(true);
+    expect(result.applied.length).toBe(1);
+    expect(fs.existsSync(path.join(ws, TARGET_REL, FILENAME))).toBe(false);
+  });
+
+  test("garbled queue file → surfaced in queue_warnings, ops still work", async () => {
+    writeQueue(RUNID_A, [makeActions()[0]]);
+    fs.writeFileSync(path.join(reviewDir(), "R-garbled.json"), "{not valid json!!!", "utf8");
+    seedSourceFile(SOURCE_REL);
+    const { stdout: listOut } = await runPy(ws, "list");
+    const listResult = JSON.parse(listOut);
+    expect(listResult.ok).toBe(true);
+    expect(listResult.total).toBe(1);
+    expect(listResult.queue_warnings.length).toBe(1);
+    expect(listResult.queue_warnings[0]).toContain("R-garbled.json");
+    const { stdout: approveOut } = await runPy(ws, "approve", RUNID_A, "1");
+    expect(JSON.parse(approveOut).ok).toBe(true);
+  });
+
+  test("cross-queue isolation: approve in queue A leaves queue B untouched", async () => {
+    writeQueue(RUNID_A, [{ id: 1, verb: "kopieren", tier: "sicher", reason: "a", source: SOURCE_REL, filename: "file-a.pdf", targets: ["dest-a"], values: {} }]);
+    writeQueue(RUNID_B, [{ id: 2, verb: "kopieren", tier: "sicher", reason: "b", source: SOURCE_REL, filename: "file-b.pdf", targets: ["dest-b"], values: {} }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    expect(JSON.parse(stdout).ok).toBe(true);
+    const qB = JSON.parse(fs.readFileSync(path.join(reviewDir(), `${RUNID_B}.json`), "utf8"));
+    expect(qB.actions.length).toBe(1);
+    expect(fs.existsSync(path.join(ws, "dest-b", "file-b.pdf"))).toBe(false);
+  });
 });
 
-test("approve missing source file → creates empty file at dest (apply.py compat)", async () => {
-  writeQueue(RUNID_A, [makeActions()[0]]);
-  // Do NOT seed the source file — it doesn't exist
-  const { stdout } = await runApply(ws, "approve", RUNID_A, "1");
-  const result = JSON.parse(stdout);
-  expect(result.ok).toBe(true);
-  expect(result.touched).toBe(1);
-  const destFile = path.join(ws, TARGET_REL, FILENAME);
-  expect(fs.existsSync(destFile)).toBe(true);
-  // Should be empty (0 bytes)
-  expect(fs.statSync(destFile).size).toBe(0);
-});
+// ── apply.py — containment (the v0.10.2 security fix) ────────────────────────
 
-test("unknown cmd → {ok:false, error:'unknown cmd'}", async () => {
-  const { stdout } = await runApply(ws, "frobnicate");
-  const result = JSON.parse(stdout);
-  expect(result.ok).toBe(false);
-  expect(result.error).toBe("unknown cmd");
-});
+describe("apply.py containment", () => {
+  test("relative ../ target → skipped-unsafe, nothing copied, action stays, ok:false", async () => {
+    const unsafeTarget = "../../../tmp/cc-escape-test";
+    writeQueue(RUNID_A, [{
+      id: 99, verb: "kopieren", tier: "sicher", reason: "traversal attempt",
+      source: SOURCE_REL, filename: FILENAME, targets: [unsafeTarget], values: {},
+    }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "99");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(false);
+    expect(statuses(result)).toEqual(["skipped-unsafe"]);
+    expect(fs.existsSync(path.resolve(ws, unsafeTarget, FILENAME))).toBe(false);
+    const q = JSON.parse(fs.readFileSync(path.join(reviewDir(), `${RUNID_A}.json`), "utf8"));
+    expect(q.actions.length).toBe(1); // stays open for the human to see
+  });
 
-test("target display in list: filename + arrows + basename(dirs)", async () => {
-  const actions = [{
-    id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
-    source: "_eingang/file.pdf", filename: "file.pdf",
-    targets: ["001 Galant/Buchhaltung"],
-    values: {},
-  }];
-  writeQueue(RUNID_A, actions);
-  const { stdout } = await runApply(ws, "list");
-  const result = JSON.parse(stdout);
-  const item = result.groups[0].items[0];
-  expect(item.target).toContain("  →  ");
-  expect(item.target).toContain("Buchhaltung");
-});
+  test("approve-safe never applies a traversal action", async () => {
+    writeQueue(RUNID_A, [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+      source: SOURCE_REL, filename: FILENAME, targets: ["../OUTSIDE/evil"], values: {},
+    }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve-safe");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(false);
+    expect(statuses(result.applied[0])).toEqual(["skipped-unsafe"]);
+    expect(fs.existsSync(path.resolve(ws, "../OUTSIDE/evil", FILENAME))).toBe(false);
+  });
 
-test("vals field: entity · kategorie stripped of padding", async () => {
-  const actions = [{
-    id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
-    source: "_eingang/file.pdf", filename: "file.pdf",
-    targets: [],
-    values: { entity: "GB", kategorie: "Kfz" },
-  }];
-  writeQueue(RUNID_A, actions);
-  const { stdout } = await runApply(ws, "list");
-  const result = JSON.parse(stdout);
-  expect(result.groups[0].items[0].vals).toBe("GB · Kfz");
-});
+  test("filename with path separators / .. → error, nothing written", async () => {
+    for (const fname of ["../../evil.sh", "sub/dir.pdf", ".."]) {
+      writeQueue(RUNID_A, [{
+        id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+        source: SOURCE_REL, filename: fname, targets: [TARGET_REL], values: {},
+      }]);
+      seedSourceFile(SOURCE_REL);
+      const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+      const result = JSON.parse(stdout);
+      expect(result.ok).toBe(false);
+      expect(result.results[0].detail).toContain("Dateiname");
+    }
+  });
 
-test("vals field: only entity present → no trailing ·", async () => {
-  const actions = [{
-    id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
-    source: "_eingang/file.pdf", filename: "file.pdf",
-    targets: [],
-    values: { entity: "GB" },
-  }];
-  writeQueue(RUNID_A, actions);
-  const { stdout } = await runApply(ws, "list");
-  const result = JSON.parse(stdout);
-  expect(result.groups[0].items[0].vals).toBe("GB");
-});
+  test("source outside workspace → error, not copied", async () => {
+    const outside = path.join(os.tmpdir(), "cc-outside-source.txt");
+    fs.writeFileSync(outside, "secret");
+    writeQueue(RUNID_A, [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+      source: outside, filename: "leak.txt", targets: [TARGET_REL], values: {},
+    }]);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(false);
+    expect(result.results[0].detail).toContain("außerhalb");
+    fs.rmSync(outside, { force: true });
+  });
 
-test("multiple targets → all paths in filed, all files created", async () => {
-  const actions = [{
-    id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
-    source: SOURCE_REL, filename: FILENAME,
-    targets: ["dest-a", "dest-b"],
-    values: {},
-  }];
-  writeQueue(RUNID_A, actions);
-  seedSourceFile(SOURCE_REL);
-  const { stdout } = await runApply(ws, "approve", RUNID_A, "1");
-  const result = JSON.parse(stdout);
-  expect(result.filed.length).toBe(2);
-  expect(fs.existsSync(path.join(ws, "dest-a", FILENAME))).toBe(true);
-  expect(fs.existsSync(path.join(ws, "dest-b", FILENAME))).toBe(true);
-});
+  test("absolute target NOT configured → falls back to _ausgang/<process>", async () => {
+    const absDir = fs.mkdtempSync(path.join(os.tmpdir(), "cc-abs-unconfigured-"));
+    writeQueue(RUNID_A, [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+      source: SOURCE_REL, filename: "f.pdf", targets: [absDir], values: {},
+    }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(statuses(result)).toEqual(["fallback", "copied"]);
+    expect(fs.existsSync(path.join(absDir, "f.pdf"))).toBe(false);
+    expect(fs.existsSync(path.join(ws, "_ausgang", "receipt-filing", "f.pdf"))).toBe(true);
+    fs.rmSync(absDir, { recursive: true, force: true });
+  });
 
-test("approve-safe --dry reports but does not write", async () => {
-  const actions = [{
-    id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
-    source: SOURCE_REL, filename: FILENAME,
-    targets: [TARGET_REL],
-    values: {},
-  }];
-  writeQueue(RUNID_A, actions);
-  seedSourceFile(SOURCE_REL);
-  const { stdout } = await runApply(ws, "approve-safe", "--dry");
-  const result = JSON.parse(stdout);
-  expect(result.ok).toBe(true);
-  expect(result.dry).toBe(true);
-  expect(result.touched).toBe(1);
-  expect(result.filed.length).toBe(1);
-  const destFile = path.join(ws, TARGET_REL, FILENAME);
-  expect(fs.existsSync(destFile)).toBe(false);
-});
-
-test("list: process not in ICON map → uses process name as group, receipt as icon", async () => {
-  const actions = [{
-    id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
-    source: "_eingang/f.pdf", filename: "f.pdf",
-    targets: [],
-    values: {},
-  }];
-  writeQueue(RUNID_A, actions, "custom-process");
-  const { stdout } = await runApply(ws, "list");
-  const result = JSON.parse(stdout);
-  const g = result.groups[0];
-  expect(g.group).toBe("custom-process");
-  expect(g.icon).toBe("receipt");
-});
-
-// ── Fix 2: workspace containment guard tests ──────────────────────────────────
-
-test("traversal refused: unsafe target not copied, listed in skipped_unsafe", async () => {
-  // Use an absolute path that resolves outside the workspace
-  const unsafeTarget = "../../../tmp/cc-escape-test";
-  const actions = [{
-    id: 99,
-    verb: "kopieren",
-    tier: "sicher",
-    reason: "traversal attempt",
-    source: SOURCE_REL,
-    filename: FILENAME,
-    targets: [unsafeTarget],
-    values: {},
-  }];
-  writeQueue(RUNID_A, actions);
-  seedSourceFile(SOURCE_REL);
-
-  const { stdout } = await runApply(ws, "approve", RUNID_A, "99");
-  const result = JSON.parse(stdout);
-
-  expect(result.ok).toBe(true);
-  expect(result.touched).toBe(1);
-  // Nothing was filed (all targets were unsafe)
-  expect(result.filed).toEqual([]);
-  // The unsafe target is reported
-  expect(Array.isArray(result.skipped_unsafe)).toBe(true);
-  expect(result.skipped_unsafe.length).toBeGreaterThan(0);
-  expect(result.skipped_unsafe[0]).toContain("cc-escape-test");
-  // No file escaped the workspace
-  const escapePath = path.resolve(ws, unsafeTarget, FILENAME);
-  expect(fs.existsSync(escapePath)).toBe(false);
-});
-
-test("list shows full relative target path, not just basename", async () => {
-  const nestedTarget = "001 Galant/Buchhaltung/Eingang";
-  const actions = [{
-    id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
-    source: "_eingang/file.pdf", filename: "file.pdf",
-    targets: [nestedTarget],
-    values: {},
-  }];
-  writeQueue(RUNID_A, actions);
-  const { stdout } = await runApply(ws, "list");
-  const result = JSON.parse(stdout);
-  const item = result.groups[0].items[0];
-  // Must show the full relative path, not just "Eingang"
-  expect(item.target).toContain("001 Galant/Buchhaltung/Eingang");
-  expect(item.target).toContain("  →  ");
-});
-
-test("cross-queue isolation: approve in queue A leaves queue B untouched", async () => {
-  const actionsA = [{
-    id: 1, verb: "kopieren", tier: "sicher", reason: "queue A action",
-    source: SOURCE_REL, filename: "file-a.pdf",
-    targets: ["dest-a"],
-    values: {},
-  }];
-  const actionsB = [{
-    id: 2, verb: "kopieren", tier: "sicher", reason: "queue B action",
-    source: SOURCE_REL, filename: "file-b.pdf",
-    targets: ["dest-b"],
-    values: {},
-  }];
-  writeQueue(RUNID_A, actionsA);
-  writeQueue(RUNID_B, actionsB);
-  seedSourceFile(SOURCE_REL);
-
-  // Approve action 1 in queue A only
-  const { stdout } = await runApply(ws, "approve", RUNID_A, "1");
-  const result = JSON.parse(stdout);
-  expect(result.touched).toBe(1);
-
-  // Queue B's file must still exist on disk with its action intact
-  const qBPath = path.join(reviewDir(), `${RUNID_B}.json`);
-  expect(fs.existsSync(qBPath)).toBe(true);
-  const qB = JSON.parse(fs.readFileSync(qBPath, "utf8"));
-  expect(qB.actions.length).toBe(1);
-  expect(qB.actions[0].id).toBe(2);
-
-  // Queue B's destination file must not have been created
-  expect(fs.existsSync(path.join(ws, "dest-b", "file-b.pdf"))).toBe(false);
-
-  // Queue B still appears in list
-  const { stdout: listOut } = await runApply(ws, "list");
-  const listResult = JSON.parse(listOut);
-  expect(listResult.total).toBe(1);
-  expect(listResult.groups[0].items[0].id).toBe(2);
+  test("absolute target configured in _firma/config/*.json output_paths → delivered", async () => {
+    const absDir = fs.mkdtempSync(path.join(os.tmpdir(), "cc-abs-configured-"));
+    const cfgDir = path.join(ws, "_firma", "config");
+    fs.mkdirSync(cfgDir, { recursive: true });
+    fs.writeFileSync(path.join(cfgDir, "receipt-filing.json"), JSON.stringify({ output_paths: { belege: absDir } }), "utf8");
+    writeQueue(RUNID_A, [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+      source: SOURCE_REL, filename: "f.pdf", targets: [absDir], values: {},
+    }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(statuses(result)).toEqual(["copied"]);
+    expect(fs.existsSync(path.join(absDir, "f.pdf"))).toBe(true);
+    fs.rmSync(absDir, { recursive: true, force: true });
+  });
 });

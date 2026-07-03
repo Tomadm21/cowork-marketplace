@@ -41,7 +41,7 @@ Then, in the firm's Cowork workspace:
 
 …or just say *"richte mein Command Center ein"* / *"set up my command center"*.
 
-**Runtime requirements (honest):** the review/apply path needs only **Python 3** — the canonical engine `_firma/apply.py` is pure stdlib. The TypeScript helpers (`dashboard.ts`, `compute.ts`, `apply.ts`) are written for **bun**, but plain **Node ≥ 22.6** runs them too (Node 24 executes `.ts` directly: `node skills/dashboard/scripts/dashboard.ts …`) — bun is not required on Windows.
+**Runtime requirements (honest):** the review/apply path needs only **Python 3** — `_firma/apply.py` is pure stdlib and the **only** engine that applies approvals. The TypeScript helpers (`dashboard.ts`, `compute.ts`, and the read-only lister `apply.ts`) are written for **bun**, but plain **Node ≥ 22.6** runs them too (Node 24 executes `.ts` directly: `node skills/dashboard/scripts/dashboard.ts …`) — bun is not required on Windows.
 
 ## How it's built (for the operator/developer)
 
@@ -52,6 +52,12 @@ Then, in the firm's Cowork workspace:
 See `reference/architecture.md` for the design rationale and the Phase-2 path (per-process deterministic engines + MCP, the way `jan-kapitalfluss` does it).
 
 ## Status
+
+**v0.10.2 — security & correctness hardening** (full-plugin review, all findings fixed):
+- **Apply engine containment** (`_firma/apply.py`): sources, relative targets and filenames from queue JSON can no longer escape the workspace (`../` → `skipped-unsafe`, action stays open); absolute targets are honoured only if configured as `output_paths` in `_firma/config/*.json`, otherwise they fall back to `_ausgang/<process>`. Structured errors instead of tracebacks; `reject` errors on unknown ids instead of claiming success; corrupt journal lines no longer blind the replay guard; garbled queues surface in `queue_warnings`. **Re-run onboarding Step 2b (or re-copy apply.py) in existing workspaces to get the fix.**
+- **`apply.ts` demoted to a read-only lister** — its apply commands (which lacked the journal guard, md5 idempotency and the missing-source refusal) were removed; `_firma/apply.py` is the only engine that applies approvals. Tier display is fail-closed (unknown tier ≠ "sicher").
+- **`compute.ts` validates hard**: legacy config shapes (single rate per tier), non-numeric/negative hour fields and the legacy `reisezeit_h` row field abort with a clear message instead of silently computing wrong (or null) totals; duplicate person+date rows, Schlechtwetter hotel days, spesen/hotel gaps and year mismatches warn; km without a vehicle appear as a visible `(kein Fahrzeug)` position instead of being dropped. New test suite (`compute.test.ts`) plus apply.py integration tests — 130+ tests green.
+- **Review-board widget escaping** is now mandatory (HTML-escape all queue values; single-line sendPrompt composition), injection guards restated at every file-read site, and a new **`reference/datenschutz.md`** (DSGVO): storage map, retention periods (signals 12 months, journal 24), deletion routines, Art.-30 building block.
 
 **v0.10.1** — two additions on top of v0.10.0: (1) **Anreise-km ab Firmensitz** in the Montagebau-Preset — arrival/departure trips are always billed as the Firmensitz→Baustelle distance (`sites.<baustelle>.anreise_km`, asked once per site), never the reported odometer value; deviations surface as "prüfen". (2) **Speed pass** — a plugin-wide Tempo contract (`reference/firm-config-contract.md` §8): batched reads, each dropped file read exactly once (classify + extract in one pass), one batched checksum command instead of per-file spawns, lazy reference loading, and the dashboard artifact regenerates once per review session instead of after every single approval.
 

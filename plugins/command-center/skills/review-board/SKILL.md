@@ -11,7 +11,7 @@ Alles wird **gemeinsam** vorbereitet (intake), aber **nacheinander** freigegeben
 ```
 python3 <workspace_root>/_firma/apply.py <workspace_root> list
 ```
-(kanonische Workspace-Engine — reines Python3, immer vorhanden. `bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts` nur als Option. Fehlt `_firma/apply.py`, richte es per `firm-onboarding` Step 2b ein.)
+(kanonische Workspace-Engine — reines Python3, immer vorhanden; die **einzige**, die freigeben kann. `bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts` ist nur ein Read-only-Lister. Fehlt `_firma/apply.py`, richte es per `firm-onboarding` Step 2b ein.)
 Bestimme die offenen Prozesse und ihre Reihenfolge aus `${CLAUDE_PLUGIN_ROOT}/reference/workflows.json` (`order`: receipt-filing → photo-sorting → daily-report → invoicing). Der **erste** offene Prozess ist „dran".
 
 ## Step 2 — Kurz Bescheid geben + sichere Posten anbieten

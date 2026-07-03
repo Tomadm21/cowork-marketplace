@@ -19,6 +19,12 @@
  * Stundenerfassung Arbeit-/Fahrtzeit bereits pausenbereinigt liefert
  * (z.B. Fahrt-h = reine Pendelzeit, nicht die volle Reisezeit).
  * Alle Werte bleiben config-getrieben — nichts firmenspezifisch fest verdrahtet.
+ *
+ * v0.10.2 — harte Input-Validierung: Legacy-Config-Formen (ein Satz pro Tier,
+ * weekday/weekend) und nicht-numerische/negative Stunden-Felder brechen den
+ * Lauf mit klarer Meldung ab statt still null/falsche Summen zu produzieren;
+ * doppelte (person, date)-Zeilen und Hotel-Standtage warnen; km ohne Fahrzeug
+ * erscheinen als sichtbare "(kein Fahrzeug)"-Position statt zu verschwinden.
  */
 
 interface TierRates { montage: number; fahrt: number }
@@ -91,6 +97,65 @@ function zuschlagFactor(kind: "werktag" | "samstag" | "sonntag", cfg: Config): n
   return 1;
 }
 
+// ── Validation (fail loud, never compute on garbage) ─────────────────────────
+// This script bills real money: a malformed config or a mis-extracted row must
+// stop the run with a clear message — silently producing a wrong (or null)
+// total is the exact error class this script exists to prevent.
+
+const isNum = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
+
+function validateConfig(c: Config): void {
+  for (const key of ["vat_rate", "pflicht_pause_h", "daily_cap_total_h", "hotel_cost", "kfz_rate_per_km"] as const) {
+    if (!isNum(c[key]) || (c[key] as number) < 0) fail(`config.${key} fehlt oder ist keine Zahl ≥ 0`);
+  }
+  if (!c.spesen || !isNum(c.spesen.volltag_24h) || !isNum(c.spesen.halbtag_8h)) {
+    fail(`config.spesen braucht numerische volltag_24h und halbtag_8h`);
+  }
+  if (!c.tiers || typeof c.tiers !== "object" || Object.keys(c.tiers).length === 0) fail(`config.tiers fehlt/leer`);
+  for (const [name, t] of Object.entries(c.tiers)) {
+    if (!t || typeof t !== "object" || !isNum((t as TierRates).montage) || !isNum((t as TierRates).fahrt)) {
+      fail(
+        `config.tiers["${name}"] hat nicht die Form {montage, fahrt}. ` +
+        `Configs aus Versionen vor v0.10.0 (ein Satz pro Tier bzw. weekday/weekend) werden nicht ` +
+        `stillschweigend umgerechnet — bitte einmal das invoicing-Onboarding erneut ausführen ` +
+        `(einfacher Modus: montage und fahrt auf denselben Satz setzen).`,
+      );
+    }
+  }
+  if (!c.tiers[c.default_tier]) fail(`config.default_tier "${c.default_tier}" existiert nicht in config.tiers`);
+  if (!Array.isArray(c.weekend_days) || c.weekend_days.some((d) => d !== 0 && d !== 6)) {
+    fail(
+      `config.weekend_days darf nur 6 (Samstag) und/oder 0 (Sonntag) enthalten — ` +
+      `andere Werte würden falsche Zuschläge vergeben (bekam: ${JSON.stringify(c.weekend_days)})`,
+    );
+  }
+}
+
+function validateRows(rows: Row[], warnings: string[]): void {
+  const seen = new Set<string>();
+  rows.forEach((r, i) => {
+    const where = `rows[${i}] (${r?.person ?? "?"} ${r?.date ?? "?"})`;
+    if (!r || typeof r.person !== "string" || !r.person) fail(`${where}: person fehlt`);
+    if (typeof r.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) fail(`${where}: date muss YYYY-MM-DD sein`);
+    if ("reisezeit_h" in (r as Record<string, unknown>)) {
+      fail(`${where}: Feld "reisezeit_h" wird nicht unterstützt — fahrt_h verwenden (Pendelanteil, siehe montagebau-preset.md)`);
+    }
+    for (const key of ["arbeit_h", "fahrt_h", "pause_h", "km"] as const) {
+      const v = (r as Record<string, unknown>)[key];
+      if (v === undefined || v === null) continue;
+      // typeof check on purpose: a vision-extracted STRING "8" would otherwise
+      // string-concatenate into a monster day instead of adding
+      if (!isNum(v) || v < 0) fail(`${where}: ${key} muss eine Zahl ≥ 0 sein (bekam: ${JSON.stringify(v)})`);
+    }
+    if (!isNum(r.arbeit_h)) fail(`${where}: arbeit_h fehlt (0 explizit angeben, z. B. an reinen Reisetagen)`);
+    const dupKey = `${r.person}|${r.date}`;
+    if (seen.has(dupKey)) {
+      warnings.push(`${r.person} ${r.date}: doppelt erfasst — beide Zeilen werden berechnet (doppelte Stunden/km/Hotel!). Bitte prüfen (mehrseitiger Report?).`);
+    }
+    seen.add(dupKey);
+  });
+}
+
 function main() {
   const [configPath, inputPath] = process.argv.slice(2);
   if (!configPath || !inputPath) fail("usage: compute.ts <config.json> <input.json>");
@@ -101,6 +166,12 @@ function main() {
   const pausePreApplied = !!config.pause_pre_applied;
 
   if (!Array.isArray(input.rows) || input.rows.length === 0) fail("input.rows is empty");
+  validateConfig(config);
+  validateRows(input.rows, warnings);
+  if (isNum(input.jahr)) {
+    const wrongYear = [...new Set(input.rows.map((r) => r.date.slice(0, 4)).filter((y) => Number(y) !== input.jahr))];
+    if (wrongYear.length) warnings.push(`Jahr in Datumszeilen (${wrongYear.join(", ")}) ≠ input.jahr ${input.jahr} — bitte prüfen.`);
+  }
 
   const byPerson = new Map<string, Row[]>();
   for (const r of input.rows) {
@@ -191,16 +262,26 @@ function main() {
       if (arbeit > 0 || fahrt > 0) activeDays.push({ date: r.date, hotel: !!r.hotel });
 
       if ((r.km ?? 0) > 0) {
-        const veh = r.vehicle ?? pcfg?.vehicle;
-        if (!veh) {
-          warnings.push(`${displayName} ${r.date}: ${r.km} km erfasst, aber kein Fahrzeug zugeordnet (config.people[...].vehicle oder row.vehicle) — bitte prüfen.`);
-        } else {
-          if (config.vehicles && !config.vehicles[veh]) warnings.push(`Fahrzeug "${veh}" nicht in config.vehicles hinterlegt — bitte prüfen.`);
-          const cur = vehicleTotals.get(veh) ?? { km_total: 0, rows: 0 };
-          cur.km_total = round2(cur.km_total + (r.km ?? 0));
-          cur.rows += 1;
-          vehicleTotals.set(veh, cur);
+        // NOTHING is silently dropped: km without a resolvable vehicle land in a
+        // visible "(kein Fahrzeug)" pseudo position instead of vanishing from the
+        // invoice total — the reviewer reassigns or removes them deliberately.
+        const veh = r.vehicle ?? pcfg?.vehicle ?? "(kein Fahrzeug)";
+        if (veh === "(kein Fahrzeug)") {
+          warnings.push(`${displayName} ${r.date}: ${r.km} km ohne Fahrzeug-Zuordnung — als eigene Position "(kein Fahrzeug)" ausgewiesen, bitte zuordnen oder streichen.`);
+        } else if (config.vehicles && !config.vehicles[veh]) {
+          warnings.push(`Fahrzeug "${veh}" nicht in config.vehicles hinterlegt — bitte prüfen.`);
         }
+        const cur = vehicleTotals.get(veh) ?? { km_total: 0, rows: 0 };
+        cur.km_total = round2(cur.km_total + (r.km ?? 0));
+        cur.rows += 1;
+        vehicleTotals.set(veh, cur);
+      }
+
+      // Schlechtwetter-/Standtag: Hotelnacht ohne Stunden — die Spesen-Heuristik
+      // sieht diesen Tag nicht (nicht "aktiv"), obwohl der Monteur 24h abwesend
+      // ist. Nicht still: der Reviewer entscheidet, ob Volltag-Spesen dazukommen.
+      if (r.hotel && arbeit + fahrt === 0) {
+        warnings.push(`${displayName} ${r.date}: Hotelnacht ohne Arbeits-/Fahrtstunden (Schlechtwetter-/Standtag?) — Hotel wird berechnet, aber KEIN Spesen-Tag. Volltag-Spesen ggf. manuell ergänzen.`);
       }
 
       days.push({ date: r.date, kind, arbeit_h: arbeit, fahrt_h: fahrt, montage_rate: mRate, fahrt_rate: fRate, montage_betrag: mBetrag, fahrt_betrag: fBetrag });
@@ -220,6 +301,8 @@ function main() {
       else kind = "volltag";
       if (i === 0 && n > 1 && !d.hotel) warnings.push(`${displayName}: erster aktiver Tag (${d.date}) ohne Hotel-Flag, aber als Anreise (Halbtag) gewertet — bitte prüfen.`);
       if (i === n - 1 && n > 1 && d.hotel) warnings.push(`${displayName}: letzter aktiver Tag (${d.date}) hat Hotel=ja — evtl. Fortsetzung in Folgewoche statt Abreise; Spesen ggf. auf Volltag prüfen (bekannte Mehrwochen-Inkonsistenz).`);
+      if (kind === "volltag" && !d.hotel) warnings.push(`${displayName}: ${d.date} als Volltag-Spesen (24h) gewertet, aber keine Hotelnacht — Pendel-Tag? Spesen ggf. auf Halbtag prüfen.`);
+      if (n === 1 && d.hotel) warnings.push(`${displayName}: einziger aktiver Tag (${d.date}) hat Hotel=ja — Fortsetzung in Folgewoche? Spesen (Halbtag angesetzt) bitte prüfen.`);
       const amount = kind === "volltag" ? config.spesen.volltag_24h : config.spesen.halbtag_8h;
       spesenBetrag = round2(spesenBetrag + amount);
       spesenDays.push({ date: d.date, kind, amount });

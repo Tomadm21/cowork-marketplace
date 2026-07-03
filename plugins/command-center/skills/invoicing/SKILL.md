@@ -43,7 +43,9 @@ Write the gathered rows to a temp `input.json` in **exactly** this shape (the ke
 > bun ${CLAUDE_PLUGIN_ROOT}/skills/invoicing/scripts/compute.ts <workspace>/_firma/config/invoicing.json /tmp/input.json
 > ```
 >
-> Use the script's JSON output **verbatim**. If you find yourself adding numbers in your head, stop — that is the exact error class this script exists to prevent. (Runtime: `bun`, consistent with this marketplace; `npx tsx` works as a fallback.)
+> Use the script's JSON output **verbatim**. If you find yourself adding numbers in your head, stop — that is the exact error class this script exists to prevent. (Runtime: `bun`; without bun: `node compute.ts …` with Node ≥ 22.6, or `npx tsx compute.ts …`.)
+>
+> The script validates hard (v0.10.2): non-numeric or negative hour fields, legacy config shapes (single rate per tier / `weekday`/`weekend`) and the legacy row field `reisezeit_h` stop the run with a clear error instead of computing garbage. If it exits with a tier-shape error, re-run the invoicing onboarding once.
 
 The rules the script implements are documented in `reference/compute-rules.md`.
 
@@ -57,7 +59,7 @@ Nothing is written until the user approves.
 
 On approval, build the invoice file (xlsx via Cowork's native spreadsheet ability) reproducing the (re-)computed output **verbatim**. **Write the numbers as static values, not spreadsheet formulas** — the xlsx reproduces `compute.ts` output, it must never recompute. Any later change means re-run `compute.ts` and regenerate.
 
-- **Simple config** (`tiers[x]` has one rate, no `pause_pre_applied`): one line per person — hours, amount, spesen, KFZ, hotel, Zwischensumme.
+- **Einfacher Modus** (`pause_pre_applied: false`; `tiers[x]` hat trotzdem immer `montage`/`fahrt` — im einfachen Fall beide auf denselben Satz gesetzt): one line per person — hours, amount, spesen, KFZ, hotel, Zwischensumme.
 - **Montagebau-Preset** (`tiers[x]` has `montage`/`fahrt`): per `reference/montagebau-preset.md` — one Haupt-Positions-Block per person with up to 9 Sub-Positionen built from that person's `subtotals` (Montagekosten / Montagekosten Sa / Montagekosten So / Montage-Fahrt / Montage-Fahrt Sa / Montage-Fahrt So / Spesen 8H / Spesen 24H / Hotelkosten), omitting any position at zero. If `vehicles[]` is non-empty, append one further Haupt-Positions-Block „Geräte [KW]" with one Sub-Position per vehicle.
 
 Write it to the `output_paths` from config (default `_ausgang/rechnungen`). Also mirror the source timesheet alongside if the firm configured a Montageberichte path. Use collision-safe names (append `_2`, `_3` rather than overwriting). Never auto-send.

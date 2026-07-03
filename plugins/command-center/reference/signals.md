@@ -5,6 +5,10 @@ Every Command Center process appends **friction signals** to
 **never blocking a run** (same discipline as `activity-log.md`). The operator report
 (`/command-center:review`) reads this file.
 
+**Datenschutz:** `detail` darf Namen enthalten (Lieferanten, Monteure) — dafür gilt die
+Löschrotation aus `reference/datenschutz.md`: Zeilen älter als 12 Monate entfernt der Operator
+beim Review. Keine sensiblen Inhalte (Beträge ok, nie Bankdaten/private Details) in `detail`.
+
 ## Schema (one line per signal)
 
 ```json

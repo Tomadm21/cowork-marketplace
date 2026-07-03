@@ -86,7 +86,9 @@ In klarem Deutsch **kurz im Chat** berichten: was wohin abgelegt, was korrigiert
 
 ```
 bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/dashboard.ts <workspace_root>
-``` Leert sich eine Queue vollständig, verschiebt die Engine sie nach `_firma/_review/_erledigt/`.
+```
+
+(Ohne bun — z. B. Windows: `node …/dashboard.ts <workspace_root>`, Node ≥ 22.6.) Leert sich eine Queue vollständig, verschiebt die Engine sie nach `_firma/_review/_erledigt/`.
 
 ## Phrasen → Intent (Schnellreferenz)
 

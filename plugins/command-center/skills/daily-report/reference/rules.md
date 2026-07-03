@@ -3,7 +3,10 @@
 ## Compute rules
 This arithmetic (cap + break subtraction) is intentionally done inline by the skill — it is simple, non-monetary, and shown to the operator for review. (Contrast invoicing, whose money math is forbidden from running inline and must go through `compute.ts`. The script-only rule applies to money/legal totals, not to a report's hour count.)
 
-- **Daily cap**: if a day's total (Reisezeit + Arbeit) exceeds the configured cap (default 17h), cap it and flag "prüfen".
+- **Two distinct caps — don't conflate them:**
+  - `cap_time` (Onboarding Q2, default `17:00`): a **clock-time** cap — a later "Bis"-Zeit on the source is capped to it in the report, netto recomputed.
+  - `daily_cap_total_h` (Onboarding Q7, default `17`): an **hours** cap on a day's total (Reisezeit + Arbeit).
+  Either cap firing flags the day "prüfen".
 - **Netto hours**: subtract the statutory break (floored at the configured minimum, default 0.5h) per worked day.
 - **Filename**: `KW<KW>-<Projekt>-<Jahr>` (configurable). Collision-safe: if the target exists, append `_2`, `_3`… — never overwrite.
 

@@ -31,7 +31,7 @@ Claude interviews in batches (identity → business → sites → people → too
 ```
 # Firmenkontext — Muster Bau GmbH
 <!-- cc:meta -->
-- plugin: command-center v0.4.0
+- plugin: command-center v0.10.2
 - workspace_root: /Users/muster/MusterBau-Cowork
 - onboarded: 2026-06-02
 - sprache: de
@@ -74,7 +74,11 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/invoicing/scripts/compute.ts \
     /tmp/input.json
 ```
 
-Verified output (this is a real run of `compute.ts` against the example config; numbers hand-checked):
+Verified output — **recorded with the v0.9 single-rate engine; historical.** Since v0.10.0 the
+example config is Montagebau-shaped: a run today shows separate Montage-/Fahrt-Beträge, a
+`vehicles[]`/Geräte block instead of per-person KFZ, and km without a vehicle land in a visible
+`(kein Fahrzeug)` position (v0.10.2) instead of the "nicht berechnet" line below. The flow
+(pro-forma → prüfen lines → approval gate) is unchanged:
 
 ```
 Summe netto:  2695.00 EUR
