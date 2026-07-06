@@ -55,7 +55,7 @@ Hold onto `persona_profile`, `tone_of_voice`, `content_pillars`, `interests`, `o
 
 ## Step 2 — Pull the current trends (no persona_id)
 
-Resolve the niche from the tenant's niche list — **only ever use a `niche_id` returned by `GET /api/niches/config`, never a guessed or assumed slug** (a wrong slug returns 0 trends — the exact failure we are avoiding; the brand name is NOT automatically a niche_id). If the tenant has more than one niche, ask which one (numbered list); if exactly one, use it. Then fetch trends — **do not pass `persona_id`** (it returns empty):
+Resolve the niche from the tenant's niche list — **only ever use a `niche_id` returned by `GET /api/niches/config`, never a guessed or assumed slug** (a wrong slug returns 0 trends — the exact failure we are avoiding; the brand name is NOT automatically a niche_id). If the tenant has more than one niche, ask which one (numbered list); if exactly one, use it. Then fetch trends — **do not pass `persona_id`** (the backend's cosine ranking works, but this skill's fit reasons must come from the native DNA matching in Step 3, not a backend score):
 
 ```
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config

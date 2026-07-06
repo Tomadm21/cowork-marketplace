@@ -55,7 +55,7 @@ For each schedule:
 Niche:      {display_name} ({niche_id})
 Frequenz:   {interval_in_words}
 Status:     {Aktiv | Pausiert}
-Zuletzt angestoßen: {last_run_at formatted as "DD.MM.YYYY HH:MM Uhr" | "noch nie"}
+Zuletzt angestoßen: {last_run_at formatted as "DD.MM.YYYY HH:MM Uhr (UTC)" | "noch nie"}   ← the API returns UTC; label it as UTC, do not present it as local time
 ```
 
 `last_run_at` means "last **triggered** by the scheduler" — it does NOT prove the scrape succeeded. If trends stay empty despite a fresh timestamp, the runs are failing server-side (most likely: no Apify token deposited — offer the token gate from Step 2a).

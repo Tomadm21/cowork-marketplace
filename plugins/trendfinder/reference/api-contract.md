@@ -52,7 +52,6 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 | PUT /api/personas/{persona_id} | Partial persona fields | Updated persona | 404 if not this tenant's. Re-embeds DNA if a DNA field changed |
 | POST /api/personas/{persona_id}/embed-dna | — | `{status:"embedded", persona_id, vector_dims}` | Manual DNA (re-)embed. **503** if no Google embedder configured; **400** if persona has no DNA text |
 | DELETE /api/personas/{persona_id} | — | 204 | 404 if not this tenant's |
-| GET /api/pipeline/status | — | Pipeline state | For pipeline-control (Phase 3) |
 | POST /api/ingest | `{niche_id, platform: "tiktok"\|"instagram", items[]}` | 201 `{inserted, updated, rejected, errors}` / 400 tenant / 404 niche | items MUST be raw actor dataset items (clockworks/tiktok-scraper or apify/instagram-hashtag-scraper) — do not reshape; max 500 items/request |
 
 ---
