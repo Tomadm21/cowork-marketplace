@@ -10,6 +10,8 @@
 # SECURITY: never echoes the api key, never enables xtrace.
 set -euo pipefail
 
+command -v jq >/dev/null 2>&1 || { echo "tf.sh: 'jq' is required but not available in this environment" >&2; exit 1; }
+
 find_config() {
   if [[ -n "${TRENDFINDER_CONFIG:-}" ]]; then echo "$TRENDFINDER_CONFIG"; return; fi
   local dir="$PWD"
@@ -28,7 +30,7 @@ API_KEY="$(jq -r '.api_key // empty' "$CONFIG")"
 METHOD="${1:-}"; ENDPOINT="${2:-}"; BODY="${3:-}"
 [[ -n "$METHOD" && -n "$ENDPOINT" ]] || { echo "usage: tf.sh METHOD /api/path ['{json body}' | @/path/to/body.json]" >&2; exit 1; }
 
-ARGS=(-sS -X "$METHOD" -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" -w '\n%{http_code}')
+ARGS=(-sS --connect-timeout 10 --max-time 120 -X "$METHOD" -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" -w '\n%{http_code}')
 if [[ -n "$BODY" ]]; then
   if [[ "$BODY" == @* ]]; then
     ARGS+=(--data-binary "$BODY")

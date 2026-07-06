@@ -189,18 +189,28 @@ function trendScoreNum(t: TrendCluster): number {
   return typeof score === "number" && isFinite(score) ? score : 0;
 }
 
+// The API returns lifecycle as an object {stage, age_days, days_since_peak};
+// older payloads may carry a bare string. Real stages: unknown/emerging/rising/peak/declining.
+function lifecycleStage(lc: unknown): string {
+  const stage =
+    lc != null && typeof lc === "object" ? (lc as Record<string, unknown>).stage : lc;
+  return String(stage ?? "").toLowerCase();
+}
+
 function lifecycleBadge(lc: unknown): string {
-  const s = String(lc ?? "").toLowerCase();
-  if (s === "growing") return "wächst";
+  const s = lifecycleStage(lc);
+  if (s === "emerging") return "neu";
+  if (s === "rising" || s === "growing") return "steigt";
   if (s === "peak") return "Peak";
   if (s === "declining") return "sinkend";
   if (s === "stable") return "stabil";
+  if (s === "unknown") return "—";
   return s || "—";
 }
 
 function lifecycleClass(lc: unknown): string {
-  const s = String(lc ?? "").toLowerCase();
-  if (s === "growing") return "lc-growing";
+  const s = lifecycleStage(lc);
+  if (s === "emerging" || s === "rising" || s === "growing") return "lc-growing";
   if (s === "peak") return "lc-peak";
   if (s === "declining") return "lc-declining";
   return "lc-stable";
@@ -281,10 +291,10 @@ function buildHtml(
     })
     .slice(0, 3);
 
-  // Declining: lifecycle === declining AND negative velocity
+  // Declining: lifecycle stage === declining AND negative velocity
   const declining = sorted
     .filter((t) => {
-      const lc = String(t.lifecycle ?? "").toLowerCase();
+      const lc = lifecycleStage(t.lifecycle);
       const vel = velMap.get(t.cluster_id ? String(t.cluster_id) : trendTitle(t));
       const v = vel?.velocity ?? t.velocity;
       return lc === "declining" && typeof v === "number" && v < 0;
@@ -542,8 +552,7 @@ async function main() {
   const warnings: string[] = [];
 
   // ── Fetch trends ──────────────────────────────────────────────────────────
-  // NEVER pass persona_id: GET /api/trends/{niche}?persona_id= returns 0 clusters
-  // today (no persona-scoped clustering pipeline; persona_fit_score is null).
+  // No persona_id here: the briefing is deliberately niche-level.
   // Avatar-personalised output is done natively in Claude via the script-studio skill.
   let trends: TrendCluster[] = [];
   try {

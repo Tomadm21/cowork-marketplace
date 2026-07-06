@@ -1,13 +1,13 @@
 ---
 name: trend-radar
-description: Read and synthesise current trend data for a tenant-owned niche. Use when the user says "zeig mir Trends", "show trends", "was läuft gerade", "trend radar", "trend analyse", "what's trending", "current trends", "velocity", or any phrase implying reading existing trend data. Requires config present (routes to onboarding if not). Does NOT trigger scrapes — for that, route to scrape-now.
+description: Read and synthesise current trend data for a tenant-owned niche. Use when the user says "zeig mir Trends", "show trends", "was läuft gerade", "trend radar", "trend analyse", "what's trending", "current trends", "velocity", or any phrase implying reading existing trend data. Answers in chat — for the persistent HTML briefing artifact use trend-briefing, for the all-niches dashboard use cockpit. Requires config present (routes to onboarding if not). Does NOT trigger scrapes — for that, route to scrape-now.
 ---
 
 # Trendfinder — Trend Radar
 
 Goal: fetch the tenant's current trend clusters and velocity data for one niche, then synthesise the results natively — ranking rising patterns, naming hooks and accelerating signals, and giving the user an honest read of what the data actually says. The synthesis is pure Claude intelligence applied to the returned data — no additional server calls are made during synthesis.
 
-**Avatar-personalised?** Trend-radar is niche-wide and does NOT pass `persona_id` (the backend returns 0 clusters for it — no persona-scoped clustering yet). When the user wants trends matched to a specific avatar, or finished scripts in that avatar's voice, route to the `script-studio` skill — it matches trends to the avatar's DNA natively and writes hooks/scripts.
+**Avatar-personalised?** Trend-radar is niche-wide by design and does NOT pass `persona_id`. When the user wants trends matched to a specific avatar, or finished scripts in that avatar's voice, route to the `script-studio` skill — it matches trends to the avatar's DNA natively and writes hooks/scripts.
 
 All API calls use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call tf.sh or curl with an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints and platform limits.
 
@@ -40,7 +40,7 @@ Fetch the niche list:
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
 ```
 
-This is the **only authoritative source of niche slugs for this tenant.** The `/api/trends/*` routes are NOT tenant-scoped server-side — tenant isolation is enforced entirely in this skill by querying only slugs that appear in this response.
+This is the **only authoritative source of niche slugs for this tenant.** The `/api/trends/*` routes are tenant-scoped server-side since 2026-06-16 (foreign slugs 404) — still, only query slugs that appear in this response (defense-in-depth + better error messages).
 
 **If the user has already named a niche:** resolve it against this list. If the named niche does NOT appear in the returned list, stop and show the user the real list — never proceed with an unresolved slug:
 
@@ -74,7 +74,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/{niche_id}
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/{niche_id}/velocity
 ```
 
-**Do NOT pass the `persona_id` query param** even though api-contract.md lists it — personas are not tenant-scoped (platform limit 6). Query niche-level data only.
+**Do not pass the `persona_id` query param here** — the radar reads niche-level data by design; avatar-personalised ranking lives in `script-studio` (native DNA matching). (The backend's `persona_id` fit-scoring is live since 2026-06-16, but this skill stays niche-level.)
 
 **Empty or 404 on both responses** → both mean no data exists for this niche yet. Go directly to Step 3 (cold-start). Do not proceed to Step 2.
 
@@ -106,7 +106,7 @@ Each trend cluster from `/api/trends/{niche}` has:
 | `video_count` | Total videos in cluster |
 | `velocity` | Rate of growth (positive = accelerating, negative = declining) |
 | `video_count_delta` | Absolute change in video count over observed trajectory |
-| `lifecycle` | `growing` / `peak` / `declining` / `stable` |
+| `lifecycle` | object `{stage, age_days, days_since_peak}` — stage: `emerging` / `rising` / `peak` / `declining` / `unknown` |
 | `trajectory_counts` | Sparkline of daily video counts (up to 30 points) |
 | `dominant_hashtags` | Top hashtags in the cluster |
 | `dominant_audio_type` | Audio pattern |
@@ -130,8 +130,8 @@ Work through the following steps natively:
 
 2. **Identify rising patterns:** From the sorted list, extract the top 3–5 by trend score. For each:
    - Name the pattern using `trend_label` and `description`
-   - Classify its trajectory: use the `lifecycle` field (`growing`, `peak`, `declining`, `stable`)
-   - Note velocity direction: positive `velocity` + growing lifecycle = actively accelerating; negative + declining = winding down
+   - Classify its trajectory: use the `lifecycle.stage` field (`emerging`, `rising`, `peak`, `declining`; `unknown` = not enough data yet)
+   - Note velocity direction: positive `velocity` + `rising`/`emerging` stage = actively accelerating; negative + `declining` = winding down
 
 3. **Cross-reference velocity:** Join the velocity data by `cluster_id`. Any cluster with a high `trend_score` but negative `velocity` is a peak-or-declining trend — say so plainly. Clusters with moderate `trend_score` but strongly positive `velocity` are rising sleepers worth calling out.
 
@@ -149,7 +149,7 @@ Present the synthesis in three sections — no padding, no filler sentences:
 
 For each top cluster (3–5):
 ```
-#{rank} {trend_label}  [{lifecycle}]
+#{rank} {trend_label}  [{lifecycle.stage}]
 Score: {trend_score}  |  Velocity: {velocity:+.2f}  |  Videos: {video_count} (+{video_count_delta})
 {description}
 Hook: {hook_type} — "{hook_example}"
@@ -160,7 +160,7 @@ Hashtags: {top 3 from dominant_hashtags}
 **Schnellste Aufsteiger** (velocity leaders not already in the top list):
 Brief list of 1–3 clusters with the highest positive velocity.
 
-**Auslaufende Trends** (any top-10-by-score cluster with `lifecycle == declining` and negative velocity):
+**Auslaufende Trends** (any top-10-by-score cluster with `lifecycle.stage == "declining"` and negative velocity):
 Brief list. Do not feature these as opportunities — they are at the end of their curve.
 
 Conclude with a one-sentence synthesis summary (what is the dominant direction of this niche right now).
@@ -187,7 +187,7 @@ Do NOT render placeholder analysis, example trends, or fabricated cluster data. 
 ## Honesty and tenant isolation rules
 
 - **Only ever query tenant-owned niche slugs.** Resolve the slug list from `GET /api/niches/config` at the start of every invocation. Never accept a free-text niche slug from the user without resolving it against this API response first.
-- **Never fetch or display brands or personas.** `GET /api/brands` and related endpoints return global cross-tenant data (platform limit 6 in api-contract.md). This skill does not call those routes.
+- **Never fetch or display brands or personas.** Avatars are out of scope for the radar — avatar context lives in `script-studio`, `avatar-studio` and the Cockpit. This skill does not call `/api/brands` or `/api/personas`.
 - **Empty data = no analysis.** If the trend or velocity response is empty or 404, route to scrape-now. Never fabricate, estimate, or placeholder-fill an analysis when no clusters exist.
 - **Synthesis is native, not a server feature.** The ranking, pattern naming, and hook interpretation happen in Claude using the returned data. Make this clear if the user asks — the backend does not generate the synthesis text.
 - **Dismissed clusters are excluded by default.** If a cluster has `dismissed == true`, skip it unless the user explicitly asks to see all clusters.

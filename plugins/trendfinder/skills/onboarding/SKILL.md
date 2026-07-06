@@ -102,8 +102,6 @@ Ist der Apify-Connector in Cowork verbunden?
 - **Option 1:** Continue to Step 3.
 - **Option 2 or uncertain:** Acknowledge and continue — the connector is not required to *finish* onboarding; on-demand scrapes simply won't work until it is connected. Tell the user they can connect it anytime, then continue to Step 3.
 
-**Note for Tom (operator):** Tom's Cowork workspace already has the Apify connector active. For new customers, this is where they authorise their own Apify account via OAuth at `https://mcp.apify.com`. No token is ever pasted into the backend through this path.
-
 ---
 
 ## Step 3 — Niche (detect-first)
@@ -165,7 +163,7 @@ Repeat until the user is satisfied with their niche list.
 Generate the Cockpit so the user ends on the artifact even in cold-start state:
 
 ```
-if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
+if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
 ```
 
 A fresh niche has no trends yet — say so honestly:
@@ -215,8 +213,10 @@ Erst **jetzt** — nach Cockpit, Scrape-Angebot und Avatar-Angebot, ganz am Schl
 
 Im Default-Onboarding nicht nötig — nur falls die Kundin später automatische Scrapes im Hintergrund will (auch wenn Cowork zu ist):
 
-1. Einen Apify-Token im Backend hinterlegen: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/tenant/settings '{"apify_api_key":"<token>"}'` (erwartet `{"ok": true}`).
+1. Einen Apify-Token im Backend hinterlegen: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/tenant/settings '{"apify_api_key":"<token>"}'` (erwartet `{"ok": true}`). Danach `"backend_apify_token_deposited": true` in `{workspace}/.trendfinder/config.json` ergänzen (bestehende Schlüssel behalten) — der `scheduler`-Skill liest diesen Marker, bevor er Zeitpläne aktiviert.
 2. Dann einen Zeitplan anlegen — am einfachsten über den **`scheduler`-Skill** ("stell einen Zeitplan ein"). Er erstellt den Schedule und erklärt die Apify-Kosten.
+
+**Ohne hinterlegten Token schlägt jeder geplante Lauf serverseitig fehl** (kein Fallback auf einen Operator-Key) — deshalb niemals einen aktiven Zeitplan ohne Token anlegen.
 
 On-demand-Scrapes (`scrape-now`) brauchen das alles NICHT — der Connector aus Step 2 reicht. Erwähne diesen Block nur, wenn die Kundin nach automatischem/24-7-Scraping fragt.
 

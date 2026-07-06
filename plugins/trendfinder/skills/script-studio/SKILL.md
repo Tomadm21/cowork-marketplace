@@ -9,7 +9,7 @@ Goal: turn a current trend + an avatar's DNA into ready-to-shoot **hooks and a s
 
 All matching and writing happens **natively in Claude** (the plugin axiom: the backend only stores + scrapes). Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` first. All API calls go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...` — never inline-key curl.
 
-**Important — do NOT use the backend `?persona_id=` param.** It currently returns **0 clusters** (the backend has no persona-scoped clustering pipeline yet, and `persona_fit_score` is always null). Trend↔avatar matching is done here, in Claude, from the avatar's DNA — not by the backend. This skill costs nothing: it never calls an Apify actor.
+**Important — this skill does the matching itself, not the backend.** Trend↔avatar matching happens here, in Claude, from the avatar's full DNA — fetch trends WITHOUT `?persona_id=`. (The backend's `?persona_id=` fit-scoring exists since 2026-06-16 and returns cosine-based `persona_fit_score` values, but they are vector heuristics — the native DNA matching in this skill is the product's deliberate, richer path. Do not mix the two: fit reasons must come from real DNA fields, not from a backend score.) This skill costs nothing: it never calls an Apify actor.
 
 ---
 
@@ -115,8 +115,8 @@ Optionally, if the user wants to keep it, offer to save it to `{workspace}/.tren
 
 ## Honesty & safety rules
 
-- The trend↔avatar match is **Claude's native judgment from the DNA** — say so. Never present it as a backend `persona_fit_score` (that field is null; the backend has no persona-scoped matching yet). Ground each fit reason in a real DNA field (quote the pillar/interest/trait); never fabricate a DNA value to justify a match — "kein starkes DNA-Signal" is a valid, honest verdict.
-- Never pass `?persona_id=` to `/api/trends` — it returns 0 clusters and would make it look like there are no trends.
+- The trend↔avatar match is **Claude's native judgment from the DNA** — say so. Never present it as a backend score. Ground each fit reason in a real DNA field (quote the pillar/interest/trait); never fabricate a DNA value to justify a match — "kein starkes DNA-Signal" is a valid, honest verdict.
+- Never pass `?persona_id=` to `/api/trends` in this skill — the native DNA matching here is the deliberate path, and mixing a backend cosine score into the fit reasons would blur what the reasons are grounded in.
 - Never fabricate performance numbers ("dieser Hook macht 100k Views"). You can cite the trend's real `avg_engagement_rate` if present, labelled as the trend's data, not a prediction for this script.
 - Never claim trends exist if `/api/trends/{niche}` was empty — route to `scrape-now` instead.
 - Never call an Apify actor / never spend credits. For new trend data, route to `scrape-now`.

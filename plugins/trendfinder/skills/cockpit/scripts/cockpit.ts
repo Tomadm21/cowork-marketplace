@@ -244,10 +244,14 @@ function lifecycleLabel(lc: unknown): string | null {
     typeof lc === "object" ? (lc as Record<string, unknown>).stage : lc;
   const s = String(stage ?? "").toLowerCase();
   if (!s) return null;
-  if (s === "growing") return "wächst";
+  // Real backend stages: unknown/emerging/rising/peak/declining (temporal.py);
+  // growing/stable kept for older payloads.
+  if (s === "emerging") return "neu";
+  if (s === "rising" || s === "growing") return "steigt";
   if (s === "peak") return "Peak";
   if (s === "declining") return "sinkend";
   if (s === "stable") return "stabil";
+  if (s === "unknown") return null;
   return s;
 }
 
@@ -302,11 +306,11 @@ function buildHtml(
     if (enabledSchedules.length > 0) {
       const sch = enabledSchedules[0];
       const hours = sch.interval_hours ?? 6;
-      hint = `dein erster Scrape läuft alle ${esc(String(hours))}h — warte auf den nächsten Scheduler-Tick oder starte den Scrape manuell.`;
+      hint = `dein Zeitplan läuft alle ${esc(String(hours))}h — oder hol dir sofort frische Trends: Sag „jetzt scrapen".`;
     } else if (schedules.length > 0) {
-      hint = `du hast Zeitpläne, aber alle sind deaktiviert — aktiviere einen Zeitplan, um Trends zu sammeln.`;
+      hint = `du hast Zeitpläne, aber alle sind pausiert — sag „jetzt scrapen" für sofortige Trends, oder reaktiviere einen Zeitplan.`;
     } else {
-      hint = `lege einen Zeitplan an: „Scrape &lt;Nische&gt; alle 6h".`;
+      hint = `Sag „jetzt scrapen" — dein erster Scrape holt frische Trends für deine Nische.`;
     }
     trendsHtml = `<div class="cold-start">
       <div class="cold-icon">📊</div>
@@ -317,7 +321,7 @@ function buildHtml(
     trendsHtml = `<div class="cold-start">
       <div class="cold-icon">📊</div>
       <h2>Noch keine Trends</h2>
-      <p>Richte zuerst eine Nische ein, dann lege einen Zeitplan an: „Scrape &lt;Nische&gt; alle 6h".</p>
+      <p>Richte zuerst eine Nische ein („richte Trendfinder ein") — danach sag einfach „jetzt scrapen".</p>
     </div>`;
   } else {
     trendsHtml = niches
@@ -395,8 +399,8 @@ function buildHtml(
   if (totalPersonas === 0) {
     avatareHtml = `<div class="cold-start">
       <div class="cold-icon">🎭</div>
-      <h2>Avatare kommen in Kürze</h2>
-      <p>Erstell deinen ersten Avatar, sobald das Avatar-Studio verfügbar ist.</p>
+      <h2>Noch kein Avatar</h2>
+      <p>Sag „Avatar anlegen" — Marke + Persona mit DNA entstehen in ein paar Minuten, danach schreibe ich Skripte in deiner Stimme.</p>
     </div>`;
   } else {
     avatareHtml = brandData

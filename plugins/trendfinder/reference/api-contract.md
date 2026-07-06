@@ -39,14 +39,14 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 | GET /api/schedules | — | `[{id, type, niche_id, interval_hours, enabled, last_run_at}]` | Tenant-scoped |
 | PATCH /api/schedules/{id} | `{interval_hours?, enabled?}` | 200 | 404 if not tenant's |
 | DELETE /api/schedules/{id} | — | 204 | 404 if not tenant's |
-| GET /api/trends/{niche_id} | query params: `min_score` (float, default 0.0), `persona_id` (optional), `limit` (int ≤100), `diversify` (bool) | Trend clusters (list). Fields per cluster: `cluster_id`, `trend_score`, `trend_label`, `description`, `hook_type`, `hook_examples`, `visual_style`, `velocity`, `video_count`, `video_count_delta`, `lifecycle`, `trajectory_counts`, `dominant_hashtags`, `dominant_audio_type`, `top_sounds`, `avg_engagement_rate`, `scripted_count`, `dismissed` | **NOT tenant-scoped at the backend** — the skill MUST only query niche slugs obtained from `GET /api/niches/config` for this tenant. Empty list OR 404 for a fresh niche — both mean no data yet. ⚠️ `persona_id` is accepted but currently returns **0 clusters** (no persona-scoped clustering pipeline yet; `persona_fit_score` is always null) — do NOT pass it. Avatar↔trend matching is done natively in Claude (see the `script-studio` skill). |
-| GET /api/trends/{niche_id}/velocity | query param: `persona_id` (optional) | `[{cluster_id, trend_label, trend_score, velocity, trajectory}]` | **NOT tenant-scoped at the backend** — only query tenant-owned niche slugs from `GET /api/niches/config`. Empty list OR 404 for a fresh niche. |
+| GET /api/trends/{niche_id} | query params: `min_score` (float, default 0.0), `persona_id` (optional), `limit` (int ≤100), `diversify` (bool) | Trend clusters (list). Fields per cluster: `cluster_id`, `trend_score`, `trend_label`, `description`, `hook_type`, `hook_examples`, `visual_style`, `velocity`, `video_count`, `video_count_delta`, `lifecycle`, `trajectory_counts`, `dominant_hashtags`, `dominant_audio_type`, `top_sounds`, `avg_engagement_rate`, `scripted_count`, `dismissed`, `persona_fit_score` | ✅ Tenant-scoped since 2026-06-16 — foreign/unknown niche slugs return 404. Empty list for a fresh owned niche = no data yet. `persona_id` is live since 2026-06-16: returns the niche clusters ranked by live DNA fit (`persona_fit_score` per cluster; may be null where no DNA/centroid vector exists — treat null as "unscored", never as 0). The plugin's avatar↔trend matching still happens natively in Claude (`script-studio`); `persona_id` is optional, for a backend-ranked view. |
+| GET /api/trends/{niche_id}/velocity | query param: `persona_id` (optional) | `[{cluster_id, trend_label, trend_score, velocity, trajectory}]` | ✅ Tenant-scoped since 2026-06-16 — foreign slugs 404. Still: only query niche slugs resolved via `GET /api/niches/config`. Empty list for a fresh owned niche = no data yet. |
 | GET /api/brands | — | Brand list (this tenant only) | ✅ Tenant-scoped since 2026-06-16 — safe to display |
 | POST /api/brands | `{brand_id, display_name, mission?, target_audience?, content_pillars?, tone_of_voice?, visual_concept?, hashtag_strategy?, posting_schedule?, content_formats?}` | 201 created brand | `brand_id` stamped with this tenant. 409 if `brand_id` exists (globally unique). ⚠️ The optional rich fields are **objects/lists**, NOT strings (same shapes as the persona DNA sub-objects in § Avatars) — sending them as strings returns **422**. Keep the brand lean (`brand_id` + `display_name` + `mission` + `target_audience`) unless you have the structured shapes; carry rich content on the persona DNA |
 | GET /api/brands/{brand_id} | — | One brand | 404 if not this tenant's |
 | PUT /api/brands/{brand_id} | Partial brand fields | Updated brand | 404 if not this tenant's. `tenant_id` cannot be reassigned via body |
 | DELETE /api/brands/{brand_id} | — | 204 | 404 if not this tenant's |
-| GET /api/brands/{brand_id}/personas | — | Personas (avatars) of this brand incl. DNA fields | ✅ Tenant-scoped — safe to display |
+| GET /api/brands/{brand_id}/personas | — | **Slim** persona list: `[{id, persona_id, display_name, brand_id}]` — NO DNA fields | ✅ Tenant-scoped — safe to display. For DNA, fetch each persona via `GET /api/personas/{persona_id}` (enrich pattern; cockpit.ts does this) |
 | POST /api/brands/{brand_id}/personas | `{persona_id, display_name, persona_profile?, content_pillars?, tone_of_voice?, system_prompt?, interests?, origin_story?, potential_development?, tiktok_enabled?, tiktok_hashtags?, instagram_enabled?, instagram_hashtags?, ...}` | 201 created persona | Inherits `tenant_id` from the parent brand (which is tenant-checked first). 409 if `persona_id` exists. Auto-embeds DNA best-effort on save |
 | GET /api/personas/{persona_id} | — | One persona (avatar) | 404 if not this tenant's |
 | PUT /api/personas/{persona_id} | Partial persona fields | Updated persona | 404 if not this tenant's. Re-embeds DNA if a DNA field changed |
@@ -111,17 +111,17 @@ An **avatar** in Trendfinder is two layers:
 
 These are deliberate Phase-1 backend decisions. The plugin encodes and enforces them.
 
-1. **Apify key BEFORE first schedule (not before on-demand).** A `POST /api/schedules` must not be created until the backend Apify key has been deposited via `POST /api/tenant/settings` (onboarding Step 2b) — this order is a hard gate for *scheduled* scrapes. On-demand scrapes use the Cowork Apify MCP connector and require NO backend key. ⚠️ If a tenant has no deposited key, the backend currently falls back to the operator's global key for any scheduled run — the schedule gate is what prevents that in practice; a tenant-key-required hard fail is tracked as a deferred SECURITY item.
+1. **Apify token BEFORE the first *enabled* schedule (not before on-demand).** Scheduled runs use the backend-deposited Apify token (`POST /api/tenant/settings`). **Since 2026-06-16 the backend hard-fails any tenant scheduled run without a deposited token — there is NO fallback to the operator's key.** The failure is server-side and invisible in the schedule row (`last_run_at` still updates on trigger), which is why the scheduler skill gates activation on the token (scheduler Step 2a; onboarding → „24/7-Automatik (optional)"). On-demand scrapes use the Cowork Apify MCP connector and require NO backend token.
 
 2. **Niche slugs are globally unique.** `niche_id` is derived from `display_name` and shared across all tenants. Convention: prefix the display name with the tenant id (e.g. `"acme Beauty"`), and always continue with the `niche_id` the API returned — never a locally guessed slug.
 
-3. **Legacy data routes are not tenant-scoped.** `/api/trends/*` reads by niche slug, not by tenant. Self-scoping rule: skills ONLY pass niche slugs previously obtained from `GET /api/niches/config` in the same tenant context. Never accept a free-text niche slug from the user without resolving it against the tenant's niche list first.
+3. **Trend routes are tenant-scoped since 2026-06-16.** `GET /api/trends/{niche}` and `/velocity` enforce niche ownership server-side — foreign slugs 404 (identical shape to "unknown"). Keep the self-scoping habit anyway: skills only pass niche slugs previously obtained from `GET /api/niches/config` in the same tenant context (defense-in-depth, better error messages). Never accept a free-text niche slug from the user without resolving it first.
 
-4. **Schedules execute on the backend scheduler (60s tick), not in Cowork.** Cowork sessions are not 24/7. `last_run_at` on `GET /api/schedules` is the execution proof.
+4. **Schedules execute on the backend scheduler (60s tick), not in Cowork.** Cowork sessions are not 24/7. `last_run_at` on `GET /api/schedules` records when a run was last **triggered** (set at enqueue) — it does NOT prove the scrape succeeded. Success shows up as new data in `GET /api/trends/{niche}`.
 
 5. **No tenant self-service for key rotation or tenant deletion.** The operator handles both.
 
-6. **Brands/personas (avatars) ARE tenant-scoped (since 2026-06-16) — safe to create, fetch, and display.** All brand + persona routes (list/get/create/update/delete + embed-dna) filter by the tenant key server-side: a tenant sees and edits ONLY its own avatars, foreign access 404s, and created rows are stamped with the tenant. The old cross-tenant leak (live-verified 2026-06-11) is closed. The `avatar-studio` skill creates them; the Cockpit Avatare tab renders them. Self-scoping rule still applies to the legacy `/api/trends/*` reads (limit 3), which key on niche slug, not tenant.
+6. **Brands/personas (avatars) ARE tenant-scoped (since 2026-06-16) — safe to create, fetch, and display.** All brand + persona routes (list/get/create/update/delete + embed-dna) filter by the tenant key server-side: a tenant sees and edits ONLY its own avatars, foreign access 404s, and created rows are stamped with the tenant. The old cross-tenant leak (live-verified 2026-06-11) is closed. The `avatar-studio` skill creates them; the Cockpit Avatare tab renders them. The self-scoping habit from limit 3 still applies whenever a niche slug is passed.
 
 ---
 
@@ -139,7 +139,7 @@ These are deliberate Phase-1 backend decisions. The plugin encodes and enforces 
 - `enabled` — `true` to resume, `false` to pause
 
 **Execution model:**
-Schedules run on the backend server scheduler (60-second tick) using the **Apify key deposited via `POST /api/tenant/settings`** during onboarding. This is a distinct credential from the Cowork Apify MCP connector used by `scrape-now`. Scheduled runs continue 24/7 independent of active Cowork sessions. `last_run_at` on the schedule row is the authoritative proof of execution.
+Schedules run on the backend server scheduler (60-second tick) using the **Apify token deposited via `POST /api/tenant/settings`** (onboarding → „24/7-Automatik (optional)" or the scheduler skill's token gate). This is a distinct credential from the Cowork Apify MCP connector used by `scrape-now`. Scheduled runs continue 24/7 independent of active Cowork sessions. `last_run_at` on the schedule row records the last **trigger** (set at enqueue) — it is NOT proof the scrape succeeded; without a deposited token every run hard-fails server-side.
 
 ---
 
@@ -150,13 +150,13 @@ There are TWO distinct Apify credential paths. This split is intentional — not
 | Path | Holder | When used | How established |
 |------|--------|-----------|-----------------|
 | **Cowork Apify MCP connector** | Cowork (OAuth per-user, `https://mcp.apify.com`) | On-demand scrapes (`scrape-now` skill) — runs while a Cowork session is active | User connects once via Cowork Settings → Connectors (OAuth); no token stored in the backend |
-| **Backend Apify key** | Trendfinder backend server (Fernet-encrypted at rest) | 24/7 unattended scheduled scrapes (backend scheduler, 60s tick) — runs independently of any Cowork session | Deposited via `POST /api/tenant/settings` during onboarding Step 2b |
+| **Backend Apify key** | Trendfinder backend server (Fernet-encrypted at rest) | 24/7 unattended scheduled scrapes (backend scheduler, 60s tick) — runs independently of any Cowork session | Deposited via `POST /api/tenant/settings` (onboarding → „24/7-Automatik (optional)" or the scheduler skill's token gate) |
 
 **Rules:**
 - On-demand scrapes via `scrape-now` always use the Cowork connector; they never read the backend Apify key.
 - Scheduled scrapes managed by the backend scheduler always use the backend key; they never use the Cowork connector.
-- A schedule must not be created until the backend Apify key has been deposited (enforcement in onboarding Step 2b / scheduler skill).
-- If a tenant has not deposited a backend key, the backend falls back to the operator's shared Apify key for scheduled runs — the scheduler skill informs the user of this if relevant.
+- A schedule must not be **activated** until the backend Apify token has been deposited (enforced by the scheduler skill's token gate; a paused schedule without a token is fine).
+- If a tenant has no deposited token, the backend **hard-fails** every scheduled run ("scraping refused") — the operator's key is never used as a fallback. The failure is server-side and invisible in the schedule row: `last_run_at` still updates on trigger.
 
 ---
 

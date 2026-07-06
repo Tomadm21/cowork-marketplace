@@ -48,7 +48,7 @@
       "name": "trendfinder",
       "source": "./plugins/trendfinder",
       "description": "Trend data → content decisions in Cowork. Detect-first onboarding (Trendfinder API key, Apify MCP connector for on-demand scrapes, niches, optional 24/7 schedules, optional first avatar); skills for on-demand scraping, trend-radar, trend-briefing (Live Artifact), scheduling, and avatar-studio (brand + persona + DNA); script-studio (avatar-voiced hooks + scripts matched to trends natively), plus the Trendfinder-Cockpit. Every skill ends with an interactive next-step option block. AI synthesis runs natively in Cowork; backend only stores and scrapes.",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "author": {
         "name": "Tom Adomeit"
       },

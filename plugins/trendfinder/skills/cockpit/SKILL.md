@@ -32,7 +32,7 @@ Bei Option 1: route zum `onboarding` Skill. Generiere das Cockpit **nicht** gege
 Führe den Generator aus:
 
 ```
-if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
+if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
 ```
 
 Der Generator liest zum Zeitpunkt der Generierung alle Tenant-Daten via API, inlinet sie in eine selbst-enthaltene HTML-Datei und gibt als **letzte stdout-Zeile** den absoluten Pfad zur geschriebenen Datei aus (Standard: `<workspace_root>/.trendfinder/cockpit.html`).
@@ -54,7 +54,7 @@ Präsentiere die generierte HTML-Datei als **Live Artifact** (persistenter Cowor
 Gib danach eine 2–3-zeilige In-Chat-Zusammenfassung in der Sprache des Nutzers:
 
 - Wie viele Niches, Trends und Avatare das Cockpit enthält (nur Zahlen, die der Generator tatsächlich geschrieben hat — niemals erfundene Werte).
-- Den einen empfohlenen nächsten Schritt (aus dem Cockpit-Inhalt, z. B. "Ersten Scrape-Schedule anlegen" bei Cold-Start, oder "Niche X hat 3 neue Trends seit gestern — schau sie dir an").
+- Den einen empfohlenen nächsten Schritt (aus dem Cockpit-Inhalt, z. B. "Sag ‚jetzt scrapen'" bei Cold-Start, oder "Niche X hat 3 neue Trends seit gestern — schau sie dir an").
 - Den Hinweis: "Sag einfach ‚zeig das Cockpit', um zu aktualisieren."
 
 ---

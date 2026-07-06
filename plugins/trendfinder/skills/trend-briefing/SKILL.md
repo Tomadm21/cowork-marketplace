@@ -9,7 +9,7 @@ Generiere das Trend-Briefing als **Cowork Live Artifact**: eine selbst-enthalten
 
 **Wichtig:** Das HTML-Artifact rendert nur die rohen Cluster-Daten. Die inhaltliche **Briefing-Narration** (Interpretation, Handlungsempfehlungen, was das wirklich bedeutet) liefert Claude nativ im Chat — das ist keine Server-Funktion, sondern Claude-Intelligenz angewandt auf die zurückgegebenen Daten.
 
-**Avatar-personalisiert?** Das Briefing ist Nischen-weit (kein `persona_id` — das liefert serverseitig 0 Cluster). Wenn der Nutzer Trends für einen bestimmten Avatar oder fertige Skripte in dessen Stimme will → route zur `script-studio`-Skill (matcht Trends nativ an die Avatar-DNA und schreibt Hooks/Skripte).
+**Avatar-personalisiert?** Das Briefing ist bewusst Nischen-weit (kein `persona_id`). Wenn der Nutzer Trends für einen bestimmten Avatar oder fertige Skripte in dessen Stimme will → route zur `script-studio`-Skill (matcht Trends nativ an die Avatar-DNA und schreibt Hooks/Skripte).
 
 ---
 
@@ -36,7 +36,7 @@ Bei Option 1: route zum `onboarding` Skill. Generiere das Briefing **nicht** geg
 Führe den Generator aus:
 
 ```
-if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts <workspace_root> [niche_id]; else node ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts <workspace_root> [niche_id]; fi
+if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts <workspace_root> [niche_id]; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts <workspace_root> [niche_id]; fi
 ```
 
 **Niche-Auflösung:**
@@ -67,7 +67,7 @@ Lies den absoluten Pfad aus der letzten stdout-Zeile des Generators.
 Gib danach eine **native Briefing-Narration** im Chat — 3–5 Sätze, in der Sprache des Nutzers:
 
 - **Was steht oben:** Nenne die Top-1-2-Trends mit Trend-Score und Lifecycle — nur Zahlen, die der Generator tatsächlich geschrieben hat.
-- **Velocity-Signal:** Gibt es aktiv beschleunigende Cluster (hoher Score + positive Velocity + `growing`)? Oder überwiegen sinkende Trends?
+- **Velocity-Signal:** Gibt es aktiv beschleunigende Cluster (hoher Score + positive Velocity + Lifecycle-Stage `rising`/`emerging`)? Oder überwiegen sinkende Trends?
 - **Hook-Empfehlung:** Wenn Hook-Typen und Hook-Beispiele vorhanden sind, nenne den wirkungsstärksten Hook für den Top-Trend.
 - **Nächster Schritt:** eine konkrete Handlungsempfehlung (z. B. "Scrape jetzt für mehr Daten" bei Cold-Start, oder "Trend X ist im Peak — schnell verwerten").
 - Den Hinweis: "Sag einfach ‚zeig das Trend-Briefing', um zu aktualisieren."
@@ -88,7 +88,7 @@ Gib danach eine **native Briefing-Narration** im Chat — 3–5 Sätze, in der S
 ## Tenant-isolation rules
 
 - Der Generator fetcht **ausschließlich eigene Nischen-Slugs** (aus `/api/niches/config` dieses Tenants).
-- **Kein `persona_id`-Parameter** wird übergeben — Personas sind nicht tenant-gescoped (Platform-Limit 6 in api-contract.md).
+- **Kein `persona_id`-Parameter** wird übergeben — das Briefing ist bewusst Nischen-Ebene; avatar-personalisierte Auswahl macht `script-studio` (natives DNA-Matching).
 - **Keine Brands oder Personas** werden abgerufen oder angezeigt.
 - Ein Nutzer kann keine fremde Nische übergeben — der Generator lehnt unbekannte Slugs explizit ab.
 

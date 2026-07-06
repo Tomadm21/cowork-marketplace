@@ -99,7 +99,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/ingest @{workspace}/.trendfin
 Interpret the result:
 - **HTTP 201** (`{"inserted":0,...}`) → ingest is deployed and the niche is owned → proceed to Step 2.
 - **HTTP 404 with body `{"error":"niche not found for this tenant"}`** → route IS deployed but the niche is wrong → go back and re-resolve the niche from `/api/niches/config`; do NOT scrape.
-- **HTTP 404 "Not Found" (no `"niche not found"` error key), or any 5xx / connection failure** → `/api/ingest` is **NOT deployed yet**. STOP. Tell the user the backend ingest endpoint isn't live yet, so a scrape would be wasted. Do NOT call the Apify actor. (This is expected until the Phase-3 backend deploy lands.)
+- **HTTP 404 "Not Found" (no `"niche not found"` error key), or any 5xx / connection failure** → the backend ingest endpoint is not reachable right now. STOP. Show the user the error verbatim and explain that a scrape would be wasted (the items could not be saved). Do NOT call the Apify actor. Offer to retry in a few minutes.
 
 Delete `ingest-preflight.json` after the probe.
 
@@ -109,13 +109,15 @@ Delete `ingest-preflight.json` after the probe.
 
 Once the user has confirmed, run the actor via the **Cowork Apify MCP connector** (not tf.sh — the connector holds the Apify credential; no backend Apify token is used here).
 
+**Empty-hashtag guard:** if the resolved hashtag list for the chosen platform is empty, STOP before any actor call — the run would only burn credits and return nothing. Tell the user the niche has no hashtags for this platform and offer to add some (`PUT /api/niches/config/{niche_id}`).
+
 ### TikTok
 
 Resolve the hashtags for the confirmed niche from the API response in Step 1 (`tiktok_hashtags` field, bare tags without `#`). Then call:
 
 ```
 Apify MCP tool: call-actor
-  actor_id: "clockworks/tiktok-scraper"
+  actor: "clockworks/tiktok-scraper"
   input:
     hashtags: [<bare tags from niche config, no # prefix>]
     resultsPerPage: <confirmed limit>
@@ -128,7 +130,7 @@ Resolve the hashtags for the confirmed niche from the API response in Step 1 (`i
 
 ```
 Apify MCP tool: call-actor
-  actor_id: "apify/instagram-hashtag-scraper"
+  actor: "apify/instagram-hashtag-scraper"
   input:
     hashtags: [<bare tags from niche config, no # prefix>]
     resultsLimit: <confirmed limit>
@@ -136,12 +138,14 @@ Apify MCP tool: call-actor
 
 ### Fetch dataset items
 
-After the actor run completes, fetch its dataset:
+`call-actor` waits a bounded time (~45s) and may return while the run is still in progress. If the returned run status is not terminal (`SUCCEEDED`), poll with `get-actor-run` (the run id from the call-actor result) every ~20–30s until it is — a 100–200-item scrape typically needs a few polls. Then fetch the dataset **by its dataset id** (`defaultDatasetId` from the call-actor / get-actor-run result — NOT the run id):
 
 ```
 Apify MCP tool: get-dataset-items
-  run_id: <run_id returned by call-actor>
+  datasetId: <defaultDatasetId from the run result>
 ```
+
+Exact parameter names can vary with connector versions — read the tool's own schema and prefer it over this sketch.
 
 **Critical: do NOT reshape or transform the items in any way.** The backend normaliser is hard-coded to the raw field names produced by these actors (e.g. `playCount`, `diggCount`, `videoPlayCount`, `likesCount` for TikTok; `likesCount`, `commentsCount`, `videoPlayCount` for Instagram). Any transformation will silently corrupt ingestion.
 
@@ -212,7 +216,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
 - Poll up to **6 times with ~10s between tries** (≈60s total). Between tries, wait before re-polling.
 - **As soon as the response is a non-empty cluster list** → stop polling and regenerate the artifact:
   ```
-  if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
+  if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
   ```
   Present the regenerated Cockpit as the Live Artifact and name the top 1–2 trends from the data the generator actually wrote.
 - **If still empty after all 6 tries** → do NOT claim trends exist. Say honestly:
@@ -228,7 +232,7 @@ Never fabricate trends to fill the wait. `inserted > 0` means data landed; only 
 - `rejected` items are normal virality filtering by the backend — they are not scrape failures or bad data.
 - Never run an actor on a global/Tom operator token. The Cowork Apify MCP connector always uses the tenant's own Apify credentials.
 - Tenant isolation is mandatory: only pass `niche_id` values previously obtained from `GET /api/niches/config` in this tenant context. Never accept a free-text niche slug from the user without API resolution first.
-- Never fetch brands or personas (Phase-2 platform limit 6 in api-contract.md). This skill does not touch `/api/brands` or `/api/personas`.
+- Never fetch brands or personas — avatars are out of scope for scraping. This skill does not touch `/api/brands` or `/api/personas`.
 - Max 500 items per ingest request (API limit). If the actor returns more than 500 items, truncate to the first 500 and warn the user.
 
 ---

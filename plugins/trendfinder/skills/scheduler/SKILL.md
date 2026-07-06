@@ -11,11 +11,11 @@ Goal: let the tenant view and manage their per-niche scrape schedules (create, u
 
 ## Honesty note — scheduled vs. on-demand scrapes
 
-Scheduled scrapes (managed here) run on the **backend server scheduler** (60-second tick). They use the **Apify API key deposited on the backend via onboarding Step 2b** — the backend's own credential, not the Cowork Apify MCP connector. This means schedules continue running 24/7 even when no Cowork session is open.
+Scheduled scrapes (managed here) run on the **backend server scheduler** (60-second tick). They use an **Apify token deposited on the backend** (`POST /api/tenant/settings` — see onboarding → „24/7-Automatik (optional)"), not the Cowork Apify MCP connector. This means schedules continue running 24/7 even when no Cowork session is open.
 
 On-demand scrapes (`scrape-now` skill) are different: they use the **Cowork Apify MCP connector** and run only while a Cowork session is active.
 
-If the Apify key has never been deposited via onboarding, the backend falls back to the operator's shared key — explain this honestly if the user has not completed onboarding Step 2b.
+**There is NO fallback to an operator key.** If no Apify token is deposited for this tenant, every scheduled run hard-fails on the server ("scraping refused") and no data ever arrives — while the schedule row still looks alive, because `last_run_at` is set when a run is *triggered*, not when it succeeds. A schedule without a deposited token is a silent failure. That is why Step 2a gates creation on the token.
 
 ---
 
@@ -55,8 +55,10 @@ For each schedule:
 Niche:      {display_name} ({niche_id})
 Frequenz:   {interval_in_words}
 Status:     {Aktiv | Pausiert}
-Letzter Run: {last_run_at formatted as "DD.MM.YYYY HH:MM Uhr" | "noch nie"}
+Zuletzt angestoßen: {last_run_at formatted as "DD.MM.YYYY HH:MM Uhr" | "noch nie"}
 ```
+
+`last_run_at` means "last **triggered** by the scheduler" — it does NOT prove the scrape succeeded. If trends stay empty despite a fresh timestamp, the runs are failing server-side (most likely: no Apify token deposited — offer the token gate from Step 2a).
 
 **interval_in_words mapping** (use the closest match; be precise for common values):
 
@@ -101,6 +103,32 @@ If "Ja" → go to Step 2a (create).
 ---
 
 ## Step 2a — Create a schedule
+
+### Backend-Apify-Token sicherstellen (Pflicht vor jedem Create)
+
+Scheduled runs need an Apify token deposited on the backend (see Honesty note). The backend has no read endpoint for it, so track it locally:
+
+1. Read `{workspace}/.trendfinder/config.json`. If it contains `"backend_apify_token_deposited": true` → token confirmed, continue to "Resolve target niche".
+2. Otherwise ask:
+
+```
+Für automatische 24/7-Scrapes braucht der Server einmalig einen eigenen Apify-Token.
+(Ohne ihn würde jeder geplante Lauf fehlschlagen — es kämen nie Daten an.)
+
+1) Token jetzt hinterlegen — ich führe dich durch (empfohlen)
+2) Ich habe schon einen Token hinterlegt
+3) Später — Zeitplan erstmal pausiert anlegen
+```
+
+- **Option 1:** Tell the user where the token lives: „Auf apify.com anmelden → Settings → API & Integrations → Personal API token kopieren." Ask them to paste it here, then deposit it:
+
+  ```
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/tenant/settings '{"apify_api_key":"<token>"}'
+  ```
+
+  Expect `{"ok": true, ...}`. On success: add `"backend_apify_token_deposited": true` to `{workspace}/.trendfinder/config.json` (keep all existing keys), confirm briefly, continue. On any error: show it verbatim and do NOT create an enabled schedule.
+- **Option 2:** Accept it, write the marker into config.json, continue. (If in doubt, offer to deposit again — the POST simply overwrites, that is harmless.)
+- **Option 3:** Continue with niche + interval, but create the schedule with `"enabled": false` and say: „Der Zeitplan ist angelegt, aber pausiert. Sag ‚Apify-Token hinterlegen', sobald du so weit bist — dann aktiviere ich ihn."
 
 ### Resolve target niche
 
@@ -160,6 +188,8 @@ Map the user's answer to `interval_hours` using the natural-language table:
 ```
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/schedules '{"type":"scrape","niche_id":"<resolved niche_id>","interval_hours":<N>,"enabled":true}'
 ```
+
+If the token gate ended with Option 3 (no token yet), send `"enabled": false` instead of `true`.
 
 Expect HTTP 201. On 404 `{"error": "niche not found for this tenant"}`: the niche_id does not match this tenant — do NOT retry with a guessed slug; re-confirm the niche_id from `GET /api/niches/config` and resubmit.
 
@@ -237,16 +267,18 @@ After every create or PATCH, confirm the resulting state in plain words:
 
 Use the same interval_in_words mapping from Step 1. Do NOT invent the frequency — derive it from the API response field `interval_hours`.
 
-Note honestly (create only):
+Note honestly (create only, if enabled):
 
-> "`last_run_at` ist noch leer — das füllt sich nach dem ersten Backend-Tick (~60 Sekunden)."
+> "Der Zeitplan feuert ab jetzt automatisch. Ob ein Lauf wirklich Daten geliefert hat, siehst du an neuen Trends — sag einfach „zeig mir die Trends". (`last_run_at` zeigt nur, dass ein Lauf angestoßen wurde, nicht dass er erfolgreich war.)"
+
+For a schedule created paused (token gate Option 3): confirm it is paused and repeat what activates it (deposit token → resume).
 
 ---
 
 ## Tenant isolation and honesty rules
 
 - **Only ever use `niche_id` values previously obtained from `GET /api/niches/config` in this tenant context.** Never accept a free-text niche slug from the user without resolving it against the API list first.
-- **Never create an enabled schedule before the Apify token is confirmed.** If you have reason to believe the token has not been deposited (onboarding incomplete), warn the user before creating.
+- **Never create an enabled schedule before the backend Apify token is confirmed** (config marker or explicit user confirmation via Step 2a's gate). Without the token every scheduled run hard-fails server-side — the operator's key is never used as a fallback.
 - **On any 404 for a schedule id:** do not retry with guessed ids; refresh `GET /api/schedules` and re-ask.
 - **Never invent schedule ids or niche slugs.** All values must come from the API.
 - **No brands or personas.** This skill does not touch `/api/brands` or `/api/personas`.

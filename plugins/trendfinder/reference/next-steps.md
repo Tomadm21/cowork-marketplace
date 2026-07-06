@@ -12,7 +12,7 @@ Präsentiere am Ende deiner Antwort eine **Auswahl** mit allen im aktuellen Zust
 - 🔥 **Jetzt scrapen** — frische Trends holen (kostet Apify-Credits, fragt vorher)
 - ✍️ **Skript schreiben** — Hooks + Kurzvideo-Skript zu einem Trend in Avatar-Stimme
 - 🎭 **Avatar anlegen / bearbeiten** — Marke + Persona + DNA
-- ⏰ **Zeitplan verwalten** — automatische Scrapes ein-/ausschalten
+- ⏰ **Zeitplan verwalten** — automatische 24/7-Scrapes ein-/ausschalten (braucht einen einmalig im Backend hinterlegten Apify-Token; der `scheduler`-Skill prüft das, bevor er aktiviert)
 - ⚙️ **Einrichtung / Verbindung** — Setup prüfen oder neu verbinden
 
 ## ⭐-Empfehlung nach Kontext (markiere genau eine)
