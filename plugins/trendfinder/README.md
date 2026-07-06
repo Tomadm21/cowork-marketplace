@@ -14,7 +14,7 @@ the backend only stores and scrapes.
 | `skills/cockpit` | Trendfinder-Cockpit Live Artifact (tabs: Trends · Avatare), regenerated on demand |
 | `skills/scrape-now` | On-demand scrape for one niche + platform via the Cowork Apify connector |
 | `skills/trend-radar` · `skills/trend-briefing` | Read + synthesise current trends |
-| `skills/script-studio` | Hooks + short-video scripts in an avatar's voice, matched to trends |
+| `skills/script-studio` | Hooks + short-video scripts in an avatar's voice, matched to trends, steered by a chosen Ziel (Reichweite · Engagement · Verkauf · Follower · Vertrauen) |
 | `skills/avatar-studio` | Create brand + persona + DNA |
 | `skills/scheduler` | Manage automatic scrape schedules |
 | `scripts/tf.sh` | curl wrapper reading `{workspace}/.trendfinder/config.json` |

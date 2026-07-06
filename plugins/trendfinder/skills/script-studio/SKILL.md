@@ -1,11 +1,11 @@
 ---
 name: script-studio
-description: Generate hooks + short-video scripts in a Trendfinder avatar's voice, matched to current trends. Use when the user says "schreib mir Skripte", "Skript für Lena/Mia", "Hooks für meinen Avatar", "Content für <Avatar>", "was soll <Avatar> posten", "mach mir ein Skript zum Trend". Matches trends to the avatar's DNA NATIVELY in Claude and writes in the avatar's voice. Never scrapes, never spends Apify credits.
+description: Generate hooks + short-video scripts in a Trendfinder avatar's voice, matched to current trends and steered by a chosen Ziel (Verkauf, Reichweite/viral, Engagement, Follower, Vertrauen). Use when the user says "schreib mir Skripte", "Skript für Lena/Mia", "Hooks für meinen Avatar", "Content für <Avatar>", "was soll <Avatar> posten", "mach mir ein Skript zum Trend", "Verkaufsskript", "Skript das viral gehen soll", "Skript für mehr Engagement/Follower". Matches trends to the avatar's DNA NATIVELY in Claude and writes in the avatar's voice. Never scrapes, never spends Apify credits.
 ---
 
 # Trendfinder — Script Studio
 
-Goal: turn a current trend + an avatar's DNA into ready-to-shoot **hooks and a short-video script in that avatar's voice**. This is the payoff of the avatars: two different avatars produce two different scripts from the same trend.
+Goal: turn a current trend + an avatar's DNA into ready-to-shoot **hooks and a short-video script in that avatar's voice**. This is the payoff of the avatars: two different avatars produce two different scripts from the same trend. Every script is additionally steered by a **Ziel** (🚀 Reichweite · 💬 Engagement · 🛒 Verkauf · ➕ Follower · 🤝 Vertrauen): the avatar owns the voice, the Ziel owns structure + CTA.
 
 All matching and writing happens **natively in Claude** (the plugin axiom: the backend only stores + scrapes). Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` first. All API calls go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...` — never inline-key curl.
 
@@ -86,20 +86,46 @@ Für Lena (K-Beauty, locker-expertenhaft) passen aktuell am besten — meine Ein
 2) Dramatic Before-After Transformations — passt zu „Glow-up", aber visuell reißerischer als Lenas Stil
 3) Ingredient Deep-Dives — deckt „Inhaltsstoffe erklärt", ruhiger Ton
 
-Welchen Trend soll ich verskripten? (Nummer, oder ✏️ eigener Fokus)
+Welchen Trend soll ich verskripten? (Nummer, oder ✏️ eigenes Thema)
+
+Und was ist das Ziel des Skripts?
+
+1) 🚀 Reichweite — viral gehen, neue Leute erreichen  ⭐ (Trend steigt gerade — guter Reichweiten-Moment)
+2) 💬 Engagement — Kommentare & Diskussion auslösen
+3) 🛒 Verkauf — auf ein Produkt / Angebot hinführen
+4) ➕ Follower — Leute zum Dranbleiben & Folgen bringen
+5) 🤝 Vertrauen — Expertise zeigen, Autorität aufbauen
 ```
 
 **Ground every fit reason in an actual DNA field you loaded** — name/quote the specific `content_pillar`, `interest`, `tone_of_voice`, or `persona_profile` trait it rests on. If a trend maps to nothing in the avatar's DNA, say "kein starkes DNA-Signal" and rank it low — **never invent a pillar/interest/trait to justify a fit.** Be honest when a trend fits only weakly; don't force-fit all of them.
 
+**Ziel-Regeln:**
+
+- Nennt die Anfrage das Ziel schon („Verkaufsskript", „soll viral gehen", „will mehr Kommentare") → Frage überspringen, Ziel übernehmen und im Output benennen.
+- Sonst die Ziel-Frage mit stellen (wie oben, im selben Block wie die Trend-Wahl — kein extra Hin und Her) und genau **eine** ⭐-Empfehlung markieren, in einer Zeile begründet aus echten Daten: Avatar-DNA (produktnahe Pillars → 🛒 Verkauf) oder Trend-`lifecycle` (emerging/rising → 🚀 Reichweite; peak/declining eher 💬/🤝). Antwortet der Nutzer „egal" → ⭐-Empfehlung nehmen und das sagen.
+- Mischwünsche sind ok („Verkauf, aber unterhaltsam") — es gibt trotzdem genau **ein Primärziel**, und das bestimmt den CTA.
+
 ---
 
-## Step 4 — Write hooks + script in the avatar's voice
+## Step 4 — Write hooks + script: avatar voice × Ziel
 
 For the chosen trend, write **natively in the avatar's voice** (drive the voice from `system_prompt` + `tone_of_voice` — match `tone`, `energy`, `language`, respect `avoid_words`, echo `example_openers` style):
 
-1. **3–5 hooks** (first 1–2 seconds) — anchored on the trend's `hook_type` and `hook_examples`, but rewritten in the avatar's words.
-2. **One full short-video script** — structured: Hook → 2–4 Beats (the value/story) → CTA. Reference the trend's `visual_style` and `dominant_audio_type` as shooting notes. Keep it to a realistic 20–45s.
-3. **Caption + hashtags** — a caption in the avatar's voice + a tight hashtag set drawn from the trend's `dominant_hashtags` and the avatar's pillars.
+1. **3–5 hooks** (first 1–2 seconds) — anchored on the trend's `hook_type` and `hook_examples`, but rewritten in the avatar's words and biased toward the Ziel (see table).
+2. **One full short-video script** — structured: Hook → 2–4 Beats (the value/story) → CTA, shaped by the Ziel table below. Reference the trend's `visual_style` and `dominant_audio_type` as shooting notes. Keep it to a realistic 20–45s.
+3. **Caption + hashtags** — a caption in the avatar's voice + a tight hashtag set drawn from the trend's `dominant_hashtags` and the avatar's pillars (🛒 Verkauf: wenige, spezifische Tags + Angebot in der Caption; 🚀 Reichweite: breitere Trend-Tags).
+
+**Das Ziel steuert Struktur + CTA — die Stimme kommt immer vom Avatar** (das Ziel ändert nie `tone_of_voice` oder `avoid_words`; genau EIN CTA pro Skript, vom Primärziel bestimmt):
+
+| Ziel | Hook-Bias | Beats | CTA |
+|---|---|---|---|
+| 🚀 Reichweite | Pattern-Interrupt, breit relatable | Open Loop, Payoff erst am Ende | „Speichern/Teilen" — **kein** Produkt-Pitch |
+| 💬 Engagement | Meinung/Frage, leicht polarisierend (safe) | These → Gegenseite → offene Frage | Kommentar-Frage („Team A oder B?"), in der Caption wiederholt |
+| 🛒 Verkauf | Schmerzpunkt/Wunsch der Zielgruppe | Problem → Zuspitzung → Lösung = Angebot, 1 konkreter Beweis | klare Handlung: Link in Bio / DM / Shop |
+| ➕ Follower | Serien-/Identitäts-Hook („Teil 1", „für alle, die…") | Mehrwert + Versprechen auf mehr | „Folg mir für Teil 2 / mehr X" |
+| 🤝 Vertrauen | Insider-Wissen, Expertise zeigen | ruhige Erklärung mit echtem Detail, ggf. Story/Beweis | weich („mehr dazu im Profil") |
+
+**🛒 Verkauf braucht ein echtes Angebot:** das beworbene Produkt/Angebot muss aus der Brand-/Avatar-DNA kommen oder vom Nutzer genannt sein. Taucht nirgends ein Produkt auf → frag „Was genau soll das Skript verkaufen?" — **niemals ein Produkt erfinden.**
 
 Two different avatars MUST yield visibly different hooks/scripts for the same trend — that is the whole point. If the chosen avatar's DNA is thin (few pillars, no system_prompt), say so and write from what's there, suggesting the user enrich the avatar in `avatar-studio`.
 
@@ -107,7 +133,7 @@ Two different avatars MUST yield visibly different hooks/scripts for the same tr
 
 ## Step 5 — Deliver
 
-Output the hooks + script + caption as clean, copyable **markdown directly in the chat** (no generator needed — this is native text). Lead with which avatar + which trend it's for.
+Output the hooks + script + caption as clean, copyable **markdown directly in the chat** (no generator needed — this is native text). Lead with which avatar + which trend + which Ziel it's for (z. B. „Skript für Lena · Trend: Evening Routines · Ziel: 🛒 Verkauf").
 
 Optionally, if the user wants to keep it, offer to save it to `{workspace}/.trendfinder/scripts/<persona_id>-<trend-slug>.md`.
 
@@ -118,6 +144,8 @@ Optionally, if the user wants to keep it, offer to save it to `{workspace}/.tren
 - The trend↔avatar match is **Claude's native judgment from the DNA** — say so. Never present it as a backend score. Ground each fit reason in a real DNA field (quote the pillar/interest/trait); never fabricate a DNA value to justify a match — "kein starkes DNA-Signal" is a valid, honest verdict.
 - Never pass `?persona_id=` to `/api/trends` in this skill — the native DNA matching here is the deliberate path, and mixing a backend cosine score into the fit reasons would blur what the reasons are grounded in.
 - Never fabricate performance numbers ("dieser Hook macht 100k Views"). You can cite the trend's real `avg_engagement_rate` if present, labelled as the trend's data, not a prediction for this script.
+- Das Ziel steuert Aufbau und CTA — es ist **kein Erfolgsversprechen**. Nie „damit gehst du viral" / „das verkauft garantiert" behaupten.
+- 🛒 Verkauf: nur ein real existierendes Angebot bewerben (aus Brand-/Avatar-DNA oder vom Nutzer genannt) — nie eins erfinden.
 - Never claim trends exist if `/api/trends/{niche}` was empty — route to `scrape-now` instead.
 - Never call an Apify actor / never spend credits. For new trend data, route to `scrape-now`.
 - Use `tf.sh`; never print or commit the API key. If you save a script file, it goes under `{workspace}/.trendfinder/` (gitignored).
@@ -130,6 +158,7 @@ Optionally, if the user wants to keep it, offer to save it to `{workspace}/.tren
 - An avatar chosen and its full DNA loaded via `GET /api/personas/{id}`.
 - Niche trends fetched (without persona_id); empty → honest cold-start + route to scrape-now.
 - Trends ranked against the avatar's DNA with per-trend reasons, labelled as native judgment.
+- Ziel geklärt (aus der Anfrage übernommen oder mit ⭐-Empfehlung erfragt); Struktur + CTA folgen dem Primärziel; Ziel im Output benannt.
 - Hooks + a full short-video script + caption written in the avatar's voice for the chosen trend.
 - Delivered as copyable markdown; optionally saved under `.trendfinder/`.
 - No `?persona_id=` sent, no Apify call, no key printed.
