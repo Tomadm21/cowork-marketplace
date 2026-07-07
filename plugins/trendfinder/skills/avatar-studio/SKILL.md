@@ -73,10 +73,13 @@ Then route to the `onboarding` skill.
 
 ### Editing the Brand (Marke)
 
-Ask which fields change (`display_name`, `mission`, `target_audience`), show the proposed values, get confirmation, then:
+Ask which fields change (`display_name`, `mission`, `target_audience`), show the proposed values, get confirmation, then write the confirmed body to a gitignored temp file and PUT it:
 
 ```
+BODY=$(mktemp)   # real temp dir, NOT the synced workspace
+echo '{"mission":"...","target_audience":"..."}' > "$BODY"
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PUT /api/brands/<brand_id> @"$BODY"
+rm -f "$BODY" 2>/dev/null || : > "$BODY"   # truncate fallback if the mount denies unlink
 ```
 
 ### Editing the Persona DNA
@@ -106,6 +109,8 @@ Never claim an edit landed on assertion. Read it back:
 ```
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/personas/<persona_id>
 ```
+
+Für eine Marken-Änderung entsprechend: `GET /api/brands/<brand_id>`.
 
 Only if the changed fields are actually present in the response → regenerate the Cockpit so the Avatare tab reflects the change:
 

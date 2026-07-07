@@ -35,4 +35,4 @@ Präsentiere am Ende deiner Antwort eine **Auswahl** mit allen im aktuellen Zust
 
 ## Onboarding-Sonderregel
 
-Im `onboarding`-Skill erscheint dieser Auswahlblock **NICHT nach jedem Schritt** — nur **einmal am Ende** (nach Cockpit-Hand-off / Avatar-Angebot). Während des Onboardings führen die einzelnen Schritt-Auswahlen (Step 1–6) durch; der große Next-Steps-Block kommt erst zum Abschluss.
+Im `onboarding`-Skill erscheint dieser Auswahlblock **NICHT nach jedem Schritt** — nur **einmal am Ende** (nach dem Cockpit-Hand-off). Während des Onboardings führen die einzelnen Schritt-Auswahlen (die einzelnen Schritte) durch; der große Next-Steps-Block kommt erst zum Abschluss.

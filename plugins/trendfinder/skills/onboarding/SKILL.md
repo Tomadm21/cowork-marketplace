@@ -233,7 +233,7 @@ Der Nutzer tippt an keiner Stelle einen Hashtag ein — er sieht die abgeleitete
 
 **Anhängen nach Bestätigung:**
 
-Neue Niche (Create-and-Attach):
+Neue Niche (Create-and-Attach) — die `*_enabled`-Flags an den Plattform-Fokus des Avatars anpassen (aus dem Step-4-Fragebogen: „Plattform-Fokus (TikTok / Instagram / YouTube Shorts)?") — ungenutzte Plattformen auf `false`, die Niche soll nur dort scrapen, wo der Avatar auch postet:
 
 ```
 NICHE_BODY=$(mktemp)   # real temp dir, NOT the synced workspace
