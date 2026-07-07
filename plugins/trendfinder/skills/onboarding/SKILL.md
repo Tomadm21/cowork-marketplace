@@ -124,6 +124,13 @@ Ask for:
 - Display name (`✏️` free-text)
 - Which platforms to track (numbered: 1: TikTok, 2: Instagram, 3: YouTube Shorts — multiple allowed) and the hashtags/queries per platform (`✏️` free-text, comma-separated).
 
+**Hashtag-Qualität ist die wichtigste Stellschraube — führe den Nutzer aktiv, übernimm nicht blind, was er tippt.** Die Hashtags bestimmen, welche Videos gescrapt werden; zu breite/englische Tags ziehen globalen Fremd-Content (Tech, Gaming, Gym, Hustle) und machen die Trends unbrauchbar. Lies `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md`. Konkret beim Erfassen:
+
+- Schlägt der Nutzer **generische Mega-Tags** vor (`mindset`, `motivation`, `transformation`, `success`, `highperformer`, `viral`, `fyp`, `foryou`) → **freundlich gegensteuern**: „Diese Tags sind global von Tech-/Gym-/Hustle-Content belegt und liefern themenfremde Trends. Besser: enge, themen-definierende Tags." Ein bis zwei konkrete Alternativen vorschlagen.
+- Ist das Publikum in **DACH / deutschsprachig** → **deutsche** Hashtags empfehlen (`#persönlichkeitsentwicklung`, `#selbstfürsorge`, `#achtsamkeit`), nicht englische. Englische Tags liefern US-Content.
+- **Konkrete Themen/Formate** (`#atemübung`, `#morgenroutine`, `#grwm`) statt abstrakter Marken-Werte (`#lebendigkeit`, `#fülle`, `#identität`) — Letztere matchen kaum echte Video-Tags.
+- Ziel: **5–10 präzise Tags**, nicht 15 breite. Wenn du die Nische/den Avatar kennst, schlage selbst eine treffsichere Startliste vor und lass den Nutzer bestätigen/anpassen.
+
 Platform limit (api-contract §2): niche slugs are globally unique across all tenants. Prefix the display name with the tenant id to avoid collisions — for example, if the tenant is `acme`, suggest `"acme <Name>"`. Remind the user of this with one sentence.
 
 **There is NO generic `hashtags` field — the API silently ignores unknown fields.** Use the per-platform fields and disable unused platforms:

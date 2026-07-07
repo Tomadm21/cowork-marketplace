@@ -20,6 +20,7 @@ the backend only stores and scrapes.
 | `scripts/tf.sh` | curl wrapper reading `{workspace}/.trendfinder/config.json` |
 | `reference/api-contract.md` | Endpoint contract + platform limits every skill relies on |
 | `reference/next-steps.md` | The interactive next-step option block every skill ends with |
+| `reference/niche-hashtags.md` | Hashtag-quality guidance — how to pick niche-specific tags so scrapes stay on-topic (onboarding, scrape-now, trend-radar rely on it) |
 
 ## Setup
 

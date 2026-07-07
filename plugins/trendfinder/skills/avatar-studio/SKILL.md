@@ -94,7 +94,14 @@ This is the heart of the skill and runs **natively in Claude** — the backend n
 - Welcher Ton (locker/seriös, Sprache, Energie)? Was soll vermieden werden?
 - Plattform-Fokus (TikTok/Instagram) + grobe Hashtags?
 
-Then **you (Claude) synthesise** the DNA into the structured body from the contract — `persona_profile`, `tone_of_voice`, `content_pillars`, `system_prompt` (a first-person identity prompt for the avatar), `interests`, and `origin_story`. Fill what you can; every DNA field is optional, so partial DNA is fine for a first pass. Build the `persona_id` by slugifying the name and prefixing the brand, e.g. `tom-beauty-anna`.
+**Fokussiert vs. umfangreich — früh klären, es bestimmt die Tiefe der DNA.** Manche Avatare sind bewusst mono-thematisch (eine Nische, ein Winkel), andere sollen **breit und facettenreich** sein (mehrere Themenwelten, z. B. Business + Persönliches + Fach-Deep-Dives). Frag aktiv: „Soll [Name] ein klares Einzelthema haben oder ein breites Spektrum abdecken?" Bei **breit**:
+
+- Synthetisiere **mehr und breitere `content_pillars`** (4–6 statt 1–2), die die volle Bandbreite abdecken — jede mit eigener `description` + eigenen `topics`. Erzwinge kein Mono-Thema.
+- Mach `persona_profile`, `interests` und `origin_story` **reichhaltig** (mehrere Lebens-/Themenstränge, nicht ein einziger), damit das native Trend-Matching in `script-studio` breit greifen kann.
+- Der `system_prompt` soll die verschiedenen Register/Themen benennen, in denen der Avatar spricht — nicht nur eins.
+- Halte die Nischen-Hashtags trotzdem **spezifisch** (Breite ≠ generische Mega-Tags — siehe `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md`): breit heißt mehrere präzise Themen-Cluster, nicht `#mindset`.
+
+Then **you (Claude) synthesise** the DNA into the structured body from the contract — `persona_profile`, `tone_of_voice`, `content_pillars`, `system_prompt` (a first-person identity prompt for the avatar), `interests`, and `origin_story`. Fill what you can; every DNA field is optional, so partial DNA is fine for a first pass. Build the `persona_id` by slugifying the name and prefixing the brand, e.g. `tom-beauty-anna`. **Für einen umfangreichen Avatar: liefere echte Breite in den Pillars/Interests — ein Avatar, dessen ganze DNA um ein einziges Thema kreist, wirkt „zu mono-nischig".**
 
 **Show the synthesised DNA to the user and get a quick confirm before writing it.** This is their avatar's identity — let them correct it.
 

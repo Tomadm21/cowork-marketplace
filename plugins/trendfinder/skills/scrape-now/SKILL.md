@@ -111,6 +111,8 @@ Once the user has confirmed, run the actor via the **Cowork Apify MCP connector*
 
 **Empty-hashtag guard:** if the resolved hashtag list for the chosen platform is empty, STOP before any actor call — the run would only burn credits and return nothing. Tell the user the niche has no hashtags for this platform and offer to add some (`PUT /api/niches/config/{niche_id}`).
 
+**Off-topic-hashtag guard (BEFORE the cost gate):** scan the niche's resolved hashtags. If they are dominated by **generic English mega-tags** (`mindset`, `motivation`, `transformation`, `success`, `highperformer`, `viral`, `fyp`, `foryou`) — especially for a DACH/German niche — warn the user *before* spending credits: „Diese Hashtags sind sehr breit/englisch und ziehen erfahrungsgemäß themenfremden Content (Tech, Gaming, Hustle). Der Scrape kostet trotzdem. Willst du die Hashtags erst verfeinern (empfohlen) oder trotzdem scrapen?" Offer to refine them (`PUT /api/niches/config/{niche_id}`) with 5–8 specific, native-language tags. See `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md`. Only proceed to the paid scrape if the user chooses to.
+
 ### TikTok
 
 Resolve the hashtags for the confirmed niche from the API response in Step 1 (`tiktok_hashtags` field, bare tags without `#`). Then call:
@@ -219,6 +221,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
   if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
   ```
   Present the regenerated Cockpit as the Live Artifact and name the top 1–2 trends from the data the generator actually wrote.
+  - **Relevance check:** look at the new clusters' `dominant_hashtags`. If the top clusters are clearly off-topic vs. the niche (e.g. `techtok`/`gaming`/`setup` for a personal-development niche — none of the niche's own tags appear) → say so honestly instead of celebrating: „Die gefundenen Trends passen nicht zu deiner Nische — die Hashtags waren vermutlich zu breit/englisch. Empfehlung: verfeinern und neu scrapen." Then propose better tags. See `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md`.
 - **If still empty after all 6 tries** → do NOT claim trends exist. Say honestly:
   > "Nach dem Scrape sind noch keine Trends entstanden. Das kann zwei Gründe haben: (1) zu wenige Videos über der Virality-Schwelle, um Cluster zu bilden, oder (2) das Clustering läuft noch. Probier in ein paar Minuten erneut ‚zeig mir die Trends', oder scrape mit höherem Limit für mehr Datenpunkte."
 

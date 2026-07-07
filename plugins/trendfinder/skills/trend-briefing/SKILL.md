@@ -66,6 +66,7 @@ Lies den absoluten Pfad aus der letzten stdout-Zeile des Generators.
 
 Gib danach eine **native Briefing-Narration** im Chat — 3–5 Sätze, in der Sprache des Nutzers:
 
+- **Relevanz zuerst prüfen:** Passen die `dominant_hashtags` der Top-Cluster zum Nischen-Thema / den konfigurierten Hashtags? Wenn die Top-Cluster klar themenfremd sind (z. B. `techtok`/`gaming` bei einer Coaching-Nische, kein Nischen-Tag in den Top-3), **leite mit einer ehrlichen Warnung ein** statt die Fremd-Trends zu präsentieren: „Die gefundenen Trends passen nicht zu deiner Nische — die Hashtags sind vermutlich zu breit/englisch. Empfehlung: verfeinern (deutsch, spezifisch) und neu scrapen." Schlage 5–8 bessere Tags vor. Siehe `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md`.
 - **Was steht oben:** Nenne die Top-1-2-Trends mit Trend-Score und Lifecycle — nur Zahlen, die der Generator tatsächlich geschrieben hat.
 - **Velocity-Signal:** Gibt es aktiv beschleunigende Cluster (hoher Score + positive Velocity + Lifecycle-Stage `rising`/`emerging`)? Oder überwiegen sinkende Trends?
 - **Hook-Empfehlung:** Wenn Hook-Typen und Hook-Beispiele vorhanden sind, nenne den wirkungsstärksten Hook für den Top-Trend.

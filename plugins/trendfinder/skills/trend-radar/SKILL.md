@@ -126,6 +126,10 @@ Each velocity entry from `/api/trends/{niche}/velocity` has:
 
 Work through the following steps natively:
 
+0. **Relevanz-Gate zuerst (vor allem Ranking).** Vergleiche die `dominant_hashtags` der Top-Cluster mit den Nischen-Hashtags aus Schritt 1a (`tiktok_hashtags`/`instagram_hashtags`) und dem Nischen-Thema. Trägt **keiner** der Top-3-Cluster in seinen `dominant_hashtags` einen Nischen-Tag oder ein klar themenverwandtes Wort — z. B. Cluster voller `techtok`/`gaming`/`setup`, aber die Nische ist „Persönlichkeitsentwicklung" — dann ist der Scrape themenfremd. **Leite die Antwort mit einer ehrlichen Warnung ein**, statt die Fremd-Trends als „deine Trends" zu ranken:
+   > „⚠️ Die aktuell gespeicherten Trends passen nicht zu deiner Nische — die dominanten Hashtags (`techtok`, `gaming`, …) kommen aus einer fremden Ecke. Ursache ist fast immer: die Nischen-Hashtags sind zu breit oder englisch und haben globalen Fremd-Content gezogen."
+   Dann 5–8 bessere, spezifische (bei DACH: deutsche) Hashtags vorschlagen — aus Nischen-Name/Avatar-DNA abgeleitet — und anbieten, sie zu setzen (`PUT /api/niches/config/{niche_id}`) und neu zu scrapen (`scrape-now`). Siehe `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md`. Zeig die Fremd-Cluster höchstens als „das wurde fälschlich gefunden"-Beleg, nie als Empfehlung.
+
 1. **Rank by signal strength:** Sort clusters by `trend_score` descending, then break ties by `velocity` descending. Skip any cluster where `dismissed == true` unless the user explicitly asked to see everything.
 
 2. **Identify rising patterns:** From the sorted list, extract the top 3–5 by trend score. For each:
@@ -193,6 +197,7 @@ Do NOT render placeholder analysis, example trends, or fabricated cluster data. 
 - **Dismissed clusters are excluded by default.** If a cluster has `dismissed == true`, skip it unless the user explicitly asks to see all clusters.
 - **No data ever written to disk.** Trend data is ephemeral (response-only). Nothing is written to `{workspace}/.trendfinder/` or anywhere else during a read.
 - **Score is relative, not absolute.** `trend_score` and `velocity` reflect the clusters observed in this tenant's scraped data set. They are relative signals within the niche, not absolute truth claims about what is trending globally. Say "im Datensatz" not "im Internet" when referencing scores.
+- **Themen-Bruch offen ansagen (Relevanz-Gate, siehe Step 2.0).** Wenn die Top-Cluster themenfremd sind (Hashtags aus einer anderen Domäne als die Nische), niemals so tun, als wären das die Trends des Nutzers — Ursache benennen (zu breite/englische Hashtags), bessere Tags vorschlagen, zu `scrape-now` mit verfeinerten Hashtags leiten. `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md`.
 
 ---
 
