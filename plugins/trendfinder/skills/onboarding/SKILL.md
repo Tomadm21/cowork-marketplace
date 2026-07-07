@@ -60,7 +60,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
 
 **On any non-2xx response that is NOT a 401 (5xx, timeout/network error):** report the error verbatim, leave the config file in place, and ask the user whether to retry or abort — do NOT proceed to Step 2.
 
-**On success:** the connection is proven. Continue to Step 2 (Apify-Connector) — Step 3 presents the full detected state (avatars + niches) right after.
+**On success:** the connection is proven. Continue to Step 2 (Apify-Connector) — Step 3 presents the full detected state (avatars + niches) right after. (außerhalb eines Zustand-C-Wiedereintritts — dort geht es nach erfolgreicher Zugangs-Erfassung direkt zu Step 3.)
 
 ---
 
@@ -114,7 +114,8 @@ Andernfalls den erkannten Zustand zeigen, zum Beispiel:
 Du hast aktuell:
 
 Avatare:
-  1) Tom Beauty  → Anna, Lena
+  1) Anna (Marke: Tom Beauty)
+  2) Lena (Marke: Tom Beauty)
 
 Niches:
   1) acme Beauty   (niche_id: acme-beauty)   → Avatar: Anna
@@ -132,7 +133,7 @@ Was möchtest du tun?
 ✏️  Etwas anderes (z. B. Niche umbenennen/trennen, Cockpit ansehen, bestehende Avatar-DNA/Marke bearbeiten)
 ```
 
-**Option 3 nur zeigen, wenn ≥1 Niche existiert** (sonst sinnlos).
+**Option 2 nur zeigen, wenn ≥1 Avatar (Persona) existiert** (sonst hat eine Marke mit null Personas nichts, das sich in Step 4a auswählen ließe). **Option 3 nur zeigen, wenn ≥1 Niche existiert** (sonst sinnlos).
 
 Routing: **1 → Step 4** · **2 → Step 4a** · **3 → Step 7** · **✏️** → frei interpretieren: Umbenennen/Trennen → Step 9; reines Bearbeiten einer bestehenden Avatar-DNA/Marke (kein neuer/erweiterter Avatar, keine Niche) → route to the `avatar-studio` skill; sonst passend zu einem anderen Skill wechseln.
 
@@ -252,6 +253,8 @@ Interpretieren: **200** verknüpft (liefert die Niche inkl. Scrape-Konfiguration
 
 **Read-back (Ehrlichkeitsregel):** die Antwort lesen und bestätigen, dass die Hashtags nicht leer angekommen sind. Die zurückgegebene `niche_id` immer weitertragen. Für jede Niche wiederholen.
 
+→ Weiter mit Step 8 (Cockpit + erster Scrape).
+
 ---
 
 ## Step 7 — Themen einer bestehenden Niche neu ableiten (Einstieg: Option 3 aus Step 3, oder „Themen neu ableiten")
@@ -266,6 +269,8 @@ Interpretieren: **200** verknüpft (liefert die Niche inkl. Scrape-Konfiguration
    ```
 6. **Read-back** — per erneutem `GET` auf die Niche oder einfach anhand der `PUT`-Antwort, je nachdem was sauber zurückkommt — und bestätigen, dass die neuen Werte angekommen sind.
 7. **Ehrlich sagen:** ein Config-Update scrapt NICHT von selbst — die alten, bereits gescrapten Videos bleiben stehen. Einen frischen Scrape anbieten (→ `scrape-now`), damit die besseren Tags wirken.
+
+→ Weiter mit dem Next-Steps-Block (Step 9). (Ein reiner Re-Ableiten-Lauf berührt Step 8/Cockpit nicht — es gibt nichts neu zu generieren.)
 
 ---
 
@@ -320,7 +325,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE /api/personas/<persona_id>/niche
 
 **Es gibt keinen eigenständigen „Niche direkt anlegen"-Pfad mehr** — jede Niche entsteht ausschließlich über einen Avatar (Step 4/4a → 5 → 6).
 
-**Next-Steps-Auswahlblock (einmal, ganz am Ende der gesamten Antwort):** Erst jetzt — nach Cockpit und Scrape-Angebot (Step 8), ganz am Schluss — den interaktiven Auswahlblock aus `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` zeigen. Die einzelnen nummerierten Schritt-Auswahlen oben führen durch den Flow; der große Next-Steps-Block kommt NICHT nach jedem Schritt, sondern nur dieses eine Mal. Markiere genau eine Option als ⭐ Empfehlung (frisch eingerichtet, noch kein Scrape → in der Regel 🔥 „Jetzt scrapen").
+**Next-Steps-Auswahlblock (einmal, ganz am Ende der gesamten Antwort):** Erst jetzt — nach Abschluss von Step 6, 7 oder 8, ganz am Schluss — den interaktiven Auswahlblock aus `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` zeigen. Die einzelnen nummerierten Schritt-Auswahlen oben führen durch den Flow; der große Next-Steps-Block kommt NICHT nach jedem Schritt, sondern nur dieses eine Mal. Markiere genau eine Option als ⭐ Empfehlung (frisch eingerichtet, noch kein Scrape → in der Regel 🔥 „Jetzt scrapen").
 
 ---
 
@@ -343,7 +348,7 @@ On-demand-Scrapes (`scrape-now`) brauchen das alles NICHT — der Connector aus 
 - Mindestens ein Avatar (Marke + Persona, per Read-back bestätigt) angelegt ODER ein bestehender um eine Niche erweitert.
 - Jede Niche über den Attach-Endpunkt angelegt, mit nicht-leeren, abgeleiteten und bestätigten Themen (Read-back).
 - Das DNA-Embed-Ergebnis ehrlich berichtet (200 embedded / 503 not-configured-still-usable / 400 no-DNA).
-- Cockpit regeneriert; erster Scrape angeboten.
+- Cockpit regeneriert (bei Avatar-/Niche-Erstellung) bzw. Niche-Config aktualisiert (bei Re-Ableiten); erster Scrape angeboten.
 - **Keine handgetippten Hashtags irgendwo im Flow.**
 - **Kein direkter Niche-Anlege-Pfad verwendet** — jede Niche kam über einen Avatar rein.
 - Kein API-Key ausgegeben oder committet; Temp-Dateien (`mktemp`) nach jedem Schreiben aufgeräumt.
