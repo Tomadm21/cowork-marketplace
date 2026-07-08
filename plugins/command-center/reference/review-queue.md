@@ -69,6 +69,8 @@ Each element of `actions` is one discrete file-copy proposal.
 | `filename` | string | yes | Target filename (may differ from source basename after normalisation) |
 | `targets` | array of strings | yes | Workspace-relative destination directories; engine copies `filename` into each |
 | `values` | object | yes | Key-value fields shown as **Vorschlag** in the cockpit — see conventional keys below |
+| `source_md5` | string | no (strongly recommended) | md5 of the source file **at queue-build time**. The engine refuses to apply the action if the source content no longer matches — this binds the card to file *content*, not a path, and hard-blocks look-alike-filename mix-ups (two similar PDFs swapped during queue build). Queue builders should always set it. |
+| `verify` | string | no | `"md5"` = after a fresh copy the engine re-hashes the target and removes the copy on mismatch (belt-and-braces for money-critical processes). Default: byte-size verification only (always on). |
 
 ### `values` conventional keys
 
@@ -119,14 +121,33 @@ reviewer takes action per action id
                          → journal record appended
                          → action removed from queue
   ─────────────────────────────────────────────────────────────
+  approve-run (batch)    → same as approve, for all (or the listed)
+                           actions of ONE run — one engine start,
+                           one journal read; the board's
+                           "Freigeben (Prozess)" uses this
+  ─────────────────────────────────────────────────────────────
   approve-safe (bulk)    → same as approve, for ALL sicher-tier
                            actions across ALL open queue files
+  ─────────────────────────────────────────────────────────────
+  manual-confirm         → user copied the file HIMSELF (slow
+                           drive, blocked write); engine verifies
+                           size+md5 at the target, journals
+                           status "copied-manually", clears card
   ─────────────────────────────────────────────────────────────
   reject                 → action removed from queue, nothing copied
          ↓
 queue with zero remaining actions
   → file moved to _erledigt/          → run considered done
 ```
+
+### Verified writes (`.part` + size check)
+
+Fresh copies never go directly to the final name. The engine writes chunks to `<name>.part`,
+fsyncs, verifies the **byte size** against the source and only then renames atomically
+(`os.replace`). A run that dies mid-copy (slow SMB share, execution window exceeded) leaves at
+most a `.part` fragment — unmistakably unfinished, cleaned up on retry — instead of a
+plausible-looking corrupt file under the final name. With `verify:"md5"` on the action the
+engine additionally re-hashes the finished target and removes it on mismatch.
 
 ### Collision-safe copy + content idempotency
 
@@ -148,8 +169,8 @@ One JSON line per applied action appended to `_firma/_journal/<YYYY-MM>.jsonl`:
 ```json
 { "ts": "2026-06-08T16:21:07.123456", "runid": "R-2026-06-08-belege", "id": 1, "verb": "kopieren", "source": "_eingang/receipt-filing/… .pdf", "target": "001 Galant Bau GmbH/001. Buchhaltung/2026/05-26/Ausgaben/… .pdf", "md5": "96fc5a7c…", "status": "copied", "reversible": true }
 ```
-`status` is `"copied"` or `"skipped-identical"`. `runid`+`id`+`md5` make the journal the
-idempotency source of truth.
+`status` is `"copied"`, `"skipped-identical"` or `"copied-manually"` (manual-confirm intent).
+`runid`+`id`+`md5` make the journal the idempotency source of truth.
 
 All paths in the journal are workspace-relative (relative to workspace root).
 
@@ -160,7 +181,8 @@ All paths in the journal are workspace-relative (relative to workspace root).
 ```
 # kanonisch (reines Python3, vom Onboarding nach _firma/apply.py geschrieben):
 python3 <workspace_root>/_firma/apply.py <workspace_root> \
-    list | approve <runid> <action_id> | reject <runid> <action_id> | approve-safe \
+    list | approve <runid> <action_id> | approve-run <runid> [id …] \
+    | reject <runid> <action_id> | approve-safe | manual-confirm <runid> <action_id> \
     [--dry]
 # optionaler READ-ONLY-Lister (bun oder Node ≥ 22.6) — kann NICHT freigeben:
 bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> list
@@ -170,8 +192,10 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> lis
 |---|---|
 | `list` | Returns JSON: `{ ok, stand, total, ns, np, nf, groups[] }` — open queue summary grouped by process |
 | `approve <runid> <id>` | Applies one action; copies file, writes journal, removes action from queue |
+| `approve-run <runid> [id …]` | Applies all (or only the listed) actions of one run in a **single engine start** — one journal read, one config parse. The board's per-process approval MUST use this instead of N× `approve` (each spawn re-scans journal + configs over the network drive) |
 | `reject <runid> <id>` | Removes one action from queue; does not copy |
 | `approve-safe` | Applies all `sicher`-tier actions across all open queues in one pass |
+| `manual-confirm <runid> <id>` | The user copied the file himself: engine verifies size+md5 at the target, journals `copied-manually`, removes the action. No `--dry` needed — it never writes target files |
 | `--dry` | Dry-run flag for any command; reports what would happen without touching files |
 
 `<workspace_root>` is the absolute path to the workspace directory (parent of `_firma/`).
@@ -193,7 +217,7 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> lis
 | Process / skill | Write queue files to `_firma/_review/`; **patch actions on edit / re-run**; update `rechecked`; append signals |
 | Apply engine | Read queues; copy files; append journal; move empty queues to `_erledigt/` |
 | Dashboard | **Read-only** — count open queues (statistics artifact); trigger nothing |
-| Chat (on the user's word) | Trigger engine commands (`approve` / `reject` / `approve-safe`) and queue patches as an explicit human action — never automatic |
+| Chat (on the user's word) | Trigger engine commands (`approve` / `approve-run` / `reject` / `approve-safe` / `manual-confirm`) and queue patches as an explicit human action — never automatic |
 
 **Applying is always a deliberate human action.** No skill, hook, dashboard, or background cron may call
 `approve` or `approve-safe` without a user-initiated trigger in chat. The queue is the firewall
