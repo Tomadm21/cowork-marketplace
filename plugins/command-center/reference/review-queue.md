@@ -145,9 +145,12 @@ queue with zero remaining actions
 Fresh copies never go directly to the final name. The engine writes chunks to `<name>.part`,
 fsyncs, verifies the **byte size** against the source and only then renames atomically
 (`os.replace`). A run that dies mid-copy (slow SMB share, execution window exceeded) leaves at
-most a `.part` fragment — unmistakably unfinished, cleaned up on retry — instead of a
-plausible-looking corrupt file under the final name. With `verify:"md5"` on the action the
-engine additionally re-hashes the finished target and removes it on mismatch.
+most a `.part` fragment — unmistakably unfinished — instead of a plausible-looking corrupt file
+under the final name. On retry the engine **resumes**: a `.part` that already matches the source
+in size AND md5 (the common "copy finished in the background, only the rename was killed" case)
+is simply renamed instead of re-copied; anything else is discarded and re-written. With
+`verify:"md5"` on the action the engine additionally re-hashes the finished target and removes
+it on mismatch.
 
 ### Collision-safe copy + content idempotency
 

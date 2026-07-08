@@ -45,7 +45,7 @@ def md5(path):
             h.update(chunk)
     return h.hexdigest()
 
-def copy_verified(src, dest, chunk=1 << 20):
+def copy_verified(src, dest, src_hash=None, chunk=1 << 20):
     """Chunked copy via .part + size check + atomic rename.
 
     shutil.copy2 on a slow network share is one long blocking call (plus
@@ -56,6 +56,22 @@ def copy_verified(src, dest, chunk=1 << 20):
     which is unmistakably "not finished" and gets cleaned up on retry."""
     part = dest + ".part"
     want = os.path.getsize(src)
+    # resume: a killed execution window often means the copy FINISHED in the
+    # background but the rename never ran (observed: 4 of 8 photos arrived
+    # complete despite a timeout). A .part that already matches the source in
+    # size AND md5 just gets renamed — instead of re-paying the full 40-90s
+    # network write. Anything else is stale and falls through to a re-copy.
+    try:
+        if src_hash and os.path.exists(part) and \
+           os.path.getsize(part) == want and md5(part) == src_hash:
+            os.replace(part, dest)
+            try:
+                shutil.copystat(src, dest)
+            except Exception:
+                pass
+            return
+    except Exception:
+        pass
     try:
         with open(src, "rb") as s, open(part, "wb") as d:
             while True:
@@ -314,7 +330,7 @@ def apply_action(root, P, q, a, dry, allowed_abs, jidx):
         if status == "copied":
             try:
                 os.makedirs(tdir, exist_ok=True)
-                copy_verified(src, final)
+                copy_verified(src, final, src_md5())
             except Exception as e:
                 # structured error instead of a raw traceback (read-only drive,
                 # permission denied, path too long …) — action stays in the queue

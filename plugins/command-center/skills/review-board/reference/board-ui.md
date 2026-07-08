@@ -39,7 +39,7 @@ Eingaben mit `data-feld="filename|targets|betrag|…"`; `defaultValue` = Origina
 ## (2) Native Vorschau-Boxen je Posten (`present_files`)
 **Unmittelbar nach der Karte** ein `present_files`-Aufruf für diesen Posten:
 `present_files([ <_firma/_review/_preview/ Ergebnis-Datei>, <source Quelle-Datei> ])`
-→ 1–2 längliche, klickbare Datei-Boxen; Klick öffnet die Datei **nativ rechts in der Sidebar** (kein Chat-Prompt). Reihenfolge: 📄 Ergebnis zuerst, dann 📎 Quelle. Nur **eine** Box, wenn kein eigenständiges Ergebnis existiert.
+→ 1–2 längliche, klickbare Datei-Boxen; Klick öffnet die Datei **nativ rechts in der Sidebar** (kein Chat-Prompt). Reihenfolge: 📄 Ergebnis zuerst, dann 📎 Quelle. Nur **eine** Box, wenn kein eigenständiges Ergebnis existiert — das ist der Normalfall bei reinem Umbenennen/Kopieren (Fotos, Bericht-Scans, unveränderte PDFs): dort gibt es **kein** Preview-Duplikat (SKILL Step 3), die eine Box zeigt die Quelle und der Zielname steht auf der Karte.
 
 ## (3) „Freigeben (Prozess)"-Widget (nach allen Posten)
 Ein kleines `show_widget`: Überschrift „<Emoji> <Prozess> — <N> Posten" und Button **„Freigeben — <Prozess> speichern (<N>)"** → `sendPrompt('freigeben prozess <process>')`. Hinweis: „Einzelne oben mit *Ablehnen* rausnehmen; *Übernehmen* korrigiert Felder."
