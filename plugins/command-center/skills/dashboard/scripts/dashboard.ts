@@ -363,6 +363,8 @@ export function buildDashboard(ws: string): string {
       const dir = t.slice(0, Math.max(0, t.length - base.length)).replace(/\/$/, "") || "—";
       const st = j.status === "skipped-identical"
         ? `<span class="muted">schon vorhanden</span>`
+        : j.status === "copied-manually"
+        ? `<span class="saved">abgelegt (manuell bestätigt)</span>`
         : `<span class="saved">abgelegt</span>`;
       return `<tr><td class="d">${deDate(String(j.ts))}</td><td class="sum">${esc(base)}</td><td><span class="pathblock">${esc(dir)}</span></td><td class="r">${st}</td></tr>`;
     }).join("");

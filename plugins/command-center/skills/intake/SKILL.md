@@ -67,6 +67,8 @@ Für jede Zielgruppe die Regeln des jeweiligen Prozess-Skills anwenden (deren `r
 
 Schreibe das Ergebnis als **Review-Queues** (eine pro Prozess) nach `_firma/_review/R-<YYYY-MM-DD>-<prozess>.json` exakt nach `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md`. Existiert heute schon eine offene Queue eines Prozesses, hänge an (fortlaufende `id`, `rechecked` setzen). Trage die neuen Quellpfade in `_firma/_state/seen-<prozess>.json` nach. **Es wird nichts kopiert, verschoben oder finalisiert** — nur vorbereitet.
 
+**Quell-Bindung (Pflicht):** setze bei JEDER Aktion `source_md5` auf die md5 der Quelldatei (fällt beim ohnehin gebatchten Prüfsummen-Schritt mit ab — dieselben Hashes wie für die Dubletten-Erkennung wiederverwenden, nicht neu rechnen). Die Engine verweigert die Freigabe, wenn der Quellinhalt nicht mehr passt — das blockt Verwechslungen ähnlich benannter Dateien hart ab. Zusätzlich in die `reason` **einen kurzen wörtlichen Auszug aus der tatsächlich gelesenen Quelle** aufnehmen (z. B. Kopfzeile/Kunde/Datum des Scans), damit eine Fehlzuordnung schon auf der Review-Karte auffällt.
+
 Pro Prozess eine Activity-Log-Zeile `status: prepared` (siehe `${CLAUDE_PLUGIN_ROOT}/reference/activity-log.md`); Signale best-effort (`${CLAUDE_PLUGIN_ROOT}/reference/signals.md`), u. a. erkannte Dubletten, Endung≠Inhalt, Eingang enthielt Fremddateien.
 
 ## Step 5 — Alles ist vorbereitet → Review Prozess für Prozess

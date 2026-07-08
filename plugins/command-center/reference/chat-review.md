@@ -32,13 +32,17 @@ Phrasen: „Beleg 2 passt", „nimm 2 an", „freigeben", „alle sicheren freig
 ```
 # einen Posten:
 python3 <workspace_root>/_firma/apply.py <workspace_root> approve <runid> <id>
+# alle (oder gelistete) Posten EINES Laufs in einem Engine-Start (Prozess-Freigabe):
+python3 <workspace_root>/_firma/apply.py <workspace_root> approve-run <runid> [id …]
 # alle sicher-Posten über alle offenen Queues:
 python3 <workspace_root>/_firma/apply.py <workspace_root> approve-safe
+# Nutzer hat die Datei selbst kopiert (langsames Ziel): Größe+md5 prüfen + journalen:
+python3 <workspace_root>/_firma/apply.py <workspace_root> manual-confirm <runid> <id>
 # Vorschau ohne Schreiben:
 python3 <workspace_root>/_firma/apply.py <workspace_root> approve <runid> <id> --dry
 ```
 
-`approve` kopiert kollisionssicher in **jeden** Zielordner und schreibt eine umkehrbare Journal-Zeile. `prüfen`/`folgenreich` immer einzeln; `approve-safe` nur für `sicher`. **Dies ist der einzige Schritt, der Dateien bewegt.**
+`approve`/`approve-run` kopiert kollisionssicher in **jeden** Zielordner und schreibt eine umkehrbare Journal-Zeile. `prüfen`/`folgenreich` immer einzeln bestätigen (bei der Prozess-Freigabe zählt der Board-Klick als Bestätigung der verbliebenen Karten); `approve-safe` nur für `sicher`. **Dies ist der einzige Schritt, der Dateien bewegt.**
 
 ### 2. Bearbeiten (voll) — Feld, Ziel oder Dateiname korrigieren
 Phrasen: „bei 3 die Kategorie auf Kfz", „Lieferant ist eigentlich Müller GmbH", „leg das nach 05-26/Ausgaben", „nenn die Datei … ", „Betrag stimmt nicht, 476,00 EUR".
@@ -100,6 +104,6 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/dashboard.ts <workspace_root>
 | „raus", „ablehnen", „verwerfen" | **Ablehnen** (`reject`) |
 
 ## Rollen-Firewall (unverändert)
-- **Skill / Chat** darf: Queues lesen, Queue-Aktionen patchen (Bearbeiten/Nochmal), `rechecked` setzen, Signale anhängen, und auf Nutzer-Zuruf die Engine-Befehle `approve`/`reject`/`approve-safe` aufrufen.
+- **Skill / Chat** darf: Queues lesen, Queue-Aktionen patchen (Bearbeiten/Nochmal), `rechecked` setzen, Signale anhängen, und auf Nutzer-Zuruf die Engine-Befehle `approve`/`approve-run`/`reject`/`approve-safe`/`manual-confirm` aufrufen.
 - **Apply-Engine** darf: Dateien kollisionssicher kopieren, Journal schreiben, leere Queues archivieren. Sie verweigert jede Quelle/jedes Ziel außerhalb des Workspace.
 - **Dashboard & Sammel-Task** dürfen **nie** `approve` auslösen. Anwenden ist immer eine bewusste menschliche Handlung im Chat.

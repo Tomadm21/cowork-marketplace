@@ -50,6 +50,7 @@ Ein kleines `show_widget`: Überschrift „<Emoji> <Prozess> — <N> Posten" und
 | Felder übernehmen | `bearbeite <runid> <id>: <feld>=<wert>; <feld>=<wert>` |
 | Ablehnen | `lehne ab: <runid> <id>` |
 | Prozess freigeben | `freigeben prozess <process>` |
+| Manuell erledigt | `manuell erledigt: <runid> <id>` (Nutzer hat selbst kopiert → Engine `manual-confirm`: prüft Größe+md5 am Ziel, journaled `copied-manually`, räumt die Karte ab) |
 
 Beispiele:
 - `bearbeite R-2026-06-24-receipt-filing 2: kategorie=Kfz/Fahrzeug; targets=001 Galant Bau GmbH/001. Buchhaltung/2026/05-26/Ausgaben`
@@ -57,7 +58,7 @@ Beispiele:
 - `freigeben prozess receipt-filing`
 
 ## Speicherziel-Auflösung (SKILL Step 6)
-Beim „freigeben prozess": je Posten Ziel real bestimmen → N:/S: verbunden? direkt dorthin (kollisionssicher, Journal); sonst `_ausgang/<prozess>/` + vorgesehenen N:-Pfad. Workspace-intern über `python3 <workspace_root>/_firma/apply.py <workspace_root> approve <runid> <id>`; verbundene Fremdlaufwerke direkt + gleiche Journal-Zeile. Danach nächsten offenen Prozess rendern; keiner offen → Abschluss-Zusammenfassung.
+Beim „freigeben prozess": je Posten Ziel real bestimmen → N:/S: verbunden? direkt dorthin (kollisionssicher, Journal); sonst `_ausgang/<prozess>/` + vorgesehenen N:-Pfad. Workspace-intern über **einen** Batch-Aufruf `python3 <workspace_root>/_firma/apply.py <workspace_root> approve-run <runid>` (ein Engine-Start für den ganzen Prozess statt N Einzel-`approve`); verbundene Fremdlaufwerke direkt + gleiche Journal-Zeile. Schlägt ein Posten fehl: max. EIN Wiederholungsversuch, danach „Manuell erledigt"-Pfad anbieten. Danach nächsten offenen Prozess rendern; keiner offen → Abschluss-Zusammenfassung.
 
 ## Robustheit
 - `present_files` nicht möglich → Pfad als Klartext.

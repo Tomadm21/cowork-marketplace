@@ -55,6 +55,14 @@ See `reference/architecture.md` for the design rationale and the Phase-2 path (p
 
 ## Status
 
+**v0.11.0 — Engine-Zuverlässigkeit + Tempo (Befunde aus dem ersten Galant-Echtlauf, 07.07.2026).** Fünf Engine-Verbesserungen in `apply.py` (kanonisch, wird vom Onboarding als `_firma/apply.py` in den Workspace geschrieben — bestehende Workspaces müssen die Datei einmal austauschen):
+1. **Verifiziertes Schreiben:** Kopien laufen in Chunks nach `<name>.part`, werden gefsynct, größenverifiziert und erst dann atomar umbenannt — eine abgebrochene Kopie auf ein langsames Netzlaufwerk hinterlässt nie mehr ein plausibel aussehendes Fragment unter finalem Namen (real passiert: 281-KB-Quelle als 98–204-KB-Fragmente). Optional `verify:"md5"` pro Aktion als Endkontrolle.
+2. **Quell-Bindung `source_md5`:** Queue-Builder hashen die Quelle beim Queue-Aufbau; die Engine verweigert die Freigabe, wenn der Quellinhalt nicht mehr passt — blockt Verwechslungen ähnlich benannter Dateien (real passiert: Hamm-Trimet-Karte mit Dortmund-Jolt-Quellpfad) hart ab.
+3. **`manual-confirm`-Intent:** „Nutzer hat selbst kopiert" ist jetzt ein offizieller Pfad — Engine prüft Größe+md5 am Ziel, journaled `copied-manually`, räumt die Karte ab. Board-Regel dazu: Fail-fast — max. ein automatischer Wiederholungsversuch, dann manuellen Pfad anbieten.
+4. **`approve-run`-Batch:** die Prozess-Freigabe des Boards läuft in EINEM Engine-Start (ein Journal-Read, ein Config-Parse) statt einem Prozess-Spawn pro Karte.
+5. **Skalierung:** Journal-Index einmal pro Lauf statt Zeilen-Scan pro Ziel; Quell-md5 lazy (ein Re-Lauf mit lauter journalten Zielen liest null Quellbytes); Größenvergleich vor md5-Vergleich am Ziel.
+Dazu: Round-Trip-Lesekontrolle nach jedem Queue-Edit (Netzlaufwerk-Zwischenstände) und proaktives Anbieten von `request_cowork_directory`, wenn der Nutzer ein Ziel außerhalb des Workspace nennt. Kontrakt: `reference/review-queue.md`.
+
 **v0.10.3 — geführter Rundgang für Erstnutzer.** Neue `guided-setup`-Skill + `/command-center:start`: ein einziger warmer Durchlauf, der Cowork **und** das Plugin erklärt (neue `reference/cowork-basics.md`) und den Nutzer **einmal komplett durch einen echten Zyklus** führt — Beispiel-Beleg reinlegen → „verarbeite alles" → im Chat freigeben → Ergebnis → Dashboard. Prinzip: erklären durch Tun, ein Häppchen pro Station, jederzeit überspringbar; am Ende kennt der Nutzer alle Funktionen und die drei Zauberformeln. `firm-onboarding`/`setup` bieten den Rundgang für Erstnutzer aktiv an. Firm-neutrale Demo-Datei zum gefahrlosen Üben (auf Wunsch danach entfernt).
 
 **v0.10.2 — security & correctness hardening** (full-plugin review, all findings fixed):
