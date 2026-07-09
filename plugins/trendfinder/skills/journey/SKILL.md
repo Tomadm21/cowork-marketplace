@@ -23,13 +23,20 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
 ```
 
-Then, if ≥1 niche, check trends for the (first/relevant) niche, and if ≥1 avatar, check that avatar's open pieces:
+Then, if ≥1 niche, check trends for the chosen niche (see Tie-Break below), and if ≥1 avatar, check the chosen avatar's open pieces:
 
 ```
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET "/api/personas/<persona_id>/content-pieces?stage=idea"
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET "/api/personas/<persona_id>/content-pieces?stage=script"
 ```
+
+**Mehrere Avatare / Niches (Tie-Break):**
+
+- **Genau 1 Avatar und ≤1 Niche** → direkt weiter mit der Leiter in Step 2.
+- **Mehrere Avatare** → zuerst per nummeriertem Auswahl-Block fragen, für welchen Avatar die Journey laufen soll (Name + Marke zeigen, wie in `content-plan` Step 1). Die Leiter in Step 2 läuft dann NUR für den gewählten Avatar.
+- **Mehrere Niches beim gewählten Avatar** → dieselbe Regel: nummeriert fragen, dann nur diese Niche prüfen.
+- Niemals still den "ersten" Avatar/die "erste" Niche raten — eine falsche ⭐-Empfehlung (z. B. Content-Plan für Avatar A, während Avatar B im Review steht) ist schlimmer als eine kurze Rückfrage. Die Auswahl-Frage ist selbst ein Klick-Block, also bleibt der Flow geführt.
 
 ## Step 2 — Map state → the one ⭐ next step
 

@@ -448,9 +448,10 @@ function buildHtml(
     idea: "💡 Ideen",
     script: "✍️ Skripte",
     review: "🔍 In Review",
+    rendering: "🎬 Rendering",
     done: "✅ Freigegeben",
   };
-  const STAGE_ORDER = ["idea", "script", "review", "done"];
+  const STAGE_ORDER = ["idea", "script", "review", "rendering", "done"];
   const totalPieces = personaContent.reduce((s, pc) => s + pc.pieces.length, 0);
 
   let contentHtml: string;
