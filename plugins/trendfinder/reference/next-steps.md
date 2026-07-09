@@ -11,6 +11,8 @@ Präsentiere am Ende deiner Antwort eine **Auswahl** mit allen im aktuellen Zust
 - 📈 **Trends ansehen** — Cockpit mit Top-Trends & Signalen
 - 🔥 **Jetzt scrapen** — frische Trends holen (kostet Apify-Credits, fragt vorher)
 - ✍️ **Skript schreiben** — Hooks + Kurzvideo-Skript zu einem Trend in Avatar-Stimme
+- 🗂️ **Content-Plan** — Ideen aus Avatar-DNA + Trends vorschlagen und als Ideen speichern
+- ✅ **Freigeben / Review** — geschriebene Skripte durchsehen und freigeben (Stage → done)
 - 🎭 **Avatar anlegen / bearbeiten** — Marke + Persona + DNA
 - ⏰ **Zeitplan verwalten** — automatische 24/7-Scrapes ein-/ausschalten (braucht einen einmalig im Backend hinterlegten Apify-Token; der `scheduler`-Skill prüft das, bevor er aktiviert)
 - ⚙️ **Einrichtung / Verbindung** — Setup prüfen oder neu verbinden
@@ -22,6 +24,9 @@ Präsentiere am Ende deiner Antwort eine **Auswahl** mit allen im aktuellen Zust
 | Onboarding fertig, noch kein Scrape | 🔥 Jetzt scrapen |
 | Scrape fertig | 📈 Trends ansehen |
 | Trends angesehen, Avatar existiert | ✍️ Skript schreiben |
+| Trends da, noch keine Ideen | 🗂️ Content-Plan |
+| Ideen da, noch kein Skript | ✍️ Skript schreiben |
+| Skript geschrieben, nicht freigegeben | ✅ Freigeben / Review |
 | Trends angesehen, KEIN Avatar | 🎭 Avatar anlegen |
 | Avatar angelegt | ✍️ Skript schreiben (oder 🔥 scrapen, falls noch keine Trends) |
 | Skript fertig | ✍️ Nächstes Skript / 📈 Trends ansehen |
