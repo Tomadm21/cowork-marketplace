@@ -191,4 +191,17 @@ describe("visibility of edge cases", () => {
     const { out } = run(CFG, { ...INPUT, rows });
     expect(out.warnings.join(" ")).toContain("input.jahr");
   });
+
+  test("hotel nights with hotel_cost=0 (spitz nach Beleg) → mandatory-amount warning", () => {
+    const cfg = { ...CFG, hotel_cost: 0 };
+    const { out } = run(cfg, INPUT);
+    expect(out.people[0].hotel_naechte).toBe(3);
+    expect(out.people[0].hotel_betrag).toBe(0);
+    expect(out.warnings.join(" ")).toContain("Hotelbeleg");
+  });
+
+  test("hotel nights with a configured Pauschale (hotel_cost>0) → no spitz warning", () => {
+    const { out } = run(CFG, INPUT);
+    expect(out.warnings.join(" ")).not.toContain("Hotelbeleg");
+  });
 });

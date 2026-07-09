@@ -25,6 +25,11 @@
  * Lauf mit klarer Meldung ab statt still null/falsche Summen zu produzieren;
  * doppelte (person, date)-Zeilen und Hotel-Standtage warnen; km ohne Fahrzeug
  * erscheinen als sichtbare "(kein Fahrzeug)"-Position statt zu verschwinden.
+ *
+ * v0.12.0 — Uebernachtungen bei hotel_cost=0 (spitz nach Beleg) warnen laut:
+ * der tatsaechliche Hotelbetrag ist aus einem Stundenzettel/Service-Report
+ * grundsaetzlich NICHT ableitbar (dort steht nur Uebernachtung ja/nein) —
+ * ohne aktive Nachfrage ginge die Position still mit 0 in die Rechnung.
  */
 
 interface TierRates { montage: number; fahrt: number }
@@ -309,6 +314,16 @@ function main() {
     });
     if (n > 0) spesenApplied = true;
 
+    // hotel_cost 0 = "spitz nach Beleg": the actual amount can NEVER be read
+    // off the timesheet (it only shows Übernachtung ja/nein) — without this
+    // warning the position would silently enter the invoice as 0 EUR
+    if (hotelNights > 0 && config.hotel_cost === 0) {
+      warnings.push(
+        `${displayName}: ${hotelNights} Übernachtung(en), aber hotel_cost = 0 (spitz nach Beleg) — ` +
+        `tatsächlichen Betrag aus dem Hotelbeleg erfragen und als Pflicht-Bestätigung ergänzen; ` +
+        `NIE stillschweigend mit 0 EUR abrechnen.`,
+      );
+    }
     const hotelBetrag = round2(hotelNights * config.hotel_cost);
     const zwischensumme = round2(montageBetrag + fahrtBetrag + spesenBetrag + hotelBetrag);
     summeNetto = round2(summeNetto + zwischensumme);

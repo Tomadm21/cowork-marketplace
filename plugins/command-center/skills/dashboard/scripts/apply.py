@@ -12,7 +12,10 @@ applies approvals (apply.ts is a read-only lister). Idempotent + atomic + contai
 - verified writes: chunked copy to <name>.part, fsync, byte-size check, then
   atomic rename — a partial copy never sits under the final name;
 - source binding: an action carrying source_md5 is applied only while the
-  source file still has exactly that content (no look-alike path mix-ups).
+  source file still has exactly that content (no look-alike path mix-ups);
+- confirmation gate: an action with open bestaetigen[] entries (mandatory
+  reviewer confirmations — hotel amount, ambiguous travel split, hard-to-read
+  numbers) is never applied, by ANY command, until each entry is answered.
 
 Usage:
   python3 apply.py <workspace_root> list
@@ -117,9 +120,24 @@ def load_queues(P):
             sys.stderr.write("WARN bad queue %s: %s\n" % (fp, e))
     return out, warns
 
+def unresolved_confirms(a):
+    """Pflicht-Bestätigungen: bestaetigen[] entries are values the reviewer
+    must actively supply or confirm before the action may be applied (actual
+    hotel amount when the report only shows ja/nein, the Montage/Fahrt split
+    on days with overlapping time windows, hard-to-read handwritten numbers).
+    An entry counts as answered once it carries bestaetigt:true or a
+    non-empty wert. A card with an open entry stays in the queue — a silent
+    zero/best-guess must never ride into an invoice."""
+    out = []
+    for c in a.get("bestaetigen") or []:
+        if isinstance(c, dict) and not c.get("bestaetigt") and c.get("wert") in (None, ""):
+            out.append(str(c.get("feld") or "?"))
+    return out
+
 def eff_tier(a):
-    # confidence:"prüfen" overrides a sicher tier for display/bulk
-    if a.get("tier") == "sicher" and a.get("confidence") == "prüfen":
+    # confidence:"prüfen" overrides a sicher tier for display/bulk; an open
+    # Pflicht-Bestätigung does the same — it must never slip through approve-safe
+    if a.get("tier") == "sicher" and (a.get("confidence") == "prüfen" or unresolved_confirms(a)):
         return "pruefen"
     return {"sicher": "sicher", "prüfen": "pruefen", "folgenreich": "folgenreich"}.get(a.get("tier"), "pruefen")
 
@@ -147,7 +165,8 @@ def cmd_list(P):
             rows.append({"id": a.get("id"), "tier": a.get("tier"), "confidence": a.get("confidence"),
                          "title": title_of(a), "reason": a.get("reason"),
                          "filename": a.get("filename"), "targets": a.get("targets", []),
-                         "values": a.get("values", {})})
+                         "values": a.get("values", {}),
+                         "bestaetigen": a.get("bestaetigen") or []})
         total += len(rows)
         # headline derived from len(actions) — never trust a stale stored counter
         groups.append({"process": q.get("process"), "runid": q.get("runid"),
@@ -269,6 +288,14 @@ def collision_safe(dest):
     return "%s_%d%s" % (base, i, ext)
 
 def apply_action(root, P, q, a, dry, allowed_abs, jidx):
+    # confirmation gate BEFORE any file work: an unanswered Pflicht-Bestätigung
+    # means the card's data is incomplete — applying it would file a
+    # plausible-looking but wrong value (the exact error class this fixes)
+    uc = unresolved_confirms(a)
+    if uc:
+        return [{"status": "needs-confirmation",
+                 "detail": "Pflicht-Bestätigung offen (%s) — per »bestätige %s %s: <feld>=<wert>« beantworten, Posten bleibt offen"
+                           % (", ".join(uc), q.get("runid"), a.get("id"))}]
     src = os.path.join(root, a["source"]) if not os.path.isabs(a["source"]) else a["source"]
     # containment: queue JSON is AI-authored — never let it read or write
     # outside the workspace (sources are always workspace files)
@@ -499,6 +526,13 @@ def cmd_manual_confirm(P, root, runid, aid):
     a = next((x for x in q.get("actions", []) if str(x.get("id")) == str(aid)), None)
     if not a:
         print(json.dumps({"ok": False, "error": "action nicht gefunden: " + str(aid), "queue_warnings": qwarns})); return
+    # same gate as apply_action: manually copied or not, an unanswered
+    # Pflicht-Bestätigung means the produced file may carry a wrong value
+    uc = unresolved_confirms(a)
+    if uc:
+        print(json.dumps({"ok": False,
+                          "error": "Pflicht-Bestätigung offen (%s) — erst beantworten (bestätige …), dann manuell erledigen" % ", ".join(uc),
+                          "queue_warnings": qwarns})); return
     src = os.path.join(root, a["source"]) if not os.path.isabs(a["source"]) else a["source"]
     if not inside(root, src) or not os.path.exists(src):
         print(json.dumps({"ok": False, "error": "source fehlt oder außerhalb des Workspace: " + a["source"],

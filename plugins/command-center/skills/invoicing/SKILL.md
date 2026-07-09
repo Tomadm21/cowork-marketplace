@@ -23,6 +23,26 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/firm-config-contract.md` for the workspace
   - **Anreise-/Heimfahrt-km ab Firmensitz** (`config.anreise_km_ab_firmensitz`, im Montagebau-Preset Standard `true`): reine An-/Heimreisetage bekommen als `km` immer die Strecke Firmensitz→Baustelle aus `config.sites.<baustelle>.anreise_km` — **nicht** den im Report notierten Wert. Fehlt `anreise_km` für die Baustelle, einmal ermitteln + bestätigen lassen und in die Config nachtragen. Weicht der Report-Wert ab, gilt die Firmensitz-Strecke; nenne die Abweichung im Review als „prüfen"-Punkt. Pendel-km (Hotel↔Baustelle) bleiben wie erfasst. Details: `reference/montagebau-preset.md`.
 - Otherwise collect the rows from the user in chat.
 - If a person/site/vehicle isn't recognized from `config`/`stammdaten`, ask — don't guess.
+- **Pflicht-Bestätigungen (never a silent default, never just a `reason` note).** Three extraction
+  situations produce values the report *cannot* answer — they get the same mandatory-confirmation
+  treatment as unknown persons/vehicles/sites. Inline run: ask in chat before Step 2 (or re-run
+  Step 2 after the answer). Prepared/scheduled run: one `bestaetigen` entry per open question on
+  the queue action (schema: `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md`) — the engine
+  refuses to apply until each is answered.
+  1. **Hotelbetrag:** the report only shows Übernachtung ja/nein, never an amount. If any night
+     has `hotel: true` and `config.hotel_cost` is `0` (spitz nach Beleg), the actual amount from
+     the hotel receipt is a required answer (`feld: "hotel_betrag"`) — a 0-EUR line item is not a
+     cautious default, it is a wrong invoice. (`compute.ts` warns on this too.) With a configured
+     per-night Pauschale (`hotel_cost > 0`) no question is needed.
+  2. **Überlappende Zeitfenster:** if the Pendelanteil formula yields ≈ 0 because travel and work
+     windows (almost) fully overlap, that is an *uncertain reading*, not a safe 0 — reference
+     invoices show short real travel shares on exactly such days, and the split changes the amount
+     even when total hours are right (Montage and Fahrt are priced differently). Ask for the actual
+     split per affected day (`feld: "fahrt_h_<date>"`) instead of auto-filling 0.
+  3. **Unsicher gelesene Zahlen (km, Uhrzeiten):** a hard-to-read handwritten number gets flagged
+     with the value as read plus the plausible alternative(s) (`feld: "km_<date>"`, put the raw
+     reading into `quelle_auszug`) — never passed on as certain. 60 misread km are a real money
+     error, same class as a misread Kennzeichen.
 
 ## Step 2 — Compute (deterministic, script-only)
 
@@ -52,6 +72,8 @@ The rules the script implements are documented in `reference/compute-rules.md`.
 ## Step 3 — Review (approval gate)
 
 Show the pro-forma from the script output: per person — Montage-Stunden+Betrag, Fahrt-Stunden+Betrag (kept separate), spesen, hotel, Zwischensumme; the `vehicles[]`/Geräte block if non-empty; then Summe netto, MwSt, Summe brutto. Surface every `warnings[]` item as a "bitte prüfen" line (unknown person, capped/over-cap day, spesen heuristic + hotel-flag mismatch, unresolved vehicle). Let the user correct rows. **If anything changes, re-run `compute.ts`** on the edited input — never patch the numbers by hand.
+
+**Open Pflicht-Bestätigungen from Step 1 block finalization.** Render them as their own, unmissable question block (not buried in the warnings list): the question, what was actually read (`quelle_auszug`), and an explicit answer field. Do not produce the invoice while any of them is unanswered; after an answer, re-run `compute.ts` with the confirmed value.
 
 Nothing is written until the user approves.
 
@@ -90,4 +112,4 @@ Dieser Prozess läuft stündlich über einen gemeinsamen Sammel-Task (siehe `${C
 - **Bündeln.** Alle neuen Quellen eines Laufs kommen in EINE Queue: existiert für heute schon eine offene Queue dieses Prozesses, hänge die neuen Aktionen dort an (fortlaufende `id`) und setze `rechecked`; sonst lege eine neue an. Niemals pro Datei eine eigene Queue.
 - **Merkliste pflegen.** Nach dem Vorbereiten ergänze die neu eingereihten Quellpfade in `_firma/_state/seen-invoicing.json` (JSON-Array; Datei/Ordner anlegen, falls fehlend). Best-effort.
 
-When a run is prepared but not reviewed inline (scheduled runs or any run where the user is not present to approve in chat), write one review-queue file (bzw. an die heutige offene Queue anhängen) per `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md` at `<workspace>/_firma/_review/R-<YYYY-MM-DD>-invoicing-KW<kw>.json`. Use `runid` matching the activity-log entry (e.g. `invoicing-<jahr>-KW<kw>`), `process: "invoicing"`. Each prepared invoice becomes one action with `verb: "erstellen"`, `tier: "prüfen"` (invoices always need a human sign-off before issuance), the same "bitte prüfen" justification the inline review would surface, `source` pointing to the computed input or temp file, `filename` the target xlsx name, `targets` the configured `_ausgang/rechnungen` path, and `values` carrying the fields the cockpit shows as Vorschlag: `kw`, `baustelle`, `summe` (brutto total from compute output), plus any `warnings` surfaced as an additional `reason` note. The activity-log entry stays `status: prepared`; applying — producing and writing the final xlsx — happens only via the review board / `_firma/apply.py`.
+When a run is prepared but not reviewed inline (scheduled runs or any run where the user is not present to approve in chat), write one review-queue file (bzw. an die heutige offene Queue anhängen) per `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md` at `<workspace>/_firma/_review/R-<YYYY-MM-DD>-invoicing-KW<kw>.json`. Use `runid` matching the activity-log entry (e.g. `invoicing-<jahr>-KW<kw>`), `process: "invoicing"`. Each prepared invoice becomes one action with `verb: "erstellen"`, `tier: "prüfen"` (invoices always need a human sign-off before issuance), the same "bitte prüfen" justification the inline review would surface, `source` pointing to the computed input or temp file, `filename` the target xlsx name, `targets` the configured `_ausgang/rechnungen` path, and `values` carrying the fields the cockpit shows as Vorschlag: `kw`, `baustelle`, `summe` (brutto total from compute output), plus any `warnings` surfaced as an additional `reason` note. Every open Pflicht-Bestätigung from Step 1 (hotel amount, overlap split, uncertain number) becomes one `bestaetigen` entry on the action — the engine refuses to apply (`needs-confirmation`) until the reviewer answers them via the board. The activity-log entry stays `status: prepared`; applying — producing and writing the final xlsx — happens only via the review board / `_firma/apply.py`.

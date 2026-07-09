@@ -30,6 +30,7 @@ export interface Action {
   id?: number | string;
   tier?: string;
   confidence?: string;
+  bestaetigen?: Array<{ feld?: string; wert?: unknown; bestaetigt?: boolean }>;
   verb?: string;
   source?: string;
   filename?: string;
@@ -51,11 +52,17 @@ export interface Action {
  * Derives display tier: folgenreich → "f"; confidence=="prüfen" → "p";
  * tier=="sicher" → "s"; ANYTHING else (missing/unknown/typo) → "p".
  * Fail-closed on purpose: "sicher" is an earned label, never a default —
- * an action with no tier must never look bulk-approvable.
+ * an action with no tier must never look bulk-approvable. An action with an
+ * open Pflicht-Bestätigung is likewise never "s" — mirrors the engine's
+ * unresolved_confirms() so this lister's counts match apply.py's.
  */
 export function tierOf(a: Action): "f" | "p" | "s" {
   if (a.tier === "folgenreich") return "f";
   if (a.confidence === "prüfen") return "p";
+  const open = (a.bestaetigen ?? []).some(
+    (c) => c && typeof c === "object" && !c.bestaetigt && (c.wert === undefined || c.wert === null || c.wert === ""),
+  );
+  if (open) return "p";
   if (a.tier === "sicher") return "s";
   return "p";
 }
