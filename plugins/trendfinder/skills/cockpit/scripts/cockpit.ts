@@ -89,6 +89,22 @@ interface Persona {
   [k: string]: unknown;
 }
 
+interface ContentPiece {
+  id?: number | string;
+  title?: string;
+  stage?: string;
+  pillar?: string;
+  format?: string;
+  persona_id?: number | string;
+  [k: string]: unknown;
+}
+
+interface PersonaContent {
+  personaName: string;
+  brandName: string;
+  pieces: ContentPiece[];
+}
+
 interface NicheData {
   niche: Niche;
   trends: TrendCluster[];
@@ -287,6 +303,7 @@ function buildHtml(
   niches: NicheData[],
   brandData: BrandData[],
   schedules: Schedule[],
+  personaContent: PersonaContent[],
   warnings: string[]
 ): string {
   const totalPersonas = brandData.reduce((s, b) => s + b.personas.length, 0);
@@ -426,6 +443,59 @@ function buildHtml(
       .join("");
   }
 
+  // ── Content tab content (pieces grouped by stage) ─────────────────────────
+  const STAGE_LABEL: Record<string, string> = {
+    idea: "💡 Ideen",
+    script: "✍️ Skripte",
+    review: "🔍 In Review",
+    done: "✅ Freigegeben",
+  };
+  const STAGE_ORDER = ["idea", "script", "review", "done"];
+  const totalPieces = personaContent.reduce((s, pc) => s + pc.pieces.length, 0);
+
+  let contentHtml: string;
+  if (totalPieces === 0) {
+    contentHtml = `<div class="cold-start">
+      <div class="cold-icon">🗂️</div>
+      <h2>Noch kein Content</h2>
+      <p>Sag „Content-Plan" für Ideen aus der Avatar-DNA, oder „Skript schreiben" — deine Ideen und Skripte erscheinen hier nach Stufe sortiert.</p>
+    </div>`;
+  } else {
+    contentHtml = personaContent
+      .map((pc) => {
+        const byStage = new Map<string, ContentPiece[]>();
+        for (const piece of pc.pieces) {
+          const st = String(piece.stage ?? "idea");
+          if (!byStage.has(st)) byStage.set(st, []);
+          byStage.get(st)!.push(piece);
+        }
+        const stageBlocks = STAGE_ORDER.filter((st) => byStage.has(st))
+          .map((st) => {
+            const rows = byStage
+              .get(st)!
+              .map((piece) => {
+                const title = String(piece.title ?? "Ohne Titel");
+                const meta = [piece.pillar, piece.format].filter(Boolean).map((x) => esc(String(x)));
+                return `<div class="content-row">
+                  <div class="content-title">${esc(title)}</div>
+                  ${meta.length ? `<div class="content-meta">${meta.map((m) => `<span class="meta-tag">${m}</span>`).join("")}</div>` : ""}
+                </div>`;
+              })
+              .join("");
+            return `<div class="stage-group">
+              <h3 class="stage-title">${esc(STAGE_LABEL[st] ?? st)} <span class="niche-count">${byStage.get(st)!.length}</span></h3>
+              <div class="content-list">${rows}</div>
+            </div>`;
+          })
+          .join("");
+        return `<section class="brand-section">
+          <h2 class="brand-title">${esc(pc.personaName)} · ${esc(pc.brandName)}</h2>
+          ${stageBlocks}
+        </section>`;
+      })
+      .join("");
+  }
+
   // ── Warnings ──────────────────────────────────────────────────────────────
 
   const warningsHtml =
@@ -511,6 +581,12 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
 .avatar-brand{font-size:12px;color:var(--mu);margin-bottom:8px}
 .avatar-dna{font-size:13px;color:#3a3f47;line-height:1.55;border-top:1px solid var(--bd);padding-top:8px;margin-top:6px;word-break:break-word}
 .foot{font-size:12px;color:var(--mu);margin-top:28px;border-top:1px solid var(--bd);padding-top:10px}
+.stage-group{margin-bottom:18px}
+.stage-title{font-size:13px;font-weight:600;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.content-list{display:flex;flex-direction:column;gap:6px}
+.content-row{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:10px 14px}
+.content-title{font-size:14px;font-weight:500;margin-bottom:4px}
+.content-meta{display:flex;flex-wrap:wrap;gap:6px}
 </style>
 </head>
 <body><div class="wrap">
@@ -529,6 +605,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
   <div class="tabs">
     <button class="tab on" onclick="showTab('trends')">Trends</button>
     <button class="tab" onclick="showTab('avatare')">Avatare</button>
+    <button class="tab" onclick="showTab('content')">Content</button>
   </div>
 
   <div class="tab-panel on" id="tab-trends">
@@ -536,6 +613,9 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
   </div>
   <div class="tab-panel" id="tab-avatare">
     ${avatareHtml}
+  </div>
+  <div class="tab-panel" id="tab-content">
+    ${contentHtml}
   </div>
 
   <div class="foot">Trendfinder-Cockpit · Daten zum Zeitpunkt der Generierung abgerufen · Aktualisieren: „zeig das Cockpit"</div>
@@ -548,7 +628,8 @@ function showTab(name) {
   tabs.forEach(function(t) { t.classList.remove('on'); });
   var panel = document.getElementById('tab-' + name);
   if (panel) panel.classList.add('on');
-  var idx = name === 'trends' ? 0 : 1;
+  var order = { trends: 0, avatare: 1, content: 2 };
+  var idx = order[name] != null ? order[name] : 0;
   if (tabs[idx]) tabs[idx].classList.add('on');
 }
 </script>
@@ -661,6 +742,28 @@ async function main() {
     warnings.push("Avatare konnten nicht geladen werden");
   }
 
+  // ── Content pieces per persona (tenant-scoped CRUD, SP1) ──────────────────
+  const personaContent: PersonaContent[] = [];
+  for (const bd of brandData) {
+    for (const p of bd.personas) {
+      const pid = String(p.persona_id ?? p.id ?? "");
+      if (!pid) continue;
+      try {
+        const raw = await apiFetch(cfg, `/api/personas/${pid}/content-pieces`);
+        const pieces = extractList(raw) as ContentPiece[];
+        if (pieces.length > 0) {
+          personaContent.push({
+            personaName: String(p.display_name ?? p.name ?? pid),
+            brandName: brandName(bd.brand),
+            pieces,
+          });
+        }
+      } catch {
+        warnings.push(`Content für ${String(p.display_name ?? pid)} konnte nicht geladen werden`);
+      }
+    }
+  }
+
   // ── Schedules fetch ───────────────────────────────────────────────────────
   let schedules: Schedule[] = [];
   try {
@@ -671,7 +774,7 @@ async function main() {
   }
 
   // ── Build + write HTML ────────────────────────────────────────────────────
-  const html = buildHtml(stand, nicheData, brandData, schedules, warnings);
+  const html = buildHtml(stand, nicheData, brandData, schedules, personaContent, warnings);
 
   const outDir = path.join(ws, ".trendfinder");
   const outPath = path.join(outDir, "cockpit.html");
