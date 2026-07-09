@@ -146,7 +146,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET "/api/personas/<persona_id>/content
   ```
   IDEA_BODY=$(mktemp)
   echo '{"title":"<trend/topic title>","pillar":"<pillar>","format":"<format>","hook_type":"<hook_type>","trend_cluster_id":<id or omit>,"stage":"idea"}' > "$IDEA_BODY"
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/content-pieces @"$IDEA_BODY"; rm -f "$IDEA_BODY" 2>/dev/null || : > "$IDEA_BODY"
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/content-pieces @"$IDEA_BODY"; rm -f "$IDEA_BODY"
   ```
   Keep the returned `id`.
 
@@ -156,7 +156,7 @@ Then persist the script and advance the stage (write the body to a temp file —
 SCRIPT_BODY=$(mktemp)
 # script_data shape (plugin-owned, see api-contract § Content pieces):
 echo '{"script_data":{"hook":"<chosen hook>","hooks":["..."],"body":"<beats>","cta":"<cta>","caption":"<caption>","hashtags":["..."],"ziel":"<reichweite|engagement|verkauf|follower|vertrauen>","visual_notes":"<shooting notes>","audio":"<audio type>"},"stage":"script"}' > "$SCRIPT_BODY"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PATCH /api/content-pieces/<piece_id> @"$SCRIPT_BODY"; rm -f "$SCRIPT_BODY" 2>/dev/null || : > "$SCRIPT_BODY"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PATCH /api/content-pieces/<piece_id> @"$SCRIPT_BODY"; rm -f "$SCRIPT_BODY"
 ```
 
 Interpret: **200** saved · **404** foreign/unknown piece (re-resolve) · **422** invalid stage.

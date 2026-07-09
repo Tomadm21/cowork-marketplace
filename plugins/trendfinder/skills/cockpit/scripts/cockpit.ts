@@ -750,7 +750,9 @@ async function main() {
       const pid = String(p.persona_id ?? p.id ?? "");
       if (!pid) continue;
       try {
-        const raw = await apiFetch(cfg, `/api/personas/${pid}/content-pieces`);
+        // limit=200: the API defaults to 50 — a busy persona would silently
+        // truncate the board (review finding m4/m7).
+        const raw = await apiFetch(cfg, `/api/personas/${pid}/content-pieces?limit=200`);
         const pieces = extractList(raw) as ContentPiece[];
         if (pieces.length > 0) {
           personaContent.push({

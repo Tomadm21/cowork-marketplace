@@ -1,6 +1,6 @@
 ---
 name: journey
-description: The guided Trendfinder start — detects where you are and walks you step-by-step from avatar to finished, approved script, proposing exactly one recommended next step each time. Use when the user says "Los geht's", "Trendfinder starten", "wie fange ich an", "was soll ich als nächstes tun", "führ mich durch", "start", "guide me", "next step", or opens Trendfinder without a specific request. Delegates to onboarding, scrape-now, trend-radar, content-plan, script-studio, review, and cockpit — never writes data itself.
+description: The guided Trendfinder start — detects where you are and walks you step-by-step from avatar to finished, approved script, proposing exactly one recommended next step each time. Use when the user says "Los geht's", "Trendfinder starten", "wie fange ich an", "was soll ich als nächstes tun", "führ mich durch", "Trendfinder guide me", "wie geht's weiter mit Trendfinder", or opens Trendfinder without a specific request. Delegates to onboarding, scrape-now, trend-radar, content-plan, script-studio, review, and cockpit — never writes data itself.
 ---
 
 # Trendfinder — Journey (geführter Einstieg)

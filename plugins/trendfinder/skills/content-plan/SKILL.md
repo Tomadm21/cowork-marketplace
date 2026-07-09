@@ -78,7 +78,7 @@ For EACH selected idea, POST it (write the body to a temp file to avoid quoting 
 ```
 IDEA_BODY=$(mktemp)   # real temp dir, NOT the synced workspace
 echo '{"title":"<title>","pillar":"<pillar>","format":"<format>","hook_type":"<hook_type>","trend_cluster_id":<id or omit>,"stage":"idea"}' > "$IDEA_BODY"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/content-pieces @"$IDEA_BODY"; rm -f "$IDEA_BODY" 2>/dev/null || : > "$IDEA_BODY"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/content-pieces @"$IDEA_BODY"; rm -f "$IDEA_BODY"
 ```
 
 Interpret: **201** created (keep the returned `id`) · **404** persona not this tenant's (re-resolve the avatar) · **422** bad field (fix `title`/`stage`). Omit `trend_cluster_id` entirely for DNA-only ideas — do not send `null` guesses of other fields.
