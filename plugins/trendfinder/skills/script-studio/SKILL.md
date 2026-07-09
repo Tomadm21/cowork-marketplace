@@ -1,6 +1,6 @@
 ---
 name: script-studio
-description: Generate hooks + short-video scripts in a Trendfinder avatar's voice, matched to current trends and steered by a chosen Ziel (Verkauf, Reichweite/viral, Engagement, Follower, Vertrauen). Use when the user says "schreib mir Skripte", "Skript für Lena/Mia", "Hooks für meinen Avatar", "Content für <Avatar>", "was soll <Avatar> posten", "mach mir ein Skript zum Trend", "Verkaufsskript", "Skript das viral gehen soll", "Skript für mehr Engagement/Follower". Matches trends to the avatar's DNA NATIVELY in Claude and writes in the avatar's voice. Never scrapes, never spends Apify credits.
+description: Generate hooks + short-video scripts in a Trendfinder avatar's voice, matched to current trends and steered by a chosen Ziel (Verkauf, Reichweite/viral, Engagement, Follower, Vertrauen). Use when the user says "schreib mir Skripte", "Skript für Lena/Mia", "Hooks für meinen Avatar", "Content für <Avatar>", "was soll <Avatar> posten", "mach mir ein Skript zum Trend", "Verkaufsskript", "Skript das viral gehen soll", "Skript für mehr Engagement/Follower". Matches trends to the avatar's DNA NATIVELY in Claude and writes in the avatar's voice. Never scrapes, never spends Apify credits. Saves the finished script to the shared content board (content piece, stage=script) so it appears in the Cockpit and Review.
 ---
 
 # Trendfinder — Script Studio
@@ -131,6 +131,40 @@ Two different avatars MUST yield visibly different hooks/scripts for the same tr
 
 ---
 
+## Step 4.5 — Persist the script on the content board
+
+The script you just wrote is native text — now store it as a `content_piece` so it shows on the shared board (frontend + Cockpit). **This is a PATCH of `script_data` + a stage bump — never the backend `generate-script` route.**
+
+First, is there already an `idea` piece for this? Look:
+
+```
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET "/api/personas/<persona_id>/content-pieces?stage=idea"
+```
+
+- **A matching idea exists** (same trend/topic — match on `title` or `trend_cluster_id`) → use its `id`.
+- **No matching idea** (ad-hoc script) → create one first:
+  ```
+  IDEA_BODY=$(mktemp)
+  echo '{"title":"<trend/topic title>","pillar":"<pillar>","format":"<format>","hook_type":"<hook_type>","trend_cluster_id":<id or omit>,"stage":"idea"}' > "$IDEA_BODY"
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/content-pieces @"$IDEA_BODY"; rm -f "$IDEA_BODY" 2>/dev/null || : > "$IDEA_BODY"
+  ```
+  Keep the returned `id`.
+
+Then persist the script and advance the stage (write the body to a temp file — it contains the full script JSON):
+
+```
+SCRIPT_BODY=$(mktemp)
+# script_data shape (plugin-owned, see api-contract § Content pieces):
+echo '{"script_data":{"hook":"<chosen hook>","hooks":["..."],"body":"<beats>","cta":"<cta>","caption":"<caption>","hashtags":["..."],"ziel":"<reichweite|engagement|verkauf|follower|vertrauen>","visual_notes":"<shooting notes>","audio":"<audio type>"},"stage":"script"}' > "$SCRIPT_BODY"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PATCH /api/content-pieces/<piece_id> @"$SCRIPT_BODY"; rm -f "$SCRIPT_BODY" 2>/dev/null || : > "$SCRIPT_BODY"
+```
+
+Interpret: **200** saved · **404** foreign/unknown piece (re-resolve) · **422** invalid stage.
+
+**Read-back (honesty rule):** the PATCH returns the updated piece — confirm `stage == "script"` and `script_data.hook` is present before telling the user it's saved. If the save failed, deliver the script in chat anyway and say persistence didn't succeed — never claim it's on the board if the API didn't confirm.
+
+---
+
 ## Step 5 — Deliver
 
 Output the hooks + script + caption as clean, copyable **markdown directly in the chat** (no generator needed — this is native text). Lead with which avatar + which trend + which Ziel it's for (z. B. „Skript für Lena · Trend: Evening Routines · Ziel: 🛒 Verkauf").
@@ -160,6 +194,8 @@ Optionally, if the user wants to keep it, offer to save it to `{workspace}/.tren
 - Trends ranked against the avatar's DNA with per-trend reasons, labelled as native judgment.
 - Ziel geklärt (aus der Anfrage übernommen oder mit ⭐-Empfehlung erfragt); Struktur + CTA folgen dem Primärziel; Ziel im Output benannt.
 - Hooks + a full short-video script + caption written in the avatar's voice for the chosen trend.
+- Script persisted as a content piece via `PATCH /api/content-pieces/{id}` (`script_data` set, `stage:"script"`); read-back confirmed. Backend `generate-script` route NOT used.
+- If persistence failed, the script was still delivered in chat and the failure was stated honestly.
 - Delivered as copyable markdown; optionally saved under `.trendfinder/`.
 - No `?persona_id=` sent, no Apify call, no key printed.
 
