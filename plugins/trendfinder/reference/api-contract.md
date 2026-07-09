@@ -57,6 +57,10 @@ All endpoints below are used by this plugin. Tenant-scoped routes enforce isolat
 | GET /api/personas/{persona_id}/niches | — | `[{niche_id, display_name, ...full scrape config}]` | The avatar's niches, each with its full scrape config. 404 if foreign persona |
 | DELETE /api/personas/{persona_id}/niches/{niche_id} | — (optional query `?confirm_delete=true`) | `204` detach, or `200 {"status":"deleted","niche_id":...,"deleted":{<per-table counts>}}` cascade | `204` if ≥1 other avatar remains linked (detaches the link only, data untouched). If this is the **last** avatar: `409 {"error":"last_avatar",...}` unless `?confirm_delete=true`. Even with `?confirm_delete=true`, FIRST returns `409` "Cannot delete niche with active scrape job" if a `job_queue` row is running/pending — otherwise cascade-deletes the niche + its trends/videos/schedules/jobs and returns `200` (**not** 204) with the body above. `404` foreign persona, or niche not linked to this persona |
 | POST /api/ingest | `{niche_id, platform: "tiktok"\|"instagram", items[]}` | 201 `{inserted, updated, rejected, errors}` / 400 tenant / 404 niche | items MUST be raw actor dataset items (clockworks/tiktok-scraper or apify/instagram-hashtag-scraper) — do not reshape; max 500 items/request |
+| GET /api/personas/{persona_id}/content-pieces | query: `stage?`, `page?` (default 1), `limit?` (default 50) | `[{id, persona_id, title, pillar, format, stage, hook_type, trend_cluster_id, script_data, translations, video_url, created_at, updated_at}]` | ✅ Tenant-scoped (SP1). Foreign/unknown persona → 404. `stage` ∈ `idea\|script\|review\|rendering\|done`. Empty list = no pieces yet |
+| POST /api/personas/{persona_id}/content-pieces | `{title, pillar?, format?, stage?(default "idea"), hook_type?, trend_cluster_id?}` | 201 the created piece | ✅ Tenant-scoped (SP1). Use for saving a **native idea**. `title` 1–500 chars; invalid `stage` → 422; foreign persona → 404. `script_data` is NOT accepted here — set it via PATCH after writing the script |
+| PATCH /api/content-pieces/{piece_id} | `{title?, pillar?, format?, stage?, hook_type?, trend_cluster_id?, script_data?, video_url?}` | 200 the updated piece | ✅ Tenant-scoped (SP1). This is how the plugin **persists a native script**: `{"script_data": {...}, "stage": "script"}`, and how review advances stage: `{"stage": "done"}`. Foreign/unknown piece → 404; invalid `stage` → 422 |
+| DELETE /api/content-pieces/{piece_id} | — | 204 | ✅ Tenant-scoped (SP1). Foreign/unknown piece → 404 |
 
 ---
 
@@ -109,6 +113,19 @@ An **avatar** in Trendfinder is two layers:
 - Claude synthesises the DNA *in the Cowork session* (from a short interview with the user) and POSTs it as structured JSON. The backend only **stores + embeds** — it never authors DNA.
 - On persona create/update the backend auto-embeds DNA best-effort. `POST /api/personas/{id}/embed-dna` is the manual trigger and surfaces errors: **503** if no Google embedder is configured on the backend, **400** if the persona has no DNA text yet.
 - `embed-dna` returning 200 (`vector_dims` set) is the proof the avatar's DNA is searchable. Until then the avatar exists and is editable, just not yet vector-matched to trends.
+
+## Content pieces — the shared content board (tenant-scoped, SP1)
+
+A **content piece** is one idea/script row shared with the frontend content board. It belongs to a persona (`persona_id` FK) and moves through **stages**: `idea → script → review → done` (`rendering` = video, out of SP1 scope). The plugin uses only the four CRUD routes above; **all writing is native in Claude**.
+
+Lifecycle the plugin drives:
+1. **Idea** — `POST /api/personas/{persona_id}/content-pieces` with `{title, pillar?, format?, hook_type?, trend_cluster_id?, stage:"idea"}` (content-plan step). Claude proposes the ideas; the backend just stores them.
+2. **Script** — after writing hooks + script natively (script-studio), `PATCH /api/content-pieces/{id}` with `{script_data:{hook, body, cta, hooks?, caption?, hashtags?, ...}, stage:"script"}`. Read the piece back to confirm `script_data` landed.
+3. **Freigabe/Review** — `PATCH /api/content-pieces/{id}` with `{stage:"done"}` on approval; reject stays at `script` (optionally `DELETE` to discard).
+
+**`script_data` is a free-form JSON object** — the plugin owns its shape. A reasonable, frontend-compatible shape: `{"hook": "...", "hooks": ["..."], "body": "...", "cta": "...", "caption": "...", "hashtags": ["..."], "ziel": "reichweite|engagement|verkauf|follower|vertrauen", "visual_notes": "...", "audio": "..."}`. Keep it consistent across pieces.
+
+**Ops-only routes the plugin must NOT call** (they spend backend LLM budget; a tenant key gets `403`): `POST /api/personas/{id}/content-pieces/generate`, `POST /api/content-pieces/{id}/generate-script`, `POST /api/content-pieces/{id}/regenerate-section`, `POST /api/content-pieces/{id}/translate`. Synthesis is native in Claude.
 
 ## Platform Limits
 
