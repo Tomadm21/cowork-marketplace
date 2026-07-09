@@ -71,6 +71,7 @@ Each element of `actions` is one discrete file-copy proposal.
 | `values` | object | yes | Key-value fields shown as **Vorschlag** in the cockpit — see conventional keys below |
 | `source_md5` | string | no (strongly recommended) | md5 of the source file **at queue-build time**. The engine refuses to apply the action if the source content no longer matches — this binds the card to file *content*, not a path, and hard-blocks look-alike-filename mix-ups (two similar PDFs swapped during queue build). Queue builders should always set it. |
 | `verify` | string | no | `"md5"` = after a fresh copy the engine re-hashes the target and removes the copy on mismatch (belt-and-braces for money-critical processes). Default: byte-size verification only (always on). |
+| `bestaetigen` | array | no | **Pflicht-Bestätigungen** — questions the reviewer MUST answer before the engine will apply the action (see section below). Each entry: `{feld, frage, wert, quelle_auszug?, bestaetigt?}`. |
 
 ### `values` conventional keys
 
@@ -90,6 +91,41 @@ Only keys relevant to the document type need to be present. The engine does not 
 > **Engine display note:** `title_of()` in the engine derives the cockpit row title from
 > `values.lieferant`, `values.nummer`, and `values.betrag` (or `belegtyp=="LF"` fallback).
 > Populating these fields makes the review list more readable.
+
+### Pflicht-Bestätigungen (`bestaetigen`)
+
+A "prüfen" note in `reason` is easy to wave through; a value the process **could not derive**
+must instead be an explicit, machine-enforced question. Real failure modes this covers: a hotel
+amount that the timesheet can never show (only Übernachtung ja/nein — silently billed as 0 EUR),
+a Montage/Fahrt split on days whose travel and work windows overlap (setting Fahrt=0 "to avoid
+guessing" is itself a silent guess), and a hard-to-read handwritten number (860 vs. 920 km).
+
+```json
+"bestaetigen": [
+  { "feld": "hotel_betrag",
+    "frage": "Tatsächliche Hotelkosten laut Beleg (2 Übernachtungen, spitz abgerechnet)?",
+    "wert": null,
+    "quelle_auszug": "Übernachtung: ☑ ja (Mo, Di) — kein Betrag im Report" }
+]
+```
+
+- `feld` — machine key the answer belongs to (also mirrored into `values.<feld>` on confirm).
+- `frage` — the question shown on the review card, full sentence, with context.
+- `wert` — `null`/missing = **unanswered**; the reviewer's answer once confirmed. A queue
+  builder may pre-fill a *proposal* only via `frage`/`quelle_auszug` text — never via `wert`.
+- `quelle_auszug` — optional short excerpt of what was actually read in the source (shows the
+  reviewer the evidence, not just the derived value).
+- `bestaetigt` — set to `true` by the confirm intent; `true` (or a non-empty `wert`) resolves
+  the entry.
+
+**Engine behaviour (hard gate):** an action with any unresolved entry
+(1) is treated as `prüfen` for display/bulk purposes even if its tier says `sicher` — it can
+never ride along in `approve-safe`; (2) is refused by `approve`, `approve-run` and
+`manual-confirm` with status `needs-confirmation` and stays in the queue. Confirming happens
+in chat (`bestätige <runid> <id>: <feld>=<wert>` — the skill patches the entry, mirrors the
+value into `values`, re-runs any deterministic computation, sets `rechecked`); only then does
+the engine apply. Numeric-money confirmations (invoicing) additionally mean: re-run
+`compute.ts` with the confirmed value and refresh the card/preview — never hand-patch totals.
 
 ---
 
@@ -145,9 +181,12 @@ queue with zero remaining actions
 Fresh copies never go directly to the final name. The engine writes chunks to `<name>.part`,
 fsyncs, verifies the **byte size** against the source and only then renames atomically
 (`os.replace`). A run that dies mid-copy (slow SMB share, execution window exceeded) leaves at
-most a `.part` fragment — unmistakably unfinished, cleaned up on retry — instead of a
-plausible-looking corrupt file under the final name. With `verify:"md5"` on the action the
-engine additionally re-hashes the finished target and removes it on mismatch.
+most a `.part` fragment — unmistakably unfinished — instead of a plausible-looking corrupt file
+under the final name. On retry the engine **resumes**: a `.part` that already matches the source
+in size AND md5 (the common "copy finished in the background, only the rename was killed" case)
+is simply renamed instead of re-copied; anything else is discarded and re-written. With
+`verify:"md5"` on the action the engine additionally re-hashes the finished target and removes
+it on mismatch.
 
 ### Collision-safe copy + content idempotency
 

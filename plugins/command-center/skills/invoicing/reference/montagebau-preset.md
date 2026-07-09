@@ -43,6 +43,14 @@ ob man die Kürzung von Montage- oder Fahrt-Anteil nimmt, kann das Skript nicht 
 zählt als weitere Fahrt-h — z. B. 2× hin+zurück wegen Regen = 4 Pendel-Fahrten × 0,5 h = 2,0 h Fahrt-h (statt
 sonst 0,5 h), und die km entsprechend verdoppelt. Wird beim Lesen des Reports erfasst, nicht vom Skript erkannt.
 
+**Grenzfall überlappende Zeitfenster — NIE stillschweigend Fahrt = 0.** Überlappen sich Reise- und
+Arbeitszeitfenster (fast) vollständig, liefert die Formel ≈ 0 Fahrt-h. Das ist eine **unsichere Lesung**,
+keine sichere Null: Referenzrechnungen zeigen an genau solchen Tagen oft doch kurze Fahrtanteile, und weil
+Montage- und Fahrtstunden unterschiedlich bepreist sind, verschiebt eine falsche Aufteilung den Betrag auch
+dann, wenn die Gesamtstunden exakt stimmen. Deshalb: betroffene Tage als **Pflicht-Bestätigung** behandeln
+(inline aktiv nachfragen; im vorbereiteten Lauf ein `bestaetigen`-Eintrag je Tag) — „0 setzen statt raten"
+ist hier selbst ein stiller Ratefehler.
+
 ## Fahrzeug-/km-Erfassung
 
 - **Nur der Fahrer** trägt km für den Tag ein (Konvention); Beifahrer bekommen `km: 0` bzw. das Feld leer.
@@ -52,6 +60,10 @@ sonst 0,5 h), und die km entsprechend verdoppelt. Wird beim Lesen des Reports er
   mappen, falls der Report abweichend schreibt (Tippfehler wie „TE GA 1002" für Fahrzeug 1002 → korrekt
   `ST GA 1002`, wenn das die hinterlegte Bezeichnung für …1002 ist).
 - `vehicle` je Row optional überschreibbar; sonst greift `people[person].vehicle` als Default.
+- **Schwer lesbare Zahlen = Pflicht-Bestätigung.** Eine handschriftliche km-Zahl (oder Uhrzeit), die nicht
+  eindeutig lesbar ist, bekommt dieselbe Bestätigungspflicht wie ein unklares Kennzeichen: gelesenen Wert +
+  plausible Alternative(n) nennen (z. B. „860 oder 920?") und bestätigen lassen, statt die unsichere Lesung
+  als sicher weiterzureichen — eine 60-km-Fehllesung ist bei 0,75 €/km ein direkter Rechnungsfehler.
 
 ## Anreise-/Heimfahrt-km: immer ab Firmensitz
 
@@ -132,3 +144,9 @@ Am Ende: Zusammenstellung pro Monteur + Geräte, `summe_netto`, `mwst_betrag`, `
 `people` und `vehicles` werden im Onboarding aus der Preisliste/den Fahrzeugen der Firma befüllt (Frage 4 in
 `reference/onboarding.md`, dort Option „Montagebau-Preset (Montage-/Fahrt-Satz getrennt, Sa/So getrennt,
 Geräte-Position)" statt der einfachen Ein-Satz-Variante).
+
+**`hotel_cost: 0` = spitz nach Beleg.** Rechnet die Firma Hotelkosten spitz ab (Config-Wert `0` statt einer
+Nacht-Pauschale), ist der tatsächliche Betrag **nie** aus dem Report ableitbar — dort steht nur Übernachtung
+ja/nein. Jede Woche mit Übernachtungen braucht dann den Belegbetrag als **Pflicht-Bestätigung** (inline
+erfragen bzw. `bestaetigen`-Eintrag `hotel_betrag` auf der Queue-Aktion); `compute.ts` warnt zusätzlich.
+Ein still mit 0 EUR durchgereichter Hotel-Posten ist keine vorsichtige Annahme, sondern eine falsche Rechnung.

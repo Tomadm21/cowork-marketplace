@@ -10,6 +10,7 @@ Drei Bausteine je AKTUELLEM Prozess: (1) pro Posten eine **volle, editierbare Ka
 ## (1) Volle editierbare Karte je Posten (`show_widget`)
 Zeigt ALLES und macht es bearbeitbar:
 - Kopf: Stufen-Badge (`sicher`/`prüfen`/`folgenreich`) + Titel (`values.lieferant`+`nummer`+`betrag`, sonst `filename`).
+- **Pflicht-Bestätigungs-Block** (nur wenn der Posten `bestaetigen`-Einträge trägt, aus `list` mitgeliefert): eigener, farblich hervorgehobener Block GANZ OBEN in der Karte — Überschrift „⚠️ Pflicht-Bestätigung (<n>)", je Eintrag die `frage`, darunter kursiv der `quelle_auszug` (was wirklich im Dokument steht), ein leeres Antwort-Input (`data-pflicht="<feld>"`) und ein Button **„Bestätigen"**. Kein vorbefüllter Antwortwert — der Reviewer soll die Zahl aktiv liefern, nicht durchwinken. Solange Einträge offen sind, weist die Karte darauf hin, dass die Engine den Posten bei der Prozess-Freigabe überspringt.
 - **Editierbare Felder** (Inputs, vorbefüllt):
   - `Dateiname` = `filename`
   - `Speicherort` = `targets` (wohin gespeichert wird; mehrzeilig möglich)
@@ -25,6 +26,10 @@ function uebernehmen(key, el){
   c.querySelectorAll('[data-feld]').forEach(i=>{ if(i.value!==i.defaultValue) ch.push(i.dataset.feld+'='+i.value); });
   if(ch.length) sendPrompt('bearbeite '+key.replace(':',' ')+': '+ch.join('; '));
 }
+function bestaetigen(key, el){
+  const i = el.closest('.pflicht').querySelector('[data-pflicht]');
+  if(i && i.value) sendPrompt('bestätige '+key.replace(':',' ')+': '+i.dataset.pflicht+'='+i.value);
+}
 function ablehnen(key){ sendPrompt('lehne ab: '+key.replace(':',' ')); }
 function freigebenProzess(proc){ sendPrompt('freigeben prozess '+proc); }
 </script>
@@ -39,7 +44,7 @@ Eingaben mit `data-feld="filename|targets|betrag|…"`; `defaultValue` = Origina
 ## (2) Native Vorschau-Boxen je Posten (`present_files`)
 **Unmittelbar nach der Karte** ein `present_files`-Aufruf für diesen Posten:
 `present_files([ <_firma/_review/_preview/ Ergebnis-Datei>, <source Quelle-Datei> ])`
-→ 1–2 längliche, klickbare Datei-Boxen; Klick öffnet die Datei **nativ rechts in der Sidebar** (kein Chat-Prompt). Reihenfolge: 📄 Ergebnis zuerst, dann 📎 Quelle. Nur **eine** Box, wenn kein eigenständiges Ergebnis existiert.
+→ 1–2 längliche, klickbare Datei-Boxen; Klick öffnet die Datei **nativ rechts in der Sidebar** (kein Chat-Prompt). Reihenfolge: 📄 Ergebnis zuerst, dann 📎 Quelle. Nur **eine** Box, wenn kein eigenständiges Ergebnis existiert — das ist der Normalfall bei reinem Umbenennen/Kopieren (Fotos, Bericht-Scans, unveränderte PDFs): dort gibt es **kein** Preview-Duplikat (SKILL Step 3), die eine Box zeigt die Quelle und der Zielname steht auf der Karte.
 
 ## (3) „Freigeben (Prozess)"-Widget (nach allen Posten)
 Ein kleines `show_widget`: Überschrift „<Emoji> <Prozess> — <N> Posten" und Button **„Freigeben — <Prozess> speichern (<N>)"** → `sendPrompt('freigeben prozess <process>')`. Hinweis: „Einzelne oben mit *Ablehnen* rausnehmen; *Übernehmen* korrigiert Felder."
@@ -48,9 +53,10 @@ Ein kleines `show_widget`: Überschrift „<Emoji> <Prozess> — <N> Posten" und
 | Aktion | Nachricht |
 |---|---|
 | Felder übernehmen | `bearbeite <runid> <id>: <feld>=<wert>; <feld>=<wert>` |
+| Pflichtfeld bestätigen | `bestätige <runid> <id>: <feld>=<wert>` (patcht den `bestaetigen`-Eintrag: `wert` + `bestaetigt: true`, spiegelt nach `values`; Geld-Werte → `compute.ts` neu laufen lassen; erst dann wendet die Engine den Posten an) |
 | Ablehnen | `lehne ab: <runid> <id>` |
-| Prozess freigeben | `freigeben prozess <process>` |
-| Manuell erledigt | `manuell erledigt: <runid> <id>` (Nutzer hat selbst kopiert → Engine `manual-confirm`: prüft Größe+md5 am Ziel, journaled `copied-manually`, räumt die Karte ab) |
+| Prozess freigeben | `freigeben prozess <process>` (Engine überspringt Posten mit offener Pflicht-Bestätigung als `needs-confirmation` — danach offen benennen) |
+| Manuell erledigt | `manuell erledigt: <runid> <id>` (Nutzer hat selbst kopiert → Engine `manual-confirm`: prüft Größe+md5 am Ziel, journaled `copied-manually`, räumt die Karte ab; verweigert bei offener Pflicht-Bestätigung) |
 
 Beispiele:
 - `bearbeite R-2026-06-24-receipt-filing 2: kategorie=Kfz/Fahrzeug; targets=001 Galant Bau GmbH/001. Buchhaltung/2026/05-26/Ausgaben`
