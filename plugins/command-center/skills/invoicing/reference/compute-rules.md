@@ -39,6 +39,7 @@ The deterministic rules the invoice math follows. **These are implemented in `sc
 
 - A person not in `config.people` → `default_tier` assumed + warning.
 - A vehicle not in `config.vehicles` (if that map is set) → warning, amount still computed.
+- Hotel nights with `hotel_cost: 0` (spitz nach Beleg) → warning that the actual amount must be supplied from the hotel receipt — it can never be derived from the timesheet (only Übernachtung ja/nein is recorded); a silent 0-EUR hotel line is a wrong invoice, not a cautious one. The skill turns this into a Pflicht-Bestätigung (inline question / `bestaetigen` queue entry).
 - Capped/over-cap days, the spesen heuristic, the hotel-flag consistency check, and unresolvable vehicles all emit warnings so the operator reviews before the invoice is finalized (honest-status discipline).
 
 ## Output
