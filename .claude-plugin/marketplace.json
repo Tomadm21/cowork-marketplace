@@ -48,7 +48,7 @@
       "name": "trendfinder",
       "source": "./plugins/trendfinder",
       "description": "Trend data → content decisions in Cowork, now with a guided end-to-end journey. The journey coach detects where you are (avatar? trends? open scripts?) and walks you avatar → scrape → trends → content-plan → script → review, one recommended click at a time. Avatar-first onboarding (Trendfinder API key, Apify MCP connector for on-demand scrapes, describe an avatar → niche(s) with AI-derived scrape topics, no hand-typed hashtags, optional 24/7 schedules); content-plan proposes ideas from avatar DNA + live trends and saves them to the shared content board (same content_pieces the web frontend uses); script-studio writes avatar-voiced hooks + scripts natively and persists them (stage idea → script); review approves or rejects finished scripts (stage → done); plus trend-radar, trend-briefing (Live Artifact), scheduling, avatar-studio, and the Trendfinder-Cockpit with Trends, Avatare and Content tabs. Every skill ends with an interactive next-step option block. AI synthesis runs natively in Cowork; the backend only stores and scrapes.",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "author": {
         "name": "Tom Adomeit"
       },
