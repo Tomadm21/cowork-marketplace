@@ -5,30 +5,29 @@ description: The guided Trendfinder start — detects where you are and walks yo
 
 # Trendfinder — Journey (geführter Einstieg)
 
-Goal: be the **spine** of the whole Avatar→Script flow. Detect the current state, tell the user in one line where they are, and offer exactly **one ⭐ recommended next step** (plus the other sensible options) as a select-block — then delegate to the matching skill. The single-purpose skills stay underneath; this one just orchestrates and never writes data. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` and `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` first. All API calls via `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh`.
+Goal: be the **spine** of the whole Avatar→Script flow. Detect the current state, tell the user in one line where they are, and offer exactly **one ⭐ recommended next step** (plus the other sensible options) as a select-block — then delegate to the matching skill. The single-purpose skills stay underneath; this one just orchestrates and never writes data. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` and `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` first. All API calls via the **`tf_request` tool** of the plugin's `trendfinder` MCP server (returns `{ok, status, body}` for every HTTP status).
 
 ## Step 0 — Config / connection gate
 
-1. Check `{workspace}/.trendfinder/config.json` exists.
-2. If it does, `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health`.
+Call `tf_health {}`.
 
-Missing config or non-200 → state = **not set up** → ⭐ „⚙️ Einrichtung" → route to `onboarding`. Do not detect further.
+Config error or non-200 → state = **not set up** → ⭐ „⚙️ Einrichtung" → route to `onboarding`. Do not detect further.
 
 ## Step 1 — Detect state (read-only)
 
 Fetch, tolerating empties (never invent):
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
+tf_request { "method": "GET", "endpoint": "/api/brands" }
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
 Then, if ≥1 niche, check trends for the chosen niche (see Tie-Break below), and if ≥1 avatar, check the chosen avatar's open pieces:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET "/api/personas/<persona_id>/content-pieces?stage=idea"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET "/api/personas/<persona_id>/content-pieces?stage=script"
+tf_request { "method": "GET", "endpoint": "/api/trends/<niche_id>" }
+tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pieces?stage=idea" }
+tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pieces?stage=script" }
 ```
 
 **Mehrere Avatare / Niches (Tie-Break):**
@@ -70,11 +69,11 @@ On the user's pick, invoke the matching skill. After that skill finishes, its ow
 - Detection is **read-only** — the journey never creates/patches/deletes; the delegated skills do that.
 - Base the state on real API responses; an empty list is a real state ("noch keine Ideen"), never a reason to invent one.
 - Config missing / health≠200 → always route to `onboarding`, never guess past a broken connection.
-- Use `tf.sh`; never print the API key.
+- Use `tf_request`; never print the API key.
 
 ## Done means
 
-- Connection gated (config + `/health`), else routed to onboarding.
+- Connection gated (`tf_health`), else routed to onboarding.
 - State detected from real API responses (brands, niches, trends, idea/script pieces).
 - Exactly one ⭐ next step shown in a select-block, with the other sensible options; correct skill invoked on pick.
 

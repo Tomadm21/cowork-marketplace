@@ -1,14 +1,16 @@
 ---
 name: onboarding
 description: >-
-  First-time Trendfinder setup AND avatar-first creation. Use when the user says "richte Trendfinder ein", "set up trendfinder", "trendfinder setup", "Avatar anlegen", "Avatar erstellen", "create an avatar", "neue Persona", "Marke anlegen", "Themen neu ableiten", "Hashtags verbessern" — or whenever any Trendfinder skill is invoked and {workspace}/.trendfinder/config.json is missing. Walks the user avatar-first: access → Apify connector → avatar (brand+persona+DNA) → niche(s) derived from the avatar with AI-derived scrape topics (the user never types hashtags) → Cockpit. Also re-derives topics for existing niches. 24/7 scheduled scraping is an optional add-on.
+  First-time Trendfinder setup AND avatar-first creation. Use when the user says "richte Trendfinder ein", "set up trendfinder", "trendfinder setup", "Avatar anlegen", "Avatar erstellen", "create an avatar", "neue Persona", "Marke anlegen", "Themen neu ableiten", "Hashtags verbessern" — or whenever any Trendfinder skill is invoked and the `tf_health` tool reports that no Trendfinder config is reachable. Walks the user avatar-first: access → Apify connector → avatar (brand+persona+DNA) → niche(s) derived from the avatar with AI-derived scrape topics (the user never types hashtags) → Cockpit. Also re-derives topics for existing niches. 24/7 scheduled scraping is an optional add-on.
 ---
 
 # Trendfinder Onboarding
 
 Goal: connect this workspace to the customer's Trendfinder tenant (once), then walk the user **avatar-first**: create or extend an avatar (Marke + Persona + DNA), let Claude derive the niche(s) it covers and the scrape topics for each niche from the avatar's own DNA, show the derived topics for a light confirm, attach the niche(s) to the avatar, and end on the Cockpit artifact. **The user never types a hashtag** — Claude derives, self-checks, and shows; the user only confirms or nudges. The same flow also lets an existing avatar be extended with a new niche, and re-derives topics for an existing niche (e.g. to fix an old, over-broad hashtag list).
 
-Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints, ID rules, and the DNA body shape (§ "Avatars — Brands, Personas & DNA"). Before deriving any topics (Step 6/7), read `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md` — the derivation ruleset Claude applies to itself. All API calls use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call the API with raw curl or an inline key.
+Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints, ID rules, and the DNA body shape (§ "Avatars — Brands, Personas & DNA"). Before deriving any topics (Step 6/7), read `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md` — the derivation ruleset Claude applies to itself.
+
+**Transport:** All API calls use the **`tf_request` tool** of the plugin's `trendfinder` MCP server (tool list name depends on the host, e.g. `mcp__trendfinder__tf_request` or `mcp__plugin_trendfinder_trendfinder__tf_request` — in this file just `tf_request`). The server runs host-side outside the sandbox, injects the `X-API-Key` itself, and returns `{ok, status, body}` for EVERY HTTP status — 4xx/5xx are data to branch on, not exceptions. Companion tools: `tf_health` (connectivity probe, no auth) and `tf_configure` (one-time access deposit). Never call the API via curl/bash and never with an inline key.
 
 **Default path (this skill):** Zugang → Apify-Connector → Avatar (Marke + Persona + DNA) → Niche(s) mit KI-abgeleiteten Themen → Cockpit. Zugang und Apify-Connector laufen nur beim allerersten Mal (Step 0 erkennt das automatisch und überspringt sie sonst). On-demand-Scrapes (du sagst „jetzt scrapen") laufen über den Apify-Connector.
 
@@ -18,16 +20,17 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is
 
 ## Step 0 — Self-check (drei Zustände)
 
-Bevor irgendetwas anderes passiert, bestimme, in welchem der drei Zustände sich dieser Workspace befindet — ein abgelaufener Schlüssel bei Wiedereinstieg ist dabei ein **normaler** Fall, kein Randfall:
+Bevor irgendetwas anderes passiert, bestimme, in welchem der drei Zustände sich dieser Workspace befindet — ein abgelaufener Schlüssel bei Wiedereinstieg ist dabei ein **normaler** Fall, kein Randfall. Rufe dazu `tf_health` (ohne Argumente) auf:
 
-1. Prüfe, ob `{workspace}/.trendfinder/config.json` existiert.
-2. Falls ja, rufe `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health` auf.
+```
+tf_health {}
+```
 
-**Zustand A — Config fehlt (First-Run).** Kein `config.json` vorhanden: durchlaufe Step 1 (Zugang einfügen) und Step 2 (Apify-Connector), dann weiter in den Avatar-Flow (Step 3).
+**Zustand A — keine Config auffindbar (First-Run).** `tf_health` meldet einen `config:`-Fehler („no .trendfinder/config.json found …"): durchlaufe Step 1 (Zugang einfügen) und Step 2 (Apify-Connector), dann weiter in den Avatar-Flow (Step 3).
 
-**Zustand B — Config vorhanden UND `/health` liefert 200.** Zugang und Connector komplett überspringen — direkt in den Avatar-Flow (Step 3). Das ist der Weg, über den „Avatar anlegen" / „noch einen Avatar" jederzeit wieder einsteigt. Sag dem Nutzer NICHT, er solle das Onboarding neu durchlaufen — erkenne stattdessen den bestehenden Zustand (das übernimmt Step 3) und biete an: neuer Avatar / bestehenden erweitern / Themen neu ableiten.
+**Zustand B — Config gefunden UND `tf_health` liefert `status: 200`.** Zugang und Connector komplett überspringen — direkt in den Avatar-Flow (Step 3). Das ist der Weg, über den „Avatar anlegen" / „noch einen Avatar" jederzeit wieder einsteigt. Sag dem Nutzer NICHT, er solle das Onboarding neu durchlaufen — erkenne stattdessen den bestehenden Zustand (das übernimmt Step 3) und biete an: neuer Avatar / bestehenden erweitern / Themen neu ableiten.
 
-**Zustand C — Config vorhanden, ABER `/health` liefert NICHT 200** (abgelaufener/widerrufener Schlüssel). Behandle nur den Zugangsteil wie einen Erstlauf: wiederhole Step 1's Zugangs-Erfassung (dieselbe 401/non-2xx-Behandlung — Config löschen, „Dein Zugang"-Block erneut erfragen), bis `/health` 200 liefert. Der Apify-Connector (Step 2) muss dabei NICHT erneut bestätigt werden — er ist Cowork-seitiger Zustand, unabhängig vom Trendfinder-API-Schlüssel. Erst danach in den Avatar-Flow (Step 3) weitergehen. **Bei kaputter Verbindung niemals in den Avatar-Flow weitergehen.**
+**Zustand C — Config gefunden (kein `config:`-Fehler), ABER `tf_health` liefert NICHT `status: 200`** (abgelaufener/widerrufener Schlüssel, oder Backend down). Behandle nur den Zugangsteil wie einen Erstlauf: wiederhole Step 1's Zugangs-Erfassung (dieselbe 401/non-2xx-Behandlung — „Dein Zugang"-Block erneut erfragen, `tf_configure` überschreibt den alten Zugang), bis `tf_health` 200 liefert. Der Apify-Connector (Step 2) muss dabei NICHT erneut bestätigt werden — er ist Cowork-seitiger Zustand, unabhängig vom Trendfinder-API-Schlüssel. Erst danach in den Avatar-Flow (Step 3) weitergehen. **Bei kaputter Verbindung niemals in den Avatar-Flow weitergehen.**
 
 ---
 
@@ -45,22 +48,28 @@ Capture the pasted text via ✏️ free-text. **Extract `base_url` and `api_key`
 Server: https://… — Schlüssel: <key>
 ```
 
-Parse the URL (the `https://…` value after "Server:") and the key (the value after "Schlüssel:"). If the user pastes only a bare key without a URL, ask once for the server URL too. **Validate** you have both a plausible `https://` URL and a non-empty key, then write them to `{workspace}/.trendfinder/config.json` as `{ "base_url": "...", "api_key": "..." }`. Do NOT echo the key back; confirm only: `"Zugang erkannt — Key endet auf …XXXX"`.
+Parse the URL (the `https://…` value after "Server:") and the key (the value after "Schlüssel:"). If the user pastes only a bare key without a URL, ask once for the server URL too. **Validate** you have both a plausible `https://` URL and a non-empty key, then deposit them via the MCP server (host-seitig, überlebt Session-Wechsel):
 
-**If the key is missing or empty:** tell the user the access block looks incomplete and ask them to paste the whole block again. Do NOT proceed and do NOT write a partial config. Never hardcode a backend URL in the plugin — it always comes from the pasted access block.
+```
+tf_configure { "base_url": "<https://…>", "api_key": "<key>" }
+```
+
+Do NOT echo the key back; confirm only: `"Zugang erkannt — Key endet auf …XXXX"`.
+
+**If the key is missing or empty:** tell the user the access block looks incomplete and ask them to paste the whole block again. Do NOT proceed and do NOT call `tf_configure` with a partial access block. Never hardcode a backend URL in the plugin — it always comes from the pasted access block.
 
 Then immediately prove the connection — run both checks:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
+tf_health {}
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
-**On 401 from either call:** the key is wrong — delete the config file so no invalid state persists, ask for the access block again, and do NOT proceed. Repeat until connection succeeds or the user aborts. (This exact handling is what Step 0's Zustand C reuses on stale-key re-entry.)
+**On `status: 401` from the second call:** the key is wrong — ask for the access block again and call `tf_configure` with the corrected access (it overwrites the previous deposit). Do NOT proceed. Repeat until connection succeeds or the user aborts; on abort, tell the user the stored access is invalid and onboarding must be re-run. (This exact handling is what Step 0's Zustand C reuses on stale-key re-entry.)
 
-**On any non-2xx response that is NOT a 401 (5xx, timeout/network error):** report the error verbatim, leave the config file in place, and ask the user whether to retry or abort — do NOT proceed to Step 2.
+**On any non-2xx that is NOT a 401 (5xx, timeout/network error in the tool result):** report the error verbatim, leave the deposited access in place, and ask the user whether to retry or abort — do NOT proceed to Step 2.
 
-**On success:** the connection is proven. Continue to Step 2 (Apify-Connector) — Step 3 presents the full detected state (avatars + niches) right after. (außerhalb eines Zustand-C-Wiedereintritts — dort geht es nach erfolgreicher Zugangs-Erfassung direkt zu Step 3.)
+**On success:** the connection is proven. Now ALSO write the workspace copy `{workspace}/.trendfinder/config.json` as `{ "base_url": "...", "api_key": "..." }` (via bash file write, never echoed to chat) — it pins this workspace to its tenant and keeps the CLI-Debughelfer im Plugin-`scripts/`-Ordner funktionsfähig. Continue to Step 2 (Apify-Connector) — Step 3 presents the full detected state (avatars + niches) right after. (außerhalb eines Zustand-C-Wiedereintritts — dort geht es nach erfolgreicher Zugangs-Erfassung direkt zu Step 3.)
 
 ---
 
@@ -100,8 +109,8 @@ Egal ob frisch verbunden (Step 1+2) oder direkt hierher gesprungen (Step 0, Zust
 Fetch:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
+tf_request { "method": "GET", "endpoint": "/api/brands" }
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
 `GET /api/niches/config` liefert pro Niche jetzt zusätzlich ein `personas: [{persona_id, display_name}]`-Array — nutze es, um zu zeigen, zu welchem Avatar/welchen Avataren eine Niche gehört. Ruf außerdem pro Marke `GET /api/brands/<brand_id>/personas` ab (liefert die Persona-Namen unter jeder Marke) — diese Liste brauchst du gleich in Step 4a, um einen Avatar nummeriert auswählen zu lassen.
@@ -154,12 +163,11 @@ Dies ist der Kern des neuen Flows und läuft **nativ in Claude** — das Backend
 **Marke wählen oder anlegen (nummeriert, nie ein stiller Auto-Attach).** Hat der Tenant bereits Marken, zeige sie nummeriert plus die Option „neue Marke". Bei „neue Marke" (oder null Marken): Anzeigename slugifizieren → `brand_id` (klein schreiben, Leerzeichen → `-`, alles außer `[a-z0-9-]` entfernen, zur globalen Eindeutigkeit präfixen), dann:
 
 ```
-BRAND_BODY=$(mktemp)   # real temp dir, NOT the synced workspace
-echo '{"brand_id":"<slug>","display_name":"<Name>","mission":"...","target_audience":"..."}' > "$BRAND_BODY"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/brands @"$BRAND_BODY"; rm -f "$BRAND_BODY" 2>/dev/null || : > "$BRAND_BODY"
+tf_request { "method": "POST", "endpoint": "/api/brands",
+             "body": { "brand_id": "<slug>", "display_name": "<Name>", "mission": "...", "target_audience": "..." } }
 ```
 
-Interpretieren: **201** angelegt · **409** Slug bereits vergeben (global eindeutig) → neu slugifizieren und erneut versuchen · **422** Feld fehlerhaft → korrigieren · **401/400** Tenant-Fehler → zurück zum Zugang (Step 0, Zustand C).
+Interpretieren (`result.status`): **201** angelegt · **409** Slug bereits vergeben (global eindeutig) → neu slugifizieren und erneut versuchen · **422** Feld fehlerhaft → korrigieren · **401/400** Tenant-Fehler → zurück zum Zugang (Step 0, Zustand C).
 
 Existiert die Marke schon, einfach ihre `brand_id` weiterverwenden.
 
@@ -172,22 +180,23 @@ Existiert die Marke schon, einfach ihre `brand_id` weiterverwenden.
 
 Jedes DNA-Feld ist optional — eine unvollständige DNA ist völlig in Ordnung — aber jedes Feld, das du sendest, muss exakt seiner Form entsprechen.
 
-**Zeig die synthetisierte DNA und lass den Nutzer bestätigen, bevor du sie schreibst.** Dann die Persona anlegen (`persona_id` = slugifizierter Name, mit der Marke präfixt — z. B. `tom-beauty-anna`) — den vollständig bestätigten Body in die Temp-Datei schreiben, dann:
+**Zeig die synthetisierte DNA und lass den Nutzer bestätigen, bevor du sie schreibst.** Dann die Persona anlegen (`persona_id` = slugifizierter Name, mit der Marke präfixt — z. B. `tom-beauty-anna`) — der vollständig bestätigte Body geht direkt als JSON-Objekt ins Tool:
 
 ```
-PERSONA_BODY=$(mktemp)   # real temp dir, NOT the synced workspace
-# body = {"persona_id":"<brand>-<name>","display_name":"<Name>","persona_profile":{...},"tone_of_voice":{...},"content_pillars":[{...}],"system_prompt":"...","interests":"...","origin_story":"..."}
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/brands/<brand_id>/personas @"$PERSONA_BODY"; rm -f "$PERSONA_BODY" 2>/dev/null || : > "$PERSONA_BODY"
+tf_request { "method": "POST", "endpoint": "/api/brands/<brand_id>/personas",
+             "body": { "persona_id": "<brand>-<name>", "display_name": "<Name>", "persona_profile": {...},
+                       "tone_of_voice": {...}, "content_pillars": [{...}], "system_prompt": "...",
+                       "interests": "...", "origin_story": "..." } }
 ```
 
-Interpretieren: **201** angelegt · **409** `persona_id` bereits vergeben → neu slugifizieren und erneut versuchen · **404** Marke gehört nicht diesem Tenant → Marke oben neu auflösen · **422** Feld fehlerhaft.
+Interpretieren (`result.status`): **201** angelegt · **409** `persona_id` bereits vergeben → neu slugifizieren und erneut versuchen · **404** Marke gehört nicht diesem Tenant → Marke oben neu auflösen · **422** Feld fehlerhaft.
 
-**Read-back (Ehrlichkeitsregel):** `GET /api/personas/<persona_id>` aufrufen und bestätigen, dass die gesendeten DNA-Felder tatsächlich in der Antwort stehen — BEVOR du fortfährst. Ein 201, das die DNA-Felder still verworfen hat, zählt nicht als angelegt.
+**Read-back (Ehrlichkeitsregel):** `tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>" }` aufrufen und bestätigen, dass die gesendeten DNA-Felder tatsächlich in der Antwort stehen — BEVOR du fortfährst. Ein 201, das die DNA-Felder still verworfen hat, zählt nicht als angelegt.
 
 Dann embedden:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/embed-dna
+tf_request { "method": "POST", "endpoint": "/api/personas/<persona_id>/embed-dna" }
 ```
 
 Ehrlich berichten: **200** `{"status":"embedded", "vector_dims":N}` → DNA ist durchsuchbar · **503** → kein Google-Embedder auf dem Backend konfiguriert — der Avatar existiert und ist trotzdem voll nutzbar, nur noch nicht vektor-gematcht, sag das genau so · **400** → noch keine DNA vorhanden.
@@ -236,9 +245,10 @@ Der Nutzer tippt an keiner Stelle einen Hashtag ein — er sieht die abgeleitete
 Neue Niche (Create-and-Attach) — die `*_enabled`-Flags an den Plattform-Fokus des Avatars anpassen (aus dem Step-4-Fragebogen: „Plattform-Fokus (TikTok / Instagram / YouTube Shorts)?") — ungenutzte Plattformen auf `false`, die Niche soll nur dort scrapen, wo der Avatar auch postet:
 
 ```
-NICHE_BODY=$(mktemp)   # real temp dir, NOT the synced workspace
-echo '{"display_name":"<prefixed niche name>","tiktok_hashtags":["..."],"instagram_hashtags":["..."],"youtube_search_queries":["..."],"instagram_enabled":true,"youtube_enabled":true}' > "$NICHE_BODY"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/niches @"$NICHE_BODY"; rm -f "$NICHE_BODY" 2>/dev/null || : > "$NICHE_BODY"
+tf_request { "method": "POST", "endpoint": "/api/personas/<persona_id>/niches",
+             "body": { "display_name": "<prefixed niche name>", "tiktok_hashtags": ["..."],
+                       "instagram_hashtags": ["..."], "youtube_search_queries": ["..."],
+                       "instagram_enabled": true, "youtube_enabled": true } }
 ```
 
 (Niche-Slugs sind global eindeutig — den Anzeigenamen wie gehabt mit Tenant/Marke präfixen.)
@@ -246,10 +256,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/niches 
 Bestehende (geteilte) Niche — Attach-Existing (KEINE Themen-Ableitung, die geteilte Niche behält ihre Konfiguration):
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/niches '{"niche_id":"<existing niche_id>"}'
+tf_request { "method": "POST", "endpoint": "/api/personas/<persona_id>/niches", "body": { "niche_id": "<existing niche_id>" } }
 ```
 
-Interpretieren: **200** verknüpft (liefert die Niche inkl. Scrape-Konfiguration zurück) · **409** — zwei mögliche Ursachen: bereits verknüpft (dem Nutzer sagen, dass sie schon verknüpft ist) ODER der abgeleitete Niche-Slug existiert schon (Anzeigename neu präfixen/slugifizieren und erneut versuchen, wie bei Marke/Persona) · **404** fremde Persona oder Niche · **422** fehlerhaft, oder beide/keins der Felder `niche_id`/`display_name` gesetzt.
+Interpretieren (`result.status`): **200** verknüpft (liefert die Niche inkl. Scrape-Konfiguration zurück) · **409** — zwei mögliche Ursachen: bereits verknüpft (dem Nutzer sagen, dass sie schon verknüpft ist) ODER der abgeleitete Niche-Slug existiert schon (Anzeigename neu präfixen/slugifizieren und erneut versuchen, wie bei Marke/Persona) · **404** fremde Persona oder Niche · **422** fehlerhaft, oder beide/keins der Felder `niche_id`/`display_name` gesetzt.
 
 **Read-back (Ehrlichkeitsregel):** die Antwort lesen und bestätigen, dass die Hashtags nicht leer angekommen sind. Die zurückgegebene `niche_id` immer weitertragen. Für jede Niche wiederholen.
 
@@ -259,13 +269,14 @@ Interpretieren: **200** verknüpft (liefert die Niche inkl. Scrape-Konfiguration
 
 ## Step 7 — Themen einer bestehenden Niche neu ableiten (Einstieg: Option 3 aus Step 3, oder „Themen neu ableiten")
 
-1. **Niche wählen** aus `GET /api/niches/config`.
+1. **Niche wählen** aus `tf_request { "method": "GET", "endpoint": "/api/niches/config" }`.
 2. **Ableitungs-Linse = die verknüpfte Avatar-DNA** (aus dem `personas[]`-Array der Niche). Mehrere verknüpfte Avatare → fragen, welcher, oder das Nischen-Thema selbst nutzen. **Avatar-lose Niche** → erst anbieten, einen Avatar zu verknüpfen (Attach-Existing aus Step 6), dann weiter.
 3. **Themen ableiten** — identisch zu Step 6 (Regelwerk + Selbst-Check aus `niche-hashtags.md`).
 4. **Diff zeigen: aktuell vs. Vorschlag** — die aktuellen `tiktok_hashtags`/`instagram_hashtags`/`youtube_search_queries` der Niche neben die neu abgeleiteten stellen → bestätigen/nudgen. **Dieselbe Regel wie in Step 6 gilt auch hier:** der Selbst-Check läuft bei jeder erneut gezeigten Liste, und ein Nudge, der einen geblockten/falschsprachigen Tag vorschlägt, wird nicht ungeprüft übernommen.
 5. Nach Bestätigung:
    ```
-   bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PUT /api/niches/config/<niche_id> '{"tiktok_hashtags":["..."],"instagram_hashtags":["..."],"youtube_search_queries":["..."]}'
+   tf_request { "method": "PUT", "endpoint": "/api/niches/config/<niche_id>",
+                "body": { "tiktok_hashtags": ["..."], "instagram_hashtags": ["..."], "youtube_search_queries": ["..."] } }
    ```
 6. **Read-back** — per erneutem `GET` auf die Niche oder einfach anhand der `PUT`-Antwort, je nachdem was sauber zurückkommt — und bestätigen, dass die neuen Werte angekommen sind.
 7. **Ehrlich sagen:** ein Config-Update scrapt NICHT von selbst — die alten, bereits gescrapten Videos bleiben stehen. Einen frischen Scrape anbieten (→ `scrape-now`), damit die besseren Tags wirken.
@@ -276,10 +287,10 @@ Interpretieren: **200** verknüpft (liefert die Niche inkl. Scrape-Konfiguration
 
 ## Step 8 — Cockpit + erster Scrape (Abschluss)
 
-Cockpit generieren, damit der Nutzer selbst im Cold-Start-Zustand auf dem Artifact landet:
+Cockpit generieren, damit der Nutzer selbst im Cold-Start-Zustand auf dem Artifact landet — nach dem Snapshot-Verfahren des `cockpit`-Skills (dessen Step 1 ist die kanonische Anleitung): Daten via `tf_request` ziehen, Snapshot-JSON nach `{workspace}/.trendfinder/cockpit-snapshot.json` schreiben, dann:
 
 ```
-if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
+if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts --data <snapshot.json> <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts --data <snapshot.json> <workspace_root>; fi
 ```
 
 Eine frische Niche hat noch keine Trends — ehrlich sagen:
@@ -307,19 +318,19 @@ Willst du gleich deinen ersten Scrape starten?
 **Umbenennen** — nur der Anzeigename, der `niche_id`-Slug ist unveränderlich:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PUT /api/niches/config/<niche_id> '{"display_name":"<neuer Name>"}'
+tf_request { "method": "PUT", "endpoint": "/api/niches/config/<niche_id>", "body": { "display_name": "<neuer Name>" } }
 ```
 
 **Von einem Avatar trennen** (falls die Niche mehrere Avatare hat, zuerst auswählen lassen, von welchem):
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE /api/personas/<persona_id>/niches/<niche_id>
+tf_request { "method": "DELETE", "endpoint": "/api/personas/<persona_id>/niches/<niche_id>" }
 ```
 
 - **204** → die Niche hat noch andere Avatare (nur die Verknüpfung entfernt, Daten bleiben erhalten).
 - **409 `last_avatar`** → es ist der letzte Avatar der Niche. NUR nach expliziter Nutzer-Bestätigung erneut aufrufen, mit `?confirm_delete=true`:
   ```
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE "/api/personas/<persona_id>/niches/<niche_id>?confirm_delete=true"
+  tf_request { "method": "DELETE", "endpoint": "/api/personas/<persona_id>/niches/<niche_id>?confirm_delete=true" }
   ```
   Das löscht die Niche inklusive ihrer Trends/Videos/Zeitpläne/Jobs und liefert **`200 {"status":"deleted", ...}`** zurück (kein 204). Kann selbst nochmal **409** liefern, wenn gerade ein Scrape aktiv läuft — dann dem Nutzer sagen, kurz zu warten und es erneut zu versuchen.
 
@@ -333,7 +344,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE /api/personas/<persona_id>/niche
 
 Im Default-Onboarding nicht nötig — nur falls die Kundin später automatische Scrapes im Hintergrund will (auch wenn Cowork zu ist):
 
-1. Einen Apify-Token im Backend hinterlegen: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/tenant/settings '{"apify_api_key":"<token>"}'` (erwartet `{"ok": true}`). Danach `"backend_apify_token_deposited": true` in `{workspace}/.trendfinder/config.json` ergänzen (bestehende Schlüssel behalten) — der `scheduler`-Skill liest diesen Marker, bevor er Zeitpläne aktiviert.
+1. Einen Apify-Token im Backend hinterlegen: `tf_request { "method": "POST", "endpoint": "/api/tenant/settings", "body": { "apify_api_key": "<token>" } }` (erwartet `status: 200/201` mit `{"ok": true}`). Danach `"backend_apify_token_deposited": true` in `{workspace}/.trendfinder/config.json` ergänzen (bestehende Schlüssel behalten) — der `scheduler`-Skill liest diesen Marker, bevor er Zeitpläne aktiviert.
 2. Dann einen Zeitplan anlegen — am einfachsten über den **`scheduler`-Skill** ("stell einen Zeitplan ein"). Er erstellt den Schedule und erklärt die Apify-Kosten.
 
 **Ohne hinterlegten Token schlägt jeder geplante Lauf serverseitig fehl** (kein Fallback auf einen Operator-Key) — deshalb niemals einen aktiven Zeitplan ohne Token anlegen.
@@ -344,14 +355,14 @@ On-demand-Scrapes (`scrape-now`) brauchen das alles NICHT — der Connector aus 
 
 ## Done means
 
-- `{workspace}/.trendfinder/config.json` vorhanden, `GET /health` liefert 200 (First-Run-Zweig, Step 0/1/2).
+- Zugang per `tf_configure` hinterlegt (Host-Fallback), Workspace-Kopie `{workspace}/.trendfinder/config.json` geschrieben, `tf_health` liefert 200 (First-Run-Zweig, Step 0/1/2).
 - Mindestens ein Avatar (Marke + Persona, per Read-back bestätigt) angelegt ODER ein bestehender um eine Niche erweitert.
 - Jede Niche über den Attach-Endpunkt angelegt, mit nicht-leeren, abgeleiteten und bestätigten Themen (Read-back).
 - Das DNA-Embed-Ergebnis ehrlich berichtet (200 embedded / 503 not-configured-still-usable / 400 no-DNA).
 - Cockpit regeneriert (bei Avatar-/Niche-Erstellung) bzw. Niche-Config aktualisiert (bei Re-Ableiten); erster Scrape angeboten.
 - **Keine handgetippten Hashtags irgendwo im Flow.**
 - **Kein direkter Niche-Anlege-Pfad verwendet** — jede Niche kam über einen Avatar rein.
-- Kein API-Key ausgegeben oder committet; Temp-Dateien (`mktemp`) nach jedem Schreiben aufgeräumt.
+- Kein API-Key ausgegeben oder committet; Request-Bodies gehen direkt als JSON ins `tf_request`-Tool — keine Temp-Dateien mit sensiblen Bodies mehr nötig.
 - No backend Apify token or schedule is required for onboarding to count as complete — those are the optional 24/7 add-on.
 - No firm data written inside the plugin directory; all persistent state lives in `{workspace}/.trendfinder/`.
 

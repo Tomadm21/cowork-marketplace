@@ -15,9 +15,9 @@ Generiere das Trend-Briefing als **Cowork Live Artifact**: eine selbst-enthalten
 
 ## Step 0 — Self-check (route, don't error)
 
-Prüfe zuerst, ob `{workspace}/.trendfinder/config.json` existiert.
+Rufe zuerst `tf_health {}` auf (Tool des `trendfinder`-MCP-Servers, ohne Argumente).
 
-Wenn die Datei **fehlt** → Setup ist noch nicht abgeschlossen. Sag dem Nutzer:
+Meldet es einen **Config-Fehler** oder kein `status: 200` → Setup ist noch nicht abgeschlossen. Sag dem Nutzer:
 
 > "Trendfinder ist noch nicht eingerichtet — sollen wir das in 2 Minuten machen?"
 
@@ -31,30 +31,45 @@ Bei Option 1: route zum `onboarding` Skill. Generiere das Briefing **nicht** geg
 
 ---
 
-## Step 1 — Generate
+## Step 1 — Daten sammeln (tf_request) → Snapshot schreiben → Generator ausführen
 
-Führe den Generator aus:
+Der Generator ist **netzwerkfrei**: er rendert aus einem Snapshot, den du vorher host-seitig über das `tf_request`-Tool zusammenstellst. Die Niche-Auflösung passiert dabei HIER, vor dem Snapshot — nicht mehr im Generator.
+
+**1. Ziel-Nische auflösen (Tenant-Isolation):**
 
 ```
-if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts <workspace_root> [niche_id]; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts <workspace_root> [niche_id]; fi
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
-**Niche-Auflösung:**
-- Wenn der Nutzer eine Nische explizit genannt hat: übergib die `niche_id` als zweites Argument.
-- Der Generator löst die `niche_id` intern gegen `/api/niches/config` auf — ein nicht-eigener Slug wird mit einer klaren Fehlermeldung auf stderr abgelehnt.
-- Ohne Argument: der Generator verwendet die erste eigene Nische automatisch.
+- Hat der Nutzer eine Nische genannt: gegen diese Liste auflösen. Taucht der genannte Slug NICHT in der Liste auf → stopp, zeige die echten verfügbaren Niches (Nummern-Liste) und frag — niemals mit einem nicht-eigenen Slug weitermachen.
+- Keine Nische genannt: bei genau einer eigenen Niche diese verwenden; sonst die erste eigene Nische (Default wie bisher) oder bei Unklarheit kurz nummeriert fragen.
+- Liefert die Liste **keine** Niches → route zum `onboarding` Skill für die Nische-Anlage. Kein Snapshot.
+- Bei `status: 401` → Zugang kaputt: route zu `onboarding`.
 
-Der Generator liest alle Trend-Daten via API, inlinet sie in eine selbst-enthaltene HTML-Datei und gibt als **letzte stdout-Zeile** den absoluten Pfad zur geschriebenen Datei aus (Standard: `<workspace_root>/.trendfinder/briefing.html`).
+**2. Trend-Daten ziehen:**
+
+```
+tf_request { "method": "GET", "endpoint": "/api/trends/<niche_id>" }
+tf_request { "method": "GET", "endpoint": "/api/trends/<niche_id>/velocity" }
+```
+
+Velocity ist optional — schlägt nur dieser Abruf fehl, weiter ohne, mit Hinweis `"Velocity-Daten nicht verfügbar."` in `warnings`. **Kein `persona_id`-Parameter** (das Briefing ist bewusst Nischen-Ebene).
+
+**3. Snapshot schreiben:** `{ "niche": <der aufgelöste Nischen-Eintrag aus /api/niches/config>, "trends": <Response-Body>, "velocity": <Response-Body>, "warnings": [...] }` als JSON nach `{workspace}/.trendfinder/briefing-snapshot.json` (keine Secrets; exakte Form im Kopfkommentar von `briefing.ts`).
+
+**4. Generator ausführen:**
+
+```
+if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts --data <snapshot.json> <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts --data <snapshot.json> <workspace_root>; fi
+```
+
+Der Generator inlinet den Snapshot in eine selbst-enthaltene HTML-Datei und gibt als **letzte stdout-Zeile** den absoluten Pfad zur geschriebenen Datei aus (Standard: `<workspace_root>/.trendfinder/briefing.html`).
 
 **Best-effort-Verhalten:** Der Generator bricht nie mit einem Fehler ab, wenn Trends fehlen — ein frischer Tenant ohne Scrape-Daten bekommt einen action-first Cold-Start-Zustand.
 
 **Falls der Generator mit Exit-Code ≠ 0 endet:**
-- Lies die **stderr-Ausgabe** als deutsche Fehlermeldung und gib sie wortgetreu weiter (bei unbekannter Niche folgt der Fehlermeldung eine Auflistung der verfügbaren Niches — gib die ganze Ausgabe weiter, nicht nur die letzte Zeile).
-- Schlage die passende Lösung vor:
-  - Konfigurationsfehler (missing config, invalid key, 401) → `onboarding` Skill erneut ausführen.
-  - Keine Niches konfiguriert → `onboarding` Skill für Nische-Anlage.
-  - Unbekannte Niche → zeige dem Nutzer die verfügbaren Niches aus der stderr-Ausgabe.
-  - Backend-Fehler (5xx, Netzwerk-Timeout) → "Versuch es in einem Moment noch einmal".
+- Lies die **stderr-Ausgabe** als deutsche Fehlermeldung und gib sie wortgetreu weiter.
+- Ursache ist dann ein Snapshot-Problem (Datei fehlt / kein gültiges JSON / `niche` fehlt) — Snapshot korrigieren und erneut ausführen. Zugangs-/Backend-Fehler werden schon beim `tf_request`-Datenabruf sichtbar (401 → `onboarding`, 5xx/Netzwerk → "Versuch es in einem Moment noch einmal").
 
 ---
 
@@ -88,10 +103,10 @@ Gib danach eine **native Briefing-Narration** im Chat — 3–5 Sätze, in der S
 
 ## Tenant-isolation rules
 
-- Der Generator fetcht **ausschließlich eigene Nischen-Slugs** (aus `/api/niches/config` dieses Tenants).
+- Es werden **ausschließlich eigene Nischen-Slugs** gefetcht — die Auflösung gegen `/api/niches/config` dieses Tenants passiert in Step 1 VOR dem Snapshot; ein nicht-eigener Slug wird dort abgelehnt (echte Liste zeigen), nie durchgereicht.
 - **Kein `persona_id`-Parameter** wird übergeben — das Briefing ist bewusst Nischen-Ebene; avatar-personalisierte Auswahl macht `script-studio` (natives DNA-Matching).
 - **Keine Brands oder Personas** werden abgerufen oder angezeigt.
-- Ein Nutzer kann keine fremde Nische übergeben — der Generator lehnt unbekannte Slugs explizit ab.
+- Der Generator selbst macht keine Requests mehr — er rendert nur den Snapshot.
 
 ---
 

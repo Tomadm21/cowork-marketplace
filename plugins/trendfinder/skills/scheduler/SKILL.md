@@ -5,7 +5,7 @@ description: Manage Trendfinder scrape schedules — create, view, pause, resume
 
 # Trendfinder — Scheduler
 
-Goal: let the tenant view and manage their per-niche scrape schedules (create, update frequency, pause/resume, delete) over the backend's tenant-scoped schedule CRUD. All actions use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call the API with raw curl or an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints.
+Goal: let the tenant view and manage their per-niche scrape schedules (create, update frequency, pause/resume, delete) over the backend's tenant-scoped schedule CRUD. All actions use the **`tf_request` tool** of the plugin's `trendfinder` MCP server (returns `{ok, status, body}` for every HTTP status — 4xx/5xx are data to branch on). Never call the API via curl/bash or with an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints.
 
 ---
 
@@ -21,18 +21,15 @@ On-demand scrapes (`scrape-now` skill) are different: they use the **Cowork Apif
 
 ## Step 0 — Self-check (config required)
 
-Before doing anything else:
+Before doing anything else, call `tf_health {}` (no arguments).
 
-1. Check whether `{workspace}/.trendfinder/config.json` exists.
-2. If it exists, call `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health`.
-
-If **either** check fails → do NOT proceed. Tell the user:
+If the result is not `ok: true` with `status: 200` (config error or unreachable backend) → do NOT proceed. Tell the user:
 
 > "Trendfinder ist noch nicht eingerichtet. Starte bitte zuerst das Onboarding."
 
 Then route to the `onboarding` skill.
 
-If both pass → continue to Step 1.
+If it passes → continue to Step 1.
 
 ---
 
@@ -41,8 +38,8 @@ If both pass → continue to Step 1.
 Fetch the current schedules and the tenant's niches in parallel:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/schedules
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
+tf_request { "method": "GET", "endpoint": "/api/schedules" }
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
 Use the niche list to resolve `niche_id` → `display_name` for display. Never show raw slugs alone.
@@ -123,10 +120,10 @@ Für automatische 24/7-Scrapes braucht der Server einmalig einen eigenen Apify-T
 - **Option 1:** Tell the user where the token lives: „Auf apify.com anmelden → Settings → API & Integrations → Personal API token kopieren." Ask them to paste it here, then deposit it:
 
   ```
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/tenant/settings '{"apify_api_key":"<token>"}'
+  tf_request { "method": "POST", "endpoint": "/api/tenant/settings", "body": { "apify_api_key": "<token>" } }
   ```
 
-  Expect `{"ok": true, ...}`. On success: add `"backend_apify_token_deposited": true` to `{workspace}/.trendfinder/config.json` (keep all existing keys), confirm briefly, continue. On any error: show it verbatim and do NOT create an enabled schedule.
+  Expect a 2xx `status` with body `{"ok": true, ...}`. On success: add `"backend_apify_token_deposited": true` to `{workspace}/.trendfinder/config.json` (keep all existing keys), confirm briefly, continue. On any error: show it verbatim and do NOT create an enabled schedule.
 - **Option 2:** Accept it, write the marker into config.json, continue. (If in doubt, offer to deposit again — the POST simply overwrites, that is harmless.)
 - **Option 3:** Continue with niche + interval, but create the schedule with `"enabled": false` and say: „Der Zeitplan ist angelegt, aber pausiert. Sag ‚Apify-Token hinterlegen', sobald du so weit bist — dann aktiviere ich ihn."
 
@@ -135,7 +132,7 @@ Für automatische 24/7-Scrapes braucht der Server einmalig einen eigenen Apify-T
 Fetch the niche list (if not already fetched):
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
 If the user has already named a niche, resolve it against this list. If the named niche does NOT appear in the returned list, stop and show the real list:
@@ -186,12 +183,13 @@ Map the user's answer to `interval_hours` using the natural-language table:
 ### Create
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/schedules '{"type":"scrape","niche_id":"<resolved niche_id>","interval_hours":<N>,"enabled":true}'
+tf_request { "method": "POST", "endpoint": "/api/schedules",
+             "body": { "type": "scrape", "niche_id": "<resolved niche_id>", "interval_hours": <N>, "enabled": true } }
 ```
 
 If the token gate ended with Option 3 (no token yet), send `"enabled": false` instead of `true`.
 
-Expect HTTP 201. On 404 `{"error": "niche not found for this tenant"}`: the niche_id does not match this tenant — do NOT retry with a guessed slug; re-confirm the niche_id from `GET /api/niches/config` and resubmit.
+Expect `status: 201`. On 404 `{"error": "niche not found for this tenant"}`: the niche_id does not match this tenant — do NOT retry with a guessed slug; re-confirm the niche_id from `GET /api/niches/config` and resubmit.
 
 Then go to Step 3 (read-back confirmation).
 
@@ -204,7 +202,7 @@ Show existing schedules if more than one; ask which to update (numbered list). T
 Patch:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PATCH /api/schedules/{id} '{"interval_hours":<N>}'
+tf_request { "method": "PATCH", "endpoint": "/api/schedules/{id}", "body": { "interval_hours": <N> } }
 ```
 
 On 404: the schedule no longer exists; refresh the list and inform the user.
@@ -221,7 +219,7 @@ Show existing schedules (with enabled status). Ask which to toggle.
 - To **resume** (false → enabled): `PATCH /api/schedules/{id}` with `{"enabled":true}`
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PATCH /api/schedules/{id} '{"enabled":<true|false>}'
+tf_request { "method": "PATCH", "endpoint": "/api/schedules/{id}", "body": { "enabled": <true|false> } }
 ```
 
 On 404: schedule no longer exists; refresh list.
@@ -244,10 +242,10 @@ Zeitplan für „{display_name}" löschen?
 On confirmation:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE /api/schedules/{id}
+tf_request { "method": "DELETE", "endpoint": "/api/schedules/{id}" }
 ```
 
-Expect 204 (no body). On 404: already gone — inform the user and refresh the list.
+Expect `status: 204` (no body). On 404: already gone — inform the user and refresh the list.
 
 After deletion, tell the user plainly:
 > "Zeitplan gelöscht. Neue automatische Scrapes werden nicht mehr für diese Niche geplant."
@@ -288,7 +286,7 @@ For a schedule created paused (token gate Option 3): confirm it is paused and re
 
 ## Done means
 
-- Config present and `/health` returns 200.
+- `tf_health` returns 200.
 - Current schedules fetched and shown in plain German (niche name, frequency in words, status, last run).
 - Any create/patch derives `niche_id` from `GET /api/niches/config` for this tenant — never guessed.
 - `interval_hours` is within 1–168 and matches the user's intent after natural-language mapping.

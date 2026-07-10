@@ -5,20 +5,17 @@ description: Review the scripts waiting for approval on a Trendfinder avatar's c
 
 # Trendfinder — Review / Freigabe
 
-Goal: show the scripts that are written but not yet approved (stage `script`) for an avatar, and let the user **approve** (→ stage `done`) or **reject** (keep at `script`, or discard) each with a select-block. Pure state transitions on the shared board — no synthesis, no scraping. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` (§ "Content pieces") first. All API calls via `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh`.
+Goal: show the scripts that are written but not yet approved (stage `script`) for an avatar, and let the user **approve** (→ stage `done`) or **reject** (keep at `script`, or discard) each with a select-block. Pure state transitions on the shared board — no synthesis, no scraping. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` (§ "Content pieces") first. All API calls via the **`tf_request` tool** of the plugin's `trendfinder` MCP server (returns `{ok, status, body}` for every HTTP status).
 
 ## Step 0 — Self-check (config required)
 
-1. Check `{workspace}/.trendfinder/config.json` exists.
-2. If it does, `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health`.
-
-If either fails → route to `onboarding`. Else continue.
+Call `tf_health {}`. If the result is not `ok: true` with `status: 200` → route to `onboarding`. Else continue.
 
 ## Step 1 — Pick the avatar
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands/<brand_id>/personas
+tf_request { "method": "GET", "endpoint": "/api/brands" }
+tf_request { "method": "GET", "endpoint": "/api/brands/<brand_id>/personas" }
 ```
 
 Numbered list to choose (clickable). No avatars → route to `onboarding`.
@@ -26,7 +23,7 @@ Numbered list to choose (clickable). No avatars → route to `onboarding`.
 ## Step 2 — List scripts awaiting approval
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET "/api/personas/<persona_id>/content-pieces?stage=script"
+tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pieces?stage=script" }
 ```
 
 - **Empty** → say honestly "Keine Skripte zur Freigabe für <Avatar>." and offer to write one (→ `script-studio`) or plan ideas (→ `content-plan`). Do NOT invent pieces.
@@ -46,17 +43,17 @@ Present a select-block per piece (or a batch block if several):
 
 - **Freigeben** → advance stage:
   ```
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PATCH /api/content-pieces/<piece_id> '{"stage":"done"}'
+  tf_request { "method": "PATCH", "endpoint": "/api/content-pieces/<piece_id>", "body": { "stage": "done" } }
   ```
   **200** approved · **404** foreign/unknown piece (re-resolve).
 - **Zurück lassen** → no API call; it stays at `script`. Optionally offer to hand off to `script-studio` to rewrite.
 - **Verwerfen** → confirm first (destructive), then:
   ```
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE /api/content-pieces/<piece_id>
+  tf_request { "method": "DELETE", "endpoint": "/api/content-pieces/<piece_id>" }
   ```
   **204** deleted · **404** foreign/unknown. Only delete after an explicit user confirm.
 
-**Read-back (honesty rule):** after approvals, `GET /api/personas/<persona_id>/content-pieces?stage=done` (or re-list `stage=script`) and report the real counts — how many approved, how many still waiting. Never claim an approval the API didn't confirm.
+**Read-back (honesty rule):** after approvals, `tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pieces?stage=done" }` (or re-list `stage=script`) and report the real counts — how many approved, how many still waiting. Never claim an approval the API didn't confirm.
 
 ## Step 4 — Summary
 
@@ -67,11 +64,11 @@ State the real outcome: N freigegeben, M noch offen, K verworfen. Offer the next
 - Only ever show/act on pieces the API returned; never invent a piece or its content.
 - Delete is destructive → always confirm before `DELETE`.
 - Never advance a stage the user didn't choose; never claim a transition the API didn't confirm (read-back).
-- Use `tf.sh`; never print the API key.
+- Use `tf_request`; never print the API key.
 
 ## Done means
 
-- Config present, `/health` 200; avatar chosen.
+- `tf_health` 200; avatar chosen.
 - `stage=script` pieces listed (or honest "none"); previews only from real `script_data`.
 - User choices applied: approve → `PATCH stage=done`; reject → keep or (confirmed) `DELETE`.
 - Read-back confirms transitions; real counts reported.

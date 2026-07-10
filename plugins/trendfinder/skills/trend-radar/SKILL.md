@@ -9,24 +9,21 @@ Goal: fetch the tenant's current trend clusters and velocity data for one niche,
 
 **Avatar-personalised?** Trend-radar is niche-wide by design and does NOT pass `persona_id`. When the user wants trends matched to a specific avatar, or finished scripts in that avatar's voice, route to the `script-studio` skill — it matches trends to the avatar's DNA natively and writes hooks/scripts.
 
-All API calls use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call tf.sh or curl with an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints and platform limits.
+All API calls use the **`tf_request` tool** of the plugin's `trendfinder` MCP server (returns `{ok, status, body}` for every HTTP status — 4xx/5xx are data to branch on). Never call the API via curl/bash or with an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth for all endpoints and platform limits.
 
 ---
 
 ## Step 0 — Self-check (config required)
 
-Before doing anything else:
+Before doing anything else, call `tf_health {}` (no arguments).
 
-1. Check whether `{workspace}/.trendfinder/config.json` exists.
-2. If it exists, call `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health`.
-
-If **either** check fails → do NOT proceed. Tell the user:
+If the result is not `ok: true` with `status: 200` (config error or unreachable backend) → do NOT proceed. Tell the user:
 
 > "Trendfinder ist noch nicht eingerichtet. Starte bitte zuerst das Onboarding."
 
 Then route to the `onboarding` skill.
 
-If both pass → continue to Step 1.
+If it passes → continue to Step 1.
 
 ---
 
@@ -37,7 +34,7 @@ If both pass → continue to Step 1.
 Fetch the niche list:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
 This is the **only authoritative source of niche slugs for this tenant.** The `/api/trends/*` routes are tenant-scoped server-side since 2026-06-16 (foreign slugs 404) — still, only query slugs that appear in this response (defense-in-depth + better error messages).
@@ -70,8 +67,8 @@ Für welche Niche soll der Trend-Radar laufen?
 Once the target `niche_id` is confirmed, fetch both endpoints in sequence:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/{niche_id}
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/{niche_id}/velocity
+tf_request { "method": "GET", "endpoint": "/api/trends/{niche_id}" }
+tf_request { "method": "GET", "endpoint": "/api/trends/{niche_id}/velocity" }
 ```
 
 **Do not pass the `persona_id` query param here** — the radar reads niche-level data by design; avatar-personalised ranking lives in `script-studio` (native DNA matching). (The backend's `persona_id` fit-scoring is live since 2026-06-16, but this skill stays niche-level.)
@@ -203,7 +200,7 @@ Do NOT render placeholder analysis, example trends, or fabricated cluster data. 
 
 ## Done means
 
-- Config present and `/health` returns 200.
+- `tf_health` returns 200.
 - Tenant's niche list fetched from `GET /api/niches/config`; target niche confirmed from that list.
 - Both `/api/trends/{niche_id}` and `/api/trends/{niche_id}/velocity` called; responses inspected.
 - If data exists: native synthesis delivered with top patterns, velocity leaders, and declining trends called out honestly.

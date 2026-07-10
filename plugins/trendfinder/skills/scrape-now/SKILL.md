@@ -7,24 +7,21 @@ description: On-demand Trendfinder scrape for one niche + platform. Use when the
 
 Goal: run one on-demand Apify scrape for a tenant-owned niche and platform, then persist the raw dataset items to the backend ingest endpoint. The backend normalises items; the skill passes them through UNCHANGED.
 
-All API calls use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call tf.sh or curl with an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth.
+All Trendfinder-API calls use the **`tf_request` tool** of the plugin's `trendfinder` MCP server (returns `{ok, status, body}` for every HTTP status — 4xx/5xx are data to branch on). Never call the API via curl/bash or with an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is the single source of truth.
 
 ---
 
 ## Step 0 — Self-check (config required)
 
-Before doing anything else:
+Before doing anything else, call `tf_health {}` (no arguments).
 
-1. Check whether `{workspace}/.trendfinder/config.json` exists.
-2. If it exists, call `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health`.
-
-If **either** check fails → do NOT proceed. Tell the user:
+If the result is not `ok: true` with `status: 200` (config error or unreachable backend) → do NOT proceed. Tell the user:
 
 > "Trendfinder ist noch nicht eingerichtet. Starte bitte zuerst das Onboarding."
 
 Then route to the `onboarding` skill.
 
-If both pass → continue to Step 1.
+If it passes → continue to Step 1.
 
 ---
 
@@ -33,7 +30,7 @@ If both pass → continue to Step 1.
 Fetch the tenant's niche list:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
 Present the niches as a numbered list. Ask the user to choose:
@@ -92,22 +89,20 @@ Möchtest du diesen Scrape starten?
 A scrape costs real Apify credits. If `/api/ingest` is not deployed, the scraped data would be discarded (404) — money burned for nothing. So AFTER the user confirms but BEFORE calling the actor, probe ingest with a **zero-item** request (no cost):
 
 ```
-echo '{"niche_id":"<confirmed niche_id>","platform":"<tiktok|instagram>","items":[]}' > {workspace}/.trendfinder/ingest-preflight.json
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/ingest @{workspace}/.trendfinder/ingest-preflight.json
+tf_request { "method": "POST", "endpoint": "/api/ingest",
+             "body": { "niche_id": "<confirmed niche_id>", "platform": "<tiktok|instagram>", "items": [] } }
 ```
 
-Interpret the result:
-- **HTTP 201** (`{"inserted":0,...}`) → ingest is deployed and the niche is owned → proceed to Step 2.
-- **HTTP 404 with body `{"error":"niche not found for this tenant"}`** → route IS deployed but the niche is wrong → go back and re-resolve the niche from `/api/niches/config`; do NOT scrape.
-- **HTTP 404 "Not Found" (no `"niche not found"` error key), or any 5xx / connection failure** → the backend ingest endpoint is not reachable right now. STOP. Show the user the error verbatim and explain that a scrape would be wasted (the items could not be saved). Do NOT call the Apify actor. Offer to retry in a few minutes.
-
-Delete `ingest-preflight.json` after the probe.
+Interpret `result.status`:
+- **201** (`{"inserted":0,...}`) → ingest is deployed and the niche is owned → proceed to Step 2.
+- **404 with body `{"error":"niche not found for this tenant"}`** → route IS deployed but the niche is wrong → go back and re-resolve the niche from `/api/niches/config`; do NOT scrape.
+- **404 "Not Found" (no `"niche not found"` error key), or any 5xx / transport error in the result** → the backend ingest endpoint is not reachable right now. STOP. Show the user the error verbatim and explain that a scrape would be wasted (the items could not be saved). Do NOT call the Apify actor. Offer to retry in a few minutes.
 
 ---
 
 ## Step 2 — Run via the Cowork Apify MCP connector
 
-Once the user has confirmed, run the actor via the **Cowork Apify MCP connector** (not tf.sh — the connector holds the Apify credential; no backend Apify token is used here).
+Once the user has confirmed, run the actor via the **Cowork Apify MCP connector** (not `tf_request` — the connector holds the Apify credential; no backend Apify token is used here).
 
 **Empty-hashtag guard:** if the resolved hashtag list for the chosen platform is empty, STOP before any actor call — the run would only burn credits and return nothing. Tell the user the niche has no hashtags for this platform and offer to add some (`PUT /api/niches/config/{niche_id}`).
 
@@ -157,38 +152,24 @@ If the actor run fails or returns zero items → report the failure honestly, do
 
 ## Step 3 — Persist via /api/ingest
 
-Assemble the ingest payload:
-
-```json
-{
-  "niche_id": "<confirmed niche_id from API>",
-  "platform": "<tiktok|instagram>",
-  "items": [<raw dataset items — unchanged from actor output>]
-}
-```
-
-Write this to a temp file under the workspace `.trendfinder/` directory (gitignored, never committed):
+POST the ingest payload directly (the `items` array is the raw actor output, unchanged; max 500 items per request):
 
 ```
-{workspace}/.trendfinder/ingest-<niche_id>-<platform>-<timestamp>.json
+tf_request { "method": "POST", "endpoint": "/api/ingest",
+             "body": { "niche_id": "<confirmed niche_id from API>", "platform": "<tiktok|instagram>",
+                       "items": [<raw dataset items — unchanged from actor output>] } }
 ```
 
-Then POST:
-
-```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/ingest @{workspace}/.trendfinder/ingest-<niche_id>-<platform>-<timestamp>.json
-```
-
-The backend returns `201 {"inserted": N, "updated": N, "rejected": N, "errors": [...]}`.
+The backend returns `status: 201` with `{"inserted": N, "updated": N, "rejected": N, "errors": [...]}`.
 
 **Interpret the response honestly:**
 
 - `inserted` > 0 → new trends have been added.
 - `updated` > 0 → existing records were refreshed.
 - `rejected` > 0 → items fell below the backend's virality threshold. This is **normal filtering**, not an error. Do NOT alarm the user about rejections.
-- HTTP 400 `{"error": "tenant key required"}` → the API key in config is invalid; route to onboarding.
-- HTTP 404 `{"error": "niche not found for this tenant"}` → the `niche_id` does not belong to this tenant; re-confirm from `GET /api/niches/config` and do NOT retry with a guessed slug.
-- HTTP 5xx or network error → report verbatim; do NOT retry automatically.
+- `status: 400` `{"error": "tenant key required"}` → the API key in config is invalid; route to onboarding.
+- `status: 404` `{"error": "niche not found for this tenant"}` → the `niche_id` does not belong to this tenant; re-confirm from `GET /api/niches/config` and do NOT retry with a guessed slug.
+- 5xx or transport error in the result → report verbatim; do NOT retry automatically.
 
 Report the result to the user:
 
@@ -197,7 +178,7 @@ Report the result to the user:
 > - Aktualisiert: {updated}
 > - Gefiltert (unter Virality-Schwelle, normal): {rejected}"
 
-Clean up the temp ingest file after a successful ingest (regardless of rejected count). On ingest failure, leave the file for debugging and tell the user its path.
+On ingest failure, show the returned `status` + `body` verbatim so the cause is debuggable (there is no temp file anymore — the payload went directly into the tool call).
 
 ---
 
@@ -209,17 +190,14 @@ After a successful ingest (`inserted` or `updated` > 0), tell the user:
 
 > "Die Videos sind drin. Das Backend embedded + clustert die Nische jetzt automatisch — das dauert meist 10–30 Sekunden. Ich warte kurz und aktualisiere dann das Cockpit."
 
-Then **poll** `GET /api/trends/{niche_id}` until trends appear, bounded:
+Then **poll** until trends appear, bounded:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
+tf_request { "method": "GET", "endpoint": "/api/trends/<niche_id>" }
 ```
 
 - Poll up to **6 times with ~10s between tries** (≈60s total). Between tries, wait before re-polling.
-- **As soon as the response is a non-empty cluster list** → stop polling and regenerate the artifact:
-  ```
-  if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
-  ```
+- **As soon as the response is a non-empty cluster list** → stop polling and regenerate the artifact: follow the `cockpit` skill's snapshot procedure (fetch via `tf_request`, write the snapshot JSON, run `cockpit.ts --data <snapshot.json> <workspace_root>`).
   Present the regenerated Cockpit as the Live Artifact and name the top 1–2 trends from the data the generator actually wrote.
   - **Relevance check:** look at the new clusters' `dominant_hashtags`. If the top clusters are clearly off-topic vs. the niche (e.g. `techtok`/`gaming`/`setup` for a personal-development niche — none of the niche's own tags appear) → say so honestly instead of celebrating: „Die gefundenen Trends passen nicht zu deiner Nische — die Hashtags waren vermutlich zu breit/englisch. Empfehlung: verfeinern und neu scrapen." Then propose better tags. See `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md`.
 - **If still empty after all 6 tries** → do NOT claim trends exist. Say honestly:
@@ -242,14 +220,14 @@ Never fabricate trends to fill the wait. `inserted > 0` means data landed; only 
 
 ## Done means
 
-- Config present and `/health` returns 200.
+- `tf_health` returns 200.
 - User confirmed niche_id (from API), platform, limit, and cost — explicitly, via option 1.
 - Actor ran via Cowork Apify MCP connector with the correct actor ID and input shape.
 - Dataset items fetched and passed through UNCHANGED to `/api/ingest`.
 - `/api/ingest` returned 201; result reported honestly including rejected count context.
 - After a successful ingest: polled `GET /api/trends/{niche_id}` (bounded) for backend auto-clustering; on non-empty trends, regenerated the Cockpit artifact; on still-empty, gave the honest cold-start message — never fabricated trends.
-- Temp ingest file cleaned up on success, left in place on failure with path reported.
-- No key, no item data, and no `.trendfinder/` files ever committed or printed to the user.
+- On ingest failure the returned `status` + `body` were shown verbatim (no temp files anymore — the payload goes directly into `tf_request`).
+- No key and no `.trendfinder/` files ever committed or printed to the user.
 
 ---
 

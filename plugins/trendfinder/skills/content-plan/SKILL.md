@@ -5,20 +5,17 @@ description: Propose a batch of concrete content ideas for a Trendfinder avatar 
 
 # Trendfinder — Content-Plan
 
-Goal: turn an avatar's DNA + the niche's current trends into a short list of **concrete post ideas**, let the user pick which to keep with a select-block, and persist each kept idea as a `content_piece` (stage `idea`) on the shared board — the same rows the frontend and Cockpit show. All ideation is **native in Claude**; the backend only stores. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` (§ "Content pieces") first. All API calls go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh`.
+Goal: turn an avatar's DNA + the niche's current trends into a short list of **concrete post ideas**, let the user pick which to keep with a select-block, and persist each kept idea as a `content_piece` (stage `idea`) on the shared board — the same rows the frontend and Cockpit show. All ideation is **native in Claude**; the backend only stores. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` (§ "Content pieces") first. All API calls go through the **`tf_request` tool** of the plugin's `trendfinder` MCP server (returns `{ok, status, body}` for every HTTP status; 4xx/5xx are data to branch on) — never curl/bash, never an inline key.
 
 ## Step 0 — Self-check (config required)
 
-1. Check `{workspace}/.trendfinder/config.json` exists.
-2. If it does, `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health`.
-
-If either fails → "Trendfinder ist noch nicht eingerichtet. Starte bitte zuerst das Onboarding." → route to `onboarding`. Else continue.
+Call `tf_health {}`. If the result is not `ok: true` with `status: 200` (config error or unreachable) → "Trendfinder ist noch nicht eingerichtet. Starte bitte zuerst das Onboarding." → route to `onboarding`. Else continue.
 
 ## Step 1 — Pick the avatar + load its DNA
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands/<brand_id>/personas
+tf_request { "method": "GET", "endpoint": "/api/brands" }
+tf_request { "method": "GET", "endpoint": "/api/brands/<brand_id>/personas" }
 ```
 
 Present avatars as a numbered list (Cowork renders it clickable):
@@ -34,7 +31,7 @@ Für welchen Avatar soll ich Ideen planen?
 If the tenant has **no** avatars → say so and route to `onboarding`. Then load full DNA:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/personas/<persona_id>
+tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>" }
 ```
 
 Hold `content_pillars`, `interests`, `tone_of_voice`, `persona_profile`, `system_prompt`.
@@ -44,8 +41,8 @@ Hold `content_pillars`, `interests`, `tone_of_voice`, `persona_profile`, `system
 Resolve the niche only from `GET /api/niches/config` (never a guessed slug). One niche → use it; several → ask which (numbered).
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
+tf_request { "method": "GET", "endpoint": "/api/trends/<niche_id>" }
 ```
 
 - Trends present → continue to Step 3.
@@ -73,17 +70,17 @@ Ground every reason in an actual DNA field or trend — never fabricate a pillar
 
 ## Step 4 — Persist the chosen ideas as content pieces
 
-For EACH selected idea, POST it (write the body to a temp file to avoid quoting issues):
+For EACH selected idea, POST it:
 
 ```
-IDEA_BODY=$(mktemp)   # real temp dir, NOT the synced workspace
-echo '{"title":"<title>","pillar":"<pillar>","format":"<format>","hook_type":"<hook_type>","trend_cluster_id":<id or omit>,"stage":"idea"}' > "$IDEA_BODY"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/content-pieces @"$IDEA_BODY"; rm -f "$IDEA_BODY"
+tf_request { "method": "POST", "endpoint": "/api/personas/<persona_id>/content-pieces",
+             "body": { "title": "<title>", "pillar": "<pillar>", "format": "<format>",
+                       "hook_type": "<hook_type>", "trend_cluster_id": <id or omit>, "stage": "idea" } }
 ```
 
-Interpret: **201** created (keep the returned `id`) · **404** persona not this tenant's (re-resolve the avatar) · **422** bad field (fix `title`/`stage`). Omit `trend_cluster_id` entirely for DNA-only ideas — do not send `null` guesses of other fields.
+Interpret (`result.status`): **201** created (keep the returned `id`) · **404** persona not this tenant's (re-resolve the avatar) · **422** bad field (fix `title`/`stage`). Omit `trend_cluster_id` entirely for DNA-only ideas — do not send `null` guesses of other fields.
 
-**Read-back (honesty rule):** after saving, `GET /api/personas/<persona_id>/content-pieces?stage=idea` and confirm the new titles are there. Report exactly how many ideas were saved — never claim more than the API confirmed.
+**Read-back (honesty rule):** after saving, `tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pieces?stage=idea" }` and confirm the new titles are there. Report exactly how many ideas were saved — never claim more than the API confirmed.
 
 ## Step 5 — Deliver + hand off
 
@@ -94,11 +91,11 @@ Summarise: which avatar, how many ideas saved (real count), which niche/trends t
 - Ideas are **Claude's native judgment from DNA + real trends** — say so; never present them as a backend plan. The ops route `content-pieces/generate` is NOT used (native only).
 - Never invent trends; empty trends → route to `scrape-now`. Only real `cluster_id` values go into `trend_cluster_id`.
 - Never claim an idea was saved unless the POST returned 201 and the read-back shows it.
-- Use `tf.sh`; never print the API key; clean up `mktemp` files.
+- Use `tf_request`; never print the API key; bodies go directly into the tool — no temp files.
 
 ## Done means
 
-- Config present, `/health` 200.
+- `tf_health` 200.
 - Avatar chosen, full DNA loaded; niche resolved from `GET /api/niches/config`.
 - Trends fetched (no `persona_id`); empty → honest cold-start + scrape-now offer.
 - 5–7 ideas proposed natively with DNA/trend-grounded reasons, shown as a multi-select block.

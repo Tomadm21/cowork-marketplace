@@ -7,7 +7,7 @@ description: Edit, list, and delete existing Trendfinder avatars (brand + person
 
 Goal: edit, list, or delete existing Trendfinder **avatars** for this tenant and reflect the change in the Cockpit. An avatar = a **Brand** (the Marke) plus one or more **Personas** (the avatar that carries DNA). This skill never originates a Brand or Persona — the first avatar (or any additional one) is created in the `onboarding` skill. Here, DNA changes are synthesised by Claude in this session and PUT as structured JSON — the backend only stores + re-embeds (this is the plugin's core axiom).
 
-All API calls use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call tf.sh or curl with an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` (§ "Avatars — Brands, Personas & DNA") before editing — it is the single source of truth for endpoints, ID rules, and the DNA body shape.
+All API calls use the **`tf_request` tool** of the plugin's `trendfinder` MCP server (host name variants like `mcp__trendfinder__tf_request`; below just `tf_request`). It runs host-side outside the sandbox, injects the `X-API-Key` itself and returns `{ok, status, body}` for every HTTP status — 4xx/5xx are data to branch on. Never call the API via curl/bash or with an inline key. Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` (§ "Avatars — Brands, Personas & DNA") before editing — it is the single source of truth for endpoints, ID rules, and the DNA body shape.
 
 **This skill costs nothing.** It never calls an Apify actor and never triggers a scrape. It only reads and updates the backend's brand/persona tables.
 
@@ -15,16 +15,13 @@ All API calls use `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...`. Never call tf.
 
 ## Step 0 — Self-check (config required)
 
-Before anything else:
+Before anything else, call `tf_health {}` (no arguments).
 
-1. Check whether `{workspace}/.trendfinder/config.json` exists.
-2. If it exists, call `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health`.
-
-If **either** fails → do NOT proceed. Tell the user:
+If the result is not `ok: true` with `status: 200` (config error or unreachable backend) → do NOT proceed. Tell the user:
 
 > "Trendfinder ist noch nicht eingerichtet. Starte bitte zuerst das Onboarding."
 
-Then route to the `onboarding` skill. If both pass → continue.
+Then route to the `onboarding` skill. If it passes → continue.
 
 ---
 
@@ -33,13 +30,13 @@ Then route to the `onboarding` skill. If both pass → continue.
 Fetch the tenant's brands (tenant-scoped — only this tenant's data is returned):
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands
+tf_request { "method": "GET", "endpoint": "/api/brands" }
 ```
 
 For each brand, fetch its personas:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands/<brand_id>/personas
+tf_request { "method": "GET", "endpoint": "/api/brands/<brand_id>/personas" }
 ```
 
 **If there are no personas anywhere** (no brands yet, or brands that have no personas under them), there is nothing to edit or list yet — don't dead-end. Say so and offer the switch:
@@ -73,26 +70,22 @@ Then route to the `onboarding` skill.
 
 ### Editing the Brand (Marke)
 
-Ask which fields change (`display_name`, `mission`, `target_audience`), show the proposed values, get confirmation, then write the confirmed body to a gitignored temp file and PUT it:
+Ask which fields change (`display_name`, `mission`, `target_audience`), show the proposed values, get confirmation, then PUT the confirmed body directly:
 
 ```
-BODY=$(mktemp)   # real temp dir, NOT the synced workspace
-echo '{"mission":"...","target_audience":"..."}' > "$BODY"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PUT /api/brands/<brand_id> @"$BODY"
-rm -f "$BODY" 2>/dev/null || : > "$BODY"   # truncate fallback if the mount denies unlink
+tf_request { "method": "PUT", "endpoint": "/api/brands/<brand_id>",
+             "body": { "mission": "...", "target_audience": "..." } }
 ```
 
 ### Editing the Persona DNA
 
 DNA fields are the same shape documented in the contract — `persona_profile`, `tone_of_voice`, `content_pillars`, `system_prompt`, `interests`, `origin_story` — all optional, so a partial edit is fine. Ask the user what should change (a single field, a tone shift, a pillar added or removed, a broader identity revision), synthesise only the delta, and **show the proposed new DNA and get a quick confirm before writing it** — this is their avatar's identity.
 
-Write the confirmed body to a gitignored temp file and PUT it:
+PUT the confirmed body directly (DNA-Felder als verschachtelte Objekte, wie im Contract):
 
 ```
-BODY=$(mktemp)   # real temp dir, NOT the synced workspace
-echo '{"tone_of_voice":"...", "content_pillars":[...]}' > "$BODY"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PUT /api/personas/<persona_id> @"$BODY"
-rm -f "$BODY" 2>/dev/null || : > "$BODY"   # truncate fallback if the mount denies unlink
+tf_request { "method": "PUT", "endpoint": "/api/personas/<persona_id>",
+             "body": { "tone_of_voice": {...}, "content_pillars": [...] } }
 ```
 
 Interpret:
@@ -100,23 +93,17 @@ Interpret:
 - **404** → the `brand_id`/`persona_id` isn't this tenant's → re-resolve from Step 1.
 - **422** → a field is malformed → fix and retry.
 
-(The block above cleans up the temp body.)
-
 ### Confirm by reading back, then refresh the Cockpit
 
 Never claim an edit landed on assertion. Read it back:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/personas/<persona_id>
+tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>" }
 ```
 
-Für eine Marken-Änderung entsprechend: `GET /api/brands/<brand_id>`.
+Für eine Marken-Änderung entsprechend: `tf_request { "method": "GET", "endpoint": "/api/brands/<brand_id>" }`.
 
-Only if the changed fields are actually present in the response → regenerate the Cockpit so the Avatare tab reflects the change:
-
-```
-if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
-```
+Only if the changed fields are actually present in the response → regenerate the Cockpit so the Avatare tab reflects the change: follow the `cockpit` skill's snapshot procedure (fetch via `tf_request`, write the snapshot JSON, run `cockpit.ts --data <snapshot.json> <workspace_root>`).
 
 Present the regenerated Cockpit as the Live Artifact.
 
@@ -131,13 +118,13 @@ Deletion is **irreversible** — always confirm with the user first, and always 
 Only after explicit confirmation:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE /api/personas/<persona_id>
+tf_request { "method": "DELETE", "endpoint": "/api/personas/<persona_id>" }
 ```
 
 or
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh DELETE /api/brands/<brand_id>
+tf_request { "method": "DELETE", "endpoint": "/api/brands/<brand_id>" }
 ```
 
 Both return **204** on success. Read back with `GET /api/brands` (or `.../personas`) to confirm the entry is actually gone before telling the user it's deleted, then regenerate the Cockpit so the Avatare tab (and any niche list) reflects the removal.
@@ -152,7 +139,7 @@ Both return **204** on success. Read back with `GET /api/brands` (or `.../person
 - DNA edits are synthesised by Claude in-session, never by the backend. Always show the synthesised DNA and get confirmation before writing it.
 - This skill never calls an Apify actor and never spends credits. If the user wants new trend data, route to `scrape-now`.
 - Tenant isolation is automatic server-side, but only ever pass `brand_id`/`persona_id` values obtained from `GET /api/brands` in this tenant context — never a guessed slug for an existing resource.
-- Never print or commit the API key. Write request bodies via `mktemp` — a real temp dir OUTSIDE the synced workspace, never into `{workspace}/.trendfinder/` next to `config.json`. Clean up after success with `rm`, falling back to truncate (`: > "$f"`) because the Cowork workspace mount can deny `unlink`. On failure, report the temp path.
+- Never print or commit the API key. Request bodies go directly into the `tf_request` tool as JSON — the MCP server injects the key host-side; no temp files, no key on disk outside the config stores.
 
 ---
 

@@ -7,7 +7,7 @@ description: Generate hooks + short-video scripts in a Trendfinder avatar's voic
 
 Goal: turn a current trend + an avatar's DNA into ready-to-shoot **hooks and a short-video script in that avatar's voice**. This is the payoff of the avatars: two different avatars produce two different scripts from the same trend. Every script is additionally steered by a **Ziel** (🚀 Reichweite · 💬 Engagement · 🛒 Verkauf · ➕ Follower · 🤝 Vertrauen): the avatar owns the voice, the Ziel owns structure + CTA.
 
-All matching and writing happens **natively in Claude** (the plugin axiom: the backend only stores + scrapes). Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` first. All API calls go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh ...` — never inline-key curl.
+All matching and writing happens **natively in Claude** (the plugin axiom: the backend only stores + scrapes). Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` first. All API calls go through the **`tf_request` tool** of the plugin's `trendfinder` MCP server (returns `{ok, status, body}` for every HTTP status — 4xx/5xx are data to branch on) — never curl/bash, never an inline key.
 
 **Important — this skill does the matching itself, not the backend.** Trend↔avatar matching happens here, in Claude, from the avatar's full DNA — fetch trends WITHOUT `?persona_id=`. (The backend's `?persona_id=` fit-scoring exists since 2026-06-16 and returns cosine-based `persona_fit_score` values, but they are vector heuristics — the native DNA matching in this skill is the product's deliberate, richer path. Do not mix the two: fit reasons must come from real DNA fields, not from a backend score.) This skill costs nothing: it never calls an Apify actor.
 
@@ -15,10 +15,7 @@ All matching and writing happens **natively in Claude** (the plugin axiom: the b
 
 ## Step 0 — Self-check (config required)
 
-1. Check `{workspace}/.trendfinder/config.json` exists.
-2. If it does, call `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /health`.
-
-If either fails → tell the user "Trendfinder ist noch nicht eingerichtet. Starte bitte zuerst das Onboarding." and route to `onboarding`. Else continue.
+Call `tf_health {}`. If the result is not `ok: true` with `status: 200` (config error or unreachable) → tell the user "Trendfinder ist noch nicht eingerichtet. Starte bitte zuerst das Onboarding." and route to `onboarding`. Else continue.
 
 ---
 
@@ -27,8 +24,8 @@ If either fails → tell the user "Trendfinder ist noch nicht eingerichtet. Star
 Fetch the tenant's brands and their personas (tenant-scoped):
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/brands/<brand_id>/personas
+tf_request { "method": "GET", "endpoint": "/api/brands" }
+tf_request { "method": "GET", "endpoint": "/api/brands/<brand_id>/personas" }
 ```
 
 Present the avatars as a numbered list and let the user choose (Cowork has no buttons):
@@ -46,7 +43,7 @@ If the tenant has **no** avatars → say so and route to `avatar-studio` to crea
 Then load the chosen avatar's **full DNA** (the list endpoint only carries name — the DNA is on the detail route):
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/personas/<persona_id>
+tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>" }
 ```
 
 Hold onto `persona_profile`, `tone_of_voice`, `content_pillars`, `interests`, `origin_story`, and especially `system_prompt` — these define the voice you will write in.
@@ -58,8 +55,8 @@ Hold onto `persona_profile`, `tone_of_voice`, `content_pillars`, `interests`, `o
 Resolve the niche from the tenant's niche list — **only ever use a `niche_id` returned by `GET /api/niches/config`, never a guessed or assumed slug** (a wrong slug returns 0 trends — the exact failure we are avoiding; the brand name is NOT automatically a niche_id). If the tenant has more than one niche, ask which one (numbered list); if exactly one, use it. Then fetch trends — **do not pass `persona_id`** (the backend's cosine ranking works, but this skill's fit reasons must come from the native DNA matching in Step 3, not a backend score):
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/niches/config
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET /api/trends/<niche_id>
+tf_request { "method": "GET", "endpoint": "/api/niches/config" }
+tf_request { "method": "GET", "endpoint": "/api/trends/<niche_id>" }
 ```
 
 - If the niche has trends → continue to Step 3.
@@ -138,28 +135,32 @@ The script you just wrote is native text — now store it as a `content_piece` s
 First, is there already an `idea` piece for this? Look:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh GET "/api/personas/<persona_id>/content-pieces?stage=idea"
+tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pieces?stage=idea" }
 ```
 
 - **A matching idea exists** (same trend/topic — match on `title` or `trend_cluster_id`) → use its `id`.
 - **No matching idea** (ad-hoc script) → create one first:
   ```
-  IDEA_BODY=$(mktemp)
-  echo '{"title":"<trend/topic title>","pillar":"<pillar>","format":"<format>","hook_type":"<hook_type>","trend_cluster_id":<id or omit>,"stage":"idea"}' > "$IDEA_BODY"
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh POST /api/personas/<persona_id>/content-pieces @"$IDEA_BODY"; rm -f "$IDEA_BODY"
+  tf_request { "method": "POST", "endpoint": "/api/personas/<persona_id>/content-pieces",
+               "body": { "title": "<trend/topic title>", "pillar": "<pillar>", "format": "<format>",
+                         "hook_type": "<hook_type>", "trend_cluster_id": <id or omit>, "stage": "idea" } }
   ```
   Keep the returned `id`.
 
-Then persist the script and advance the stage (write the body to a temp file — it contains the full script JSON):
+Then persist the script and advance the stage:
 
 ```
-SCRIPT_BODY=$(mktemp)
-# script_data shape (plugin-owned, see api-contract § Content pieces):
-echo '{"script_data":{"hook":"<chosen hook>","hooks":["..."],"body":"<beats>","cta":"<cta>","caption":"<caption>","hashtags":["..."],"ziel":"<reichweite|engagement|verkauf|follower|vertrauen>","visual_notes":"<shooting notes>","audio":"<audio type>"},"stage":"script"}' > "$SCRIPT_BODY"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tf.sh PATCH /api/content-pieces/<piece_id> @"$SCRIPT_BODY"; rm -f "$SCRIPT_BODY"
+tf_request { "method": "PATCH", "endpoint": "/api/content-pieces/<piece_id>",
+             "body": { "script_data": { "hook": "<chosen hook>", "hooks": ["..."], "body": "<beats>",
+                                        "cta": "<cta>", "caption": "<caption>", "hashtags": ["..."],
+                                        "ziel": "<reichweite|engagement|verkauf|follower|vertrauen>",
+                                        "visual_notes": "<shooting notes>", "audio": "<audio type>" },
+                       "stage": "script" } }
 ```
 
-Interpret: **200** saved · **404** foreign/unknown piece (re-resolve) · **422** invalid stage.
+(`script_data` shape is plugin-owned, see api-contract § Content pieces.)
+
+Interpret (`result.status`): **200** saved · **404** foreign/unknown piece (re-resolve) · **422** invalid stage.
 
 **Read-back (honesty rule):** the PATCH returns the updated piece — confirm `stage == "script"` and `script_data.hook` is present before telling the user it's saved. If the save failed, deliver the script in chat anyway and say persistence didn't succeed — never claim it's on the board if the API didn't confirm.
 
@@ -182,13 +183,13 @@ Optionally, if the user wants to keep it, offer to save it to `{workspace}/.tren
 - 🛒 Verkauf: nur ein real existierendes Angebot bewerben (aus Brand-/Avatar-DNA oder vom Nutzer genannt) — nie eins erfinden.
 - Never claim trends exist if `/api/trends/{niche}` was empty — route to `scrape-now` instead.
 - Never call an Apify actor / never spend credits. For new trend data, route to `scrape-now`.
-- Use `tf.sh`; never print or commit the API key. If you save a script file, it goes under `{workspace}/.trendfinder/` (gitignored).
+- Use `tf_request`; never print or commit the API key. If you save a script file, it goes under `{workspace}/.trendfinder/` (gitignored).
 
 ---
 
 ## Done means
 
-- Config present, `/health` 200.
+- `tf_health` 200.
 - An avatar chosen and its full DNA loaded via `GET /api/personas/{id}`.
 - Niche trends fetched (without persona_id); empty → honest cold-start + route to scrape-now.
 - Trends ranked against the avatar's DNA with per-trend reasons, labelled as native judgment.

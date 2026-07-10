@@ -11,9 +11,9 @@ Generiere den Workspace-Snapshot als **Cowork Live Artifact**: eine selbst-entha
 
 ## Step 0 — Self-verify (route, don't error)
 
-Prüfe zuerst, ob `{workspace}/.trendfinder/config.json` existiert.
+Rufe zuerst `tf_health {}` auf (Tool des `trendfinder`-MCP-Servers, ohne Argumente).
 
-Wenn die Datei **fehlt** → Setup ist noch nicht abgeschlossen. Sag dem Nutzer:
+Meldet es einen **Config-Fehler** oder kein `status: 200` → Setup ist noch nicht abgeschlossen. Sag dem Nutzer:
 
 > "Trendfinder ist noch nicht eingerichtet — sollen wir das in 2 Minuten machen?"
 
@@ -27,23 +27,35 @@ Bei Option 1: route zum `onboarding` Skill. Generiere das Cockpit **nicht** gege
 
 ---
 
-## Step 1 — Generate
+## Step 1 — Daten sammeln (tf_request) → Snapshot schreiben → Generator ausführen
 
-Führe den Generator aus:
+Der Generator ist **netzwerkfrei**: er rendert aus einem Snapshot, den du vorher host-seitig über das `tf_request`-Tool zusammenstellst (die Egress-Sperre der Bash-Sandbox spielt dadurch keine Rolle mehr). Dieses Verfahren ist die kanonische Anleitung — andere Skills (onboarding, avatar-studio, scrape-now) verweisen hierauf.
+
+**1. Daten ziehen — alle Aufrufe via `tf_request`, best-effort (einzelne Ausfälle landen als `errors`/`warnings` im Snapshot statt abzubrechen):**
+
+- `GET /api/niches/config` → Snapshot-Key `niches`. Bei `status: 401` → Zugang kaputt: route zu `onboarding`, keinen Snapshot bauen.
+- Pro Niche: `GET /api/trends/<niche_id>` → `trends["<niche_id>"]`; wenn nicht leer, zusätzlich `GET /api/trends/<niche_id>/velocity` → `velocity["<niche_id>"]`. Schlägt der Trend-Abruf einer Niche fehl → `errors["<niche_id>"] = "<einzeilige Meldung>"`.
+- `GET /api/brands` → `brands`.
+- Pro Marke: `GET /api/brands/<brand_id>/personas` (slim), dann pro Persona `GET /api/personas/<persona_id>` (voll, mit DNA) → `personas["<brand_id>"] = [volle Persona-Objekte]`. Schlägt ein Detail-Abruf fehl, das Slim-Objekt verwenden.
+- Pro Persona: `GET /api/personas/<persona_id>/content-pieces?limit=200` → `content_pieces["<persona_id>"]`.
+- `GET /api/schedules` → `schedules`.
+- Nicht-fatale Ausfälle zusätzlich als Klartext-Hinweis in `warnings` sammeln (z. B. „Zeitpläne konnten nicht geladen werden").
+
+**2. Snapshot schreiben:** das Objekt `{niches, trends, velocity, errors, brands, personas, content_pieces, schedules, warnings}` (rohe Response-Bodies; exakte Form im Kopfkommentar von `cockpit.ts`) als JSON nach `{workspace}/.trendfinder/cockpit-snapshot.json` schreiben — der Snapshot enthält keine Secrets.
+
+**3. Generator ausführen:**
 
 ```
-if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts <workspace_root>; fi
+if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts --data <snapshot.json> <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts --data <snapshot.json> <workspace_root>; fi
 ```
 
-Der Generator liest zum Zeitpunkt der Generierung alle Tenant-Daten via API, inlinet sie in eine selbst-enthaltene HTML-Datei und gibt als **letzte stdout-Zeile** den absoluten Pfad zur geschriebenen Datei aus (Standard: `<workspace_root>/.trendfinder/cockpit.html`).
+Der Generator inlinet den Snapshot in eine selbst-enthaltene HTML-Datei und gibt als **letzte stdout-Zeile** den absoluten Pfad zur geschriebenen Datei aus (Standard: `<workspace_root>/.trendfinder/cockpit.html`).
 
 **Best-effort-Verhalten:** Der Generator bricht nie mit einem Fehler ab, wenn Daten fehlen oder leer sind — ein frischer Tenant ohne Scrape-Daten bekommt einen action-first Cold-Start-Zustand statt eines Fehlers.
 
 **Falls der Generator mit Exit-Code ≠ 0 endet:**
 - Lies seine letzte **stderr**-Zeile als einzeilige deutsche Fehlermeldung und gib sie wortgetreu weiter (Fehler gehen nach stderr; stdout bleibt bei Fehlern leer).
-- Schlage die passende Lösung vor:
-  - Konfigurationsfehler (missing config, invalid key, 401) → `onboarding` Skill erneut ausführen.
-  - Backend-Fehler (5xx, Netzwerk-Timeout) → "Versuch es in einem Moment noch einmal" — der Backend-Dienst ist vorübergehend nicht erreichbar.
+- Ursache ist dann ein Snapshot-Problem (Datei fehlt / kein gültiges JSON) — Snapshot neu schreiben und erneut ausführen. Verbindungs-/Zugangsfehler tauchen hier nicht mehr auf; die werden schon beim `tf_request`-Datenabruf sichtbar (401 → `onboarding`, 5xx/Netzwerk → "Versuch es in einem Moment noch einmal").
 
 ---
 
