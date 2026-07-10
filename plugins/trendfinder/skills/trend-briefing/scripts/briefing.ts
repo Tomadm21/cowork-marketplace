@@ -1,22 +1,27 @@
 #!/usr/bin/env bun
 /**
- * Trendfinder — Trend-Briefing live-artifact generator (dependency-free).
+ * Trendfinder — Trend-Briefing live-artifact generator (dependency-free, NETWORK-FREE).
  *
- * Fetches the tenant's current trends at generation time for the active niche,
- * then emits ONE self-contained HTML file with all data inlined. No fetch()
- * inside the HTML.
+ * Renders ONE self-contained HTML file from a pre-fetched data snapshot.
+ * This script makes NO network requests and reads NO config/API key — it runs
+ * inside the Cowork bash sandbox, whose egress allowlist blocks the backend.
+ * Claude fetches the data host-side via the trendfinder MCP server
+ * (tf_request), writes it to a snapshot JSON, and passes it here. Niche
+ * selection (incl. tenant-isolation: only slugs from this tenant's
+ * GET /api/niches/config) happens in Claude BEFORE the snapshot is written.
  *
- *   bun briefing.ts <workspace_root> [niche_id]
+ *   bun briefing.ts --data <snapshot.json> <workspace_root>
  *
- * Config resolution (identical to cockpit.ts):
- *   1. env TRENDFINDER_CONFIG (absolute path to config.json)
- *   2. <workspace_root>/.trendfinder/config.json
- *   3. Walk up from cwd until / looking for .trendfinder/config.json
+ * snapshot.json shape — "trends"/"velocity" are the RAW response bodies of the
+ * named tf_request calls (bare list or wrapped-list object, both tolerated);
+ * "niche" is required, everything else optional and defaults to empty:
  *
- * Niche resolution:
- *   1. CLI arg (2nd positional): niche_id — MUST appear in /api/niches/config for this tenant
- *   2. env TRENDFINDER_NICHE: niche_id — MUST appear in /api/niches/config
- *   3. First owned niche from /api/niches/config
+ *   {
+ *     "niche":    <der Eintrag der Ziel-Nische aus GET /api/niches/config>,
+ *     "trends":   <GET /api/trends/{niche_id}>,
+ *     "velocity": <GET /api/trends/{niche_id}/velocity>,
+ *     "warnings": ["<Hinweis>", …]
+ *   }
  *
  * Output: <workspace_root>/.trendfinder/briefing.html
  * Last stdout line = absolute path to the written file.
@@ -26,11 +31,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 // ── types ──────────────────────────────────────────────────────────────────────
-
-interface Config {
-  base_url: string;
-  api_key: string;
-}
 
 interface Niche {
   niche_id: string;
@@ -85,74 +85,26 @@ const esc = (s: unknown): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-// ── config loading (identical to cockpit.ts) ───────────────────────────────────
+// ── snapshot loading ────────────────────────────────────────────────────────────
 
-function loadConfig(ws: string): Config {
-  // 1. env override
-  const envPath = process.env.TRENDFINDER_CONFIG;
-  if (envPath) {
-    try {
-      const raw = fs.readFileSync(envPath, "utf8");
-      const cfg = JSON.parse(raw) as Config;
-      if (cfg.base_url && cfg.api_key) return cfg;
-    } catch {
-      // fall through
-    }
-  }
-
-  // 2. workspace-relative
-  const wsPath = path.join(ws, ".trendfinder", "config.json");
-  try {
-    const raw = fs.readFileSync(wsPath, "utf8");
-    const cfg = JSON.parse(raw) as Config;
-    if (cfg.base_url && cfg.api_key) return cfg;
-  } catch {
-    // fall through
-  }
-
-  // 3. walk up from cwd
-  let dir = process.cwd();
-  while (true) {
-    const candidate = path.join(dir, ".trendfinder", "config.json");
-    try {
-      const raw = fs.readFileSync(candidate, "utf8");
-      const cfg = JSON.parse(raw) as Config;
-      if (cfg.base_url && cfg.api_key) return cfg;
-    } catch {
-      // ignore
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-
-  throw new Error(
-    "Konfiguration nicht gefunden. Lege .trendfinder/config.json mit base_url + api_key an."
-  );
+interface Snapshot {
+  niche?: unknown;
+  trends?: unknown;
+  velocity?: unknown;
+  warnings?: unknown;
 }
 
-// ── API client ─────────────────────────────────────────────────────────────────
-
-async function apiFetch(cfg: Config, endpoint: string): Promise<unknown> {
-  const url = `${cfg.base_url.replace(/\/$/, "")}${endpoint}`;
-  const res = await fetch(url, {
-    headers: { "X-API-Key": cfg.api_key },
-  });
-  if (res.status === 401) {
-    throw new Error(
-      "API-Authentifizierung fehlgeschlagen (401). Prüfe den api_key in der Konfiguration."
-    );
-  }
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`API-Fehler ${res.status} für ${endpoint}`);
-  }
-  if (res.status === 404) return null;
-  const text = await res.text();
-  if (!text.trim()) return null;
+function loadSnapshot(p: string): Snapshot {
+  let raw: string;
   try {
-    return JSON.parse(text);
+    raw = fs.readFileSync(p, "utf8");
   } catch {
-    return null;
+    throw new Error(`Snapshot-Datei nicht lesbar: ${p}`);
+  }
+  try {
+    return JSON.parse(raw) as Snapshot;
+  } catch {
+    throw new Error(`Snapshot-Datei ist kein gültiges JSON: ${p}`);
   }
 }
 
@@ -492,92 +444,51 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
 // ── main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const ws = process.argv[2];
-  if (!ws) {
-    process.stderr.write(
-      "Fehler: Workspace-Verzeichnis fehlt. Aufruf: bun briefing.ts <workspace_root> [niche_id]\n"
-    );
-    process.exit(1);
-  }
-
-  let cfg: Config;
-  try {
-    cfg = loadConfig(ws);
-  } catch (e) {
-    process.stderr.write(`Konfigurationsfehler: ${(e as Error).message}\n`);
-    process.exit(1);
-  }
-
-  // ── Resolve owned niches ─────────────────────────────────────────────────
-  let ownedNiches: Niche[];
-  try {
-    const raw = await apiFetch(cfg, "/api/niches/config");
-    ownedNiches = extractList(raw) as Niche[];
-  } catch (e) {
-    process.stderr.write(
-      `Trendfinder API nicht erreichbar: ${(e as Error).message}\n`
-    );
-    process.exit(1);
-  }
-
-  if (ownedNiches.length === 0) {
-    process.stderr.write(
-      "Keine Niches konfiguriert. Richte zuerst eine Nische ein: „Nische anlegen“.\n"
-    );
-    process.exit(1);
-  }
-
-  // ── Select target niche (tenant-isolation enforced) ──────────────────────
-  const requestedId = process.argv[3] ?? process.env.TRENDFINDER_NICHE ?? null;
-
-  let targetNiche: Niche;
-  if (requestedId) {
-    const found = ownedNiches.find((n) => n.niche_id === requestedId);
-    if (!found) {
-      const list = ownedNiches
-        .map((n) => `  • ${n.display_name} (${n.niche_id})`)
-        .join("\n");
-      process.stderr.write(
-        `Niche „${requestedId}“ nicht auf diesem Tenant. Verfügbare Niches:\n${list}\n`
-      );
-      process.exit(1);
+  // --data <snapshot.json> ist Pflicht; das Positionsargument ist <workspace_root>.
+  const argv = process.argv.slice(2);
+  let dataPath: string | null = null;
+  const positional: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--data") {
+      dataPath = argv[++i] ?? null;
+    } else {
+      positional.push(argv[i]);
     }
-    targetNiche = found;
-  } else {
-    // Default: first owned niche
-    targetNiche = ownedNiches[0];
+  }
+  const ws = positional[0];
+  if (!ws || !dataPath) {
+    process.stderr.write(
+      "Fehler: Aufruf: bun briefing.ts --data <snapshot.json> <workspace_root>\n"
+    );
+    process.exit(1);
+  }
+
+  let snap: Snapshot;
+  try {
+    snap = loadSnapshot(dataPath);
+  } catch (e) {
+    process.stderr.write(`Snapshot-Fehler: ${(e as Error).message}\n`);
+    process.exit(1);
+  }
+
+  // ── Ziel-Nische aus dem Snapshot (Auswahl + Tenant-Check macht Claude) ────
+  const targetNiche = snap.niche as Niche | undefined;
+  if (!targetNiche || typeof targetNiche !== "object" || !targetNiche.niche_id) {
+    process.stderr.write(
+      "Snapshot-Fehler: \"niche\" fehlt oder hat keine niche_id — die Ziel-Nische muss vor der Generierung über GET /api/niches/config aufgelöst werden.\n"
+    );
+    process.exit(1);
   }
 
   const stand = berlinStand();
-  const warnings: string[] = [];
+  const warnings: string[] = Array.isArray(snap.warnings)
+    ? (snap.warnings as unknown[]).map(String)
+    : [];
 
-  // ── Fetch trends ──────────────────────────────────────────────────────────
-  // No persona_id here: the briefing is deliberately niche-level.
+  // No persona_id in the snapshot data: the briefing is deliberately niche-level.
   // Avatar-personalised output is done natively in Claude via the script-studio skill.
-  let trends: TrendCluster[] = [];
-  try {
-    const rawTrends = await apiFetch(cfg, `/api/trends/${targetNiche.niche_id}`);
-    trends = extractList(rawTrends) as TrendCluster[];
-  } catch (e) {
-    warnings.push(
-      `Trend-Daten konnten nicht geladen werden: ${(e as Error).message}`
-    );
-  }
-
-  // ── Fetch velocity (optional) ─────────────────────────────────────────────
-  let velocity: VelocityEntry[] = [];
-  if (trends.length > 0) {
-    try {
-      const rawVel = await apiFetch(
-        cfg,
-        `/api/trends/${targetNiche.niche_id}/velocity`
-      );
-      velocity = extractList(rawVel) as VelocityEntry[];
-    } catch {
-      // velocity is optional — warn, continue
-      warnings.push("Velocity-Daten nicht verfügbar.");
-    }
-  }
+  const trends = extractList(snap.trends) as TrendCluster[];
+  const velocity = extractList(snap.velocity) as VelocityEntry[];
 
   // ── Build + write HTML ────────────────────────────────────────────────────
   const html = buildHtml(stand, targetNiche, trends, velocity, warnings);

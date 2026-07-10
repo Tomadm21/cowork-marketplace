@@ -1,16 +1,34 @@
 #!/usr/bin/env bun
 /**
- * Trendfinder — Cockpit live-artifact generator (dependency-free).
+ * Trendfinder — Cockpit live-artifact generator (dependency-free, NETWORK-FREE).
  *
- * Fetches all tenant data at generation time, then emits ONE self-contained
- * HTML file with all data inlined. No fetch() inside the HTML.
+ * Renders ONE self-contained HTML file from a pre-fetched data snapshot.
+ * This script makes NO network requests and reads NO config/API key — it runs
+ * inside the Cowork bash sandbox, whose egress allowlist blocks the backend.
+ * Claude fetches the data host-side via the trendfinder MCP server
+ * (tf_request), writes it to a snapshot JSON, and passes it here.
  *
- *   bun cockpit.ts <workspace_root>
+ *   bun cockpit.ts --data <snapshot.json> <workspace_root>
  *
- * Config resolution:
- *   1. env TRENDFINDER_CONFIG (absolute path to config.json)
- *   2. <workspace_root>/.trendfinder/config.json
- *   3. Walk up from cwd until / looking for .trendfinder/config.json
+ * snapshot.json shape — each value is the RAW response body of the named
+ * tf_request call (bare list or wrapped-list object, both tolerated); every
+ * key except "niches" is optional and defaults to empty:
+ *
+ *   {
+ *     "niches":         <GET /api/niches/config>,
+ *     "trends":         { "<niche_id>": <GET /api/trends/{niche_id}> },
+ *     "velocity":       { "<niche_id>": <GET /api/trends/{niche_id}/velocity> },
+ *     "errors":         { "<niche_id>": "<einzeilige Fehlermeldung>" },
+ *     "brands":         <GET /api/brands>,
+ *     "personas":       { "<brand_id>": [<GET /api/personas/{persona_id}>, …] },
+ *     "content_pieces": { "<persona_id>": <GET /api/personas/{persona_id}/content-pieces?limit=200> },
+ *     "schedules":      <GET /api/schedules>,
+ *     "warnings":       ["<Hinweis>", …]
+ *   }
+ *
+ * "personas" carries the ENRICHED persona detail objects (full DNA), not the
+ * slim {id, persona_id, display_name} list items — the Avatare tab renders
+ * persona_profile / tone_of_voice / content_pillars.
  *
  * Output: <workspace_root>/.trendfinder/cockpit.html
  * Last stdout line = absolute path to the written file.
@@ -20,11 +38,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 // ── types ──────────────────────────────────────────────────────────────────────
-
-interface Config {
-  base_url: string;
-  api_key: string;
-}
 
 interface Niche {
   niche_id: string;
@@ -127,74 +140,31 @@ const esc = (s: unknown): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-// ── config loading ─────────────────────────────────────────────────────────────
+// ── snapshot loading ────────────────────────────────────────────────────────────
 
-function loadConfig(ws: string): Config {
-  // 1. env override
-  const envPath = process.env.TRENDFINDER_CONFIG;
-  if (envPath) {
-    try {
-      const raw = fs.readFileSync(envPath, "utf8");
-      const cfg = JSON.parse(raw) as Config;
-      if (cfg.base_url && cfg.api_key) return cfg;
-    } catch {
-      // fall through
-    }
-  }
-
-  // 2. workspace-relative
-  const wsPath = path.join(ws, ".trendfinder", "config.json");
-  try {
-    const raw = fs.readFileSync(wsPath, "utf8");
-    const cfg = JSON.parse(raw) as Config;
-    if (cfg.base_url && cfg.api_key) return cfg;
-  } catch {
-    // fall through
-  }
-
-  // 3. walk up from cwd
-  let dir = process.cwd();
-  while (true) {
-    const candidate = path.join(dir, ".trendfinder", "config.json");
-    try {
-      const raw = fs.readFileSync(candidate, "utf8");
-      const cfg = JSON.parse(raw) as Config;
-      if (cfg.base_url && cfg.api_key) return cfg;
-    } catch {
-      // ignore
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-
-  throw new Error(
-    "Konfiguration nicht gefunden. Lege .trendfinder/config.json mit base_url + api_key an."
-  );
+interface Snapshot {
+  niches?: unknown;
+  trends?: Record<string, unknown>;
+  velocity?: Record<string, unknown>;
+  errors?: Record<string, string>;
+  brands?: unknown;
+  personas?: Record<string, unknown>;
+  content_pieces?: Record<string, unknown>;
+  schedules?: unknown;
+  warnings?: unknown;
 }
 
-// ── API client ─────────────────────────────────────────────────────────────────
-
-async function apiFetch(cfg: Config, endpoint: string): Promise<unknown> {
-  const url = `${cfg.base_url.replace(/\/$/, "")}${endpoint}`;
-  const res = await fetch(url, {
-    headers: { "X-API-Key": cfg.api_key },
-  });
-  if (res.status === 401) {
-    throw new Error(
-      "API-Authentifizierung fehlgeschlagen (401). Prüfe den api_key in der Konfiguration."
-    );
-  }
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`API-Fehler ${res.status} für ${endpoint}`);
-  }
-  if (res.status === 404) return null;
-  const text = await res.text();
-  if (!text.trim()) return null;
+function loadSnapshot(p: string): Snapshot {
+  let raw: string;
   try {
-    return JSON.parse(text);
+    raw = fs.readFileSync(p, "utf8");
   } catch {
-    return null;
+    throw new Error(`Snapshot-Datei nicht lesbar: ${p}`);
+  }
+  try {
+    return JSON.parse(raw) as Snapshot;
+  } catch {
+    throw new Error(`Snapshot-Datei ist kein gültiges JSON: ${p}`);
   }
 }
 
@@ -640,141 +610,87 @@ function showTab(name) {
 // ── main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const ws = process.argv[2];
-  if (!ws) {
+  // --data <snapshot.json> ist Pflicht; das Positionsargument ist <workspace_root>.
+  const argv = process.argv.slice(2);
+  let dataPath: string | null = null;
+  const positional: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--data") {
+      dataPath = argv[++i] ?? null;
+    } else {
+      positional.push(argv[i]);
+    }
+  }
+  const ws = positional[0];
+  if (!ws || !dataPath) {
     process.stderr.write(
-      "Fehler: Workspace-Verzeichnis fehlt. Aufruf: bun cockpit.ts <workspace_root>\n"
+      "Fehler: Aufruf: bun cockpit.ts --data <snapshot.json> <workspace_root>\n"
     );
     process.exit(1);
   }
 
-  let cfg: Config;
+  let snap: Snapshot;
   try {
-    cfg = loadConfig(ws);
+    snap = loadSnapshot(dataPath);
   } catch (e) {
-    process.stderr.write(`Konfigurationsfehler: ${(e as Error).message}\n`);
-    process.exit(1);
-  }
-
-  // ── Auth/health gate via niches ──────────────────────────────────────────
-  let niches: Niche[];
-  try {
-    const raw = await apiFetch(cfg, "/api/niches/config");
-    niches = extractList(raw) as Niche[];
-  } catch (e) {
-    process.stderr.write(
-      `Trendfinder API nicht erreichbar: ${(e as Error).message}\n`
-    );
+    process.stderr.write(`Snapshot-Fehler: ${(e as Error).message}\n`);
     process.exit(1);
   }
 
   const stand = berlinStand();
-  const warnings: string[] = [];
+  const warnings: string[] = Array.isArray(snap.warnings)
+    ? (snap.warnings as unknown[]).map(String)
+    : [];
 
-  // ── Per-niche trend + velocity fetch ─────────────────────────────────────
+  // ── Per-niche trends + velocity aus dem Snapshot ──────────────────────────
   const nicheData: NicheData[] = [];
-  for (const niche of niches) {
+  for (const niche of extractList(snap.niches) as Niche[]) {
     const id = niche.niche_id;
     if (!id) {
       warnings.push(`Nische ohne niche_id übersprungen`);
       continue;
     }
-    try {
-      const rawTrends = await apiFetch(cfg, `/api/trends/${id}`);
-      const trends = extractList(rawTrends) as TrendCluster[];
-
-      let velocity: VelocityEntry[] = [];
-      if (trends.length > 0) {
-        try {
-          const rawVel = await apiFetch(cfg, `/api/trends/${id}/velocity`);
-          velocity = extractList(rawVel) as VelocityEntry[];
-        } catch {
-          // velocity is optional — ignore failure
-        }
-      }
-
-      nicheData.push({ niche, trends, velocity });
-    } catch (e) {
-      warnings.push(`${niche.display_name} konnte nicht geladen werden`);
-      nicheData.push({ niche, trends: [], velocity: [], error: String((e as Error).message) });
-    }
+    const error = snap.errors?.[id];
+    nicheData.push({
+      niche,
+      trends: extractList(snap.trends?.[id]) as TrendCluster[],
+      velocity: extractList(snap.velocity?.[id]) as VelocityEntry[],
+      ...(error ? { error: String(error) } : {}),
+    });
   }
 
-  // ── Brands + personas fetch (tenant-scoped since 2026-06-16) ──────────────
-  // /api/brands und /api/brands/{id}/personas sind serverseitig tenant-gescoped:
-  // diese Tenant sieht ausschließlich die eigenen Avatare (das frühere
-  // Cross-Tenant-Leck ist geschlossen). avatar-studio legt sie an, hier werden
-  // sie gerendert. Bei null Avataren bleibt der Cold-Start-Zustand erhalten.
+  // ── Brands + angereicherte Personas aus dem Snapshot ──────────────────────
+  // snapshot.personas trägt die vollen Persona-Detailobjekte (DNA inklusive) —
+  // die Anreicherung slim → voll macht Claude beim Zusammenstellen des
+  // Snapshots (GET /api/brands/{id}/personas, dann GET /api/personas/{pid}).
   const brandData: BrandData[] = [];
-  try {
-    const rawBrands = await apiFetch(cfg, "/api/brands");
-    const brands = extractList(rawBrands) as Brand[];
-    for (const brand of brands) {
-      const bid = brandId(brand);
-      if (!bid) continue;
-      let personas: Persona[] = [];
-      try {
-        const rawP = await apiFetch(cfg, `/api/brands/${bid}/personas`);
-        const slim = extractList(rawP) as Persona[];
-        // The list endpoint returns only {id, persona_id, display_name} — no DNA.
-        // Enrich each persona with its detail (GET /api/personas/{id}) so the
-        // Avatare tab can render persona_profile / tone_of_voice / pillars.
-        for (const p of slim) {
-          const pid = String(p.persona_id ?? p.id ?? "");
-          if (!pid) {
-            personas.push(p);
-            continue;
-          }
-          try {
-            const full = await apiFetch(cfg, `/api/personas/${pid}`);
-            personas.push(
-              full && typeof full === "object" ? (full as Persona) : p
-            );
-          } catch {
-            personas.push(p); // fall back to the slim list item
-          }
-        }
-      } catch {
-        warnings.push(`Avatare für ${brandName(brand)} konnten nicht geladen werden`);
-      }
-      brandData.push({ brand, personas });
-    }
-  } catch {
-    warnings.push("Avatare konnten nicht geladen werden");
+  for (const brand of extractList(snap.brands) as Brand[]) {
+    const bid = brandId(brand);
+    if (!bid) continue;
+    brandData.push({
+      brand,
+      personas: extractList(snap.personas?.[bid]) as Persona[],
+    });
   }
 
-  // ── Content pieces per persona (tenant-scoped CRUD, SP1) ──────────────────
+  // ── Content pieces pro Persona aus dem Snapshot ───────────────────────────
   const personaContent: PersonaContent[] = [];
   for (const bd of brandData) {
     for (const p of bd.personas) {
       const pid = String(p.persona_id ?? p.id ?? "");
       if (!pid) continue;
-      try {
-        // limit=200: the API defaults to 50 — a busy persona would silently
-        // truncate the board (review finding m4/m7).
-        const raw = await apiFetch(cfg, `/api/personas/${pid}/content-pieces?limit=200`);
-        const pieces = extractList(raw) as ContentPiece[];
-        if (pieces.length > 0) {
-          personaContent.push({
-            personaName: String(p.display_name ?? p.name ?? pid),
-            brandName: brandName(bd.brand),
-            pieces,
-          });
-        }
-      } catch {
-        warnings.push(`Content für ${String(p.display_name ?? pid)} konnte nicht geladen werden`);
+      const pieces = extractList(snap.content_pieces?.[pid]) as ContentPiece[];
+      if (pieces.length > 0) {
+        personaContent.push({
+          personaName: String(p.display_name ?? p.name ?? pid),
+          brandName: brandName(bd.brand),
+          pieces,
+        });
       }
     }
   }
 
-  // ── Schedules fetch ───────────────────────────────────────────────────────
-  let schedules: Schedule[] = [];
-  try {
-    const rawSchedules = await apiFetch(cfg, "/api/schedules");
-    schedules = extractList(rawSchedules) as Schedule[];
-  } catch {
-    warnings.push("Zeitpläne konnten nicht geladen werden");
-  }
+  const schedules = extractList(snap.schedules) as Schedule[];
 
   // ── Build + write HTML ────────────────────────────────────────────────────
   const html = buildHtml(stand, nicheData, brandData, schedules, personaContent, warnings);
