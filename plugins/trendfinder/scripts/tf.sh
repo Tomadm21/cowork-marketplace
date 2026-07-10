@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# tf.sh — Trendfinder API helper. Usage:
+# tf.sh — Trendfinder API helper. NUR für Claude-Code-CLI / Debugging.
+# In Cowork ist der Sandbox-Egress geblockt (Proxy-403 auf die Backend-Domain) —
+# die Skills nutzen stattdessen den MCP-Server (scripts/mcp-server.mjs,
+# Tools tf_request / tf_health / tf_configure), der host-seitig läuft.
+# Usage:
 #   tf.sh GET /api/niches/config
 #   tf.sh POST /api/schedules '{"niche_id":"acme-beauty","interval_hours":6}'
 #   tf.sh POST /api/ingest @/tmp/body.json          # 3rd arg starting with @ sends file body

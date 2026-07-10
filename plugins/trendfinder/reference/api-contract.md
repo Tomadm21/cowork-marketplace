@@ -19,7 +19,9 @@ The key lives in `{workspace}/.trendfinder/config.json` with shape:
 { "base_url": "<your Trendfinder backend URL>", "api_key": "..." }
 ```
 
-Skills call the API exclusively through `scripts/tf.sh`, never raw curl with an inline key.
+plus a host-side fallback `~/.trendfinder/config.json` (written by the MCP server's `tf_configure` tool during onboarding; used when the session workspace has no config — Cowork session workspaces start empty).
+
+Skills call the API exclusively through the plugin's **`trendfinder` MCP server** (`tf_request` tool — it runs host-side outside the Cowork sandbox, injects `X-API-Key` itself, and returns `{ok, status, body}` for every HTTP status), never raw curl with an inline key. `scripts/tf.sh` remains for Claude-Code-CLI/debugging only. The server refuses `/api/admin/*` and the ops-only generation routes below.
 
 ---
 
