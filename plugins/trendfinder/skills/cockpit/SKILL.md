@@ -7,6 +7,8 @@ description: Zeig das Trendfinder-Cockpit als Live Artifact — einen Echtzeit-S
 
 Generiere den Workspace-Snapshot als **Cowork Live Artifact**: eine selbst-enthaltene HTML-Seite mit allen Niches, Trend-Clustern, Velocity-Daten, Avataren und dem empfohlenen nächsten Schritt. Stand:-Zeitstempel zeigt den Generierungszeitpunkt — kein Streaming, kein Live-Push.
 
+**Das Cockpit ist der Frontend-Ersatz:** Der Content-Tab zeigt jedes Skript im **Volltext** (Hook, Beats, CTA, Caption, Hashtags, Dreh-Notizen — aufklappbar pro Piece), der Avatare-Tab die **volle DNA** (Profil, Ton, Pillars, Interessen, Origin-Story, System-Prompt — aufklappbar pro Karte). Der Nutzer muss für nichts davon in die Web-App.
+
 ---
 
 ## Step 0 — Self-verify (route, don't error)
@@ -61,13 +63,13 @@ Der Generator inlinet den Snapshot in eine selbst-enthaltene HTML-Datei und gibt
 
 ## Step 2 — Present as Live Artifact
 
-Präsentiere die generierte HTML-Datei als **Live Artifact** (persistenter Cowork-Tab, wieder öffenbar und aktualisierbar) — **nicht** nur als Dateipfad.
+Präsentiere die generierte HTML-Datei als **Live Artifact** nach dem kanonischen Verfahren in `${CLAUDE_PLUGIN_ROOT}/reference/artifact-presentation.md` (Datei verifizieren → stabiler Pfad → präsentieren → **Fallback in den Chat, wenn das Panel nicht lädt**). Nie nur den Dateipfad nennen.
 
-Gib danach eine 2–3-zeilige In-Chat-Zusammenfassung in der Sprache des Nutzers:
+Gib danach eine In-Chat-Zusammenfassung in der Sprache des Nutzers — sie muss auch dann tragen, wenn das Panel nicht rendert:
 
-- Wie viele Niches, Trends und Avatare das Cockpit enthält (nur Zahlen, die der Generator tatsächlich geschrieben hat — niemals erfundene Werte).
+- Wie viele Niches, Trends, Avatare und Content-Pieces (davon wie viele Skripte/Freigaben) das Cockpit enthält (nur Zahlen, die der Generator tatsächlich geschrieben hat — niemals erfundene Werte).
 - Den einen empfohlenen nächsten Schritt (aus dem Cockpit-Inhalt, z. B. "Sag ‚jetzt scrapen'" bei Cold-Start, oder "Niche X hat 3 neue Trends seit gestern — schau sie dir an").
-- Den Hinweis: "Sag einfach ‚zeig das Cockpit', um zu aktualisieren."
+- Den Hinweis: "Sag einfach ‚zeig das Cockpit', um zu aktualisieren. Skripte und Avatar-DNA stehen im Cockpit im Volltext (aufklappen)."
 
 ---
 

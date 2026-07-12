@@ -27,14 +27,25 @@ tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pi
 ```
 
 - **Empty** → say honestly "Keine Skripte zur Freigabe für <Avatar>." and offer to write one (→ `script-studio`) or plan ideas (→ `content-plan`). Do NOT invent pieces.
-- **Non-empty** → for each piece show a compact preview from its `script_data` (Hook + CTA + Ziel), keyed by `id` and `title`. Never fabricate content that isn't in `script_data`.
+- **Non-empty, one piece** → go straight to Step 3 (full script + decision).
+- **Non-empty, several pieces** → first a compact numbered overview (title + Hook first line + Ziel per piece), then walk them **one at a time** through Step 3. Never fabricate content that isn't in `script_data`.
 
-## Step 3 — Approve / reject per piece (select-block)
+## Step 3 — Show the FULL script, then approve / reject (select-block)
 
-Present a select-block per piece (or a batch block if several):
+**Hard rule — niemand gibt frei, was er nicht gesehen hat:** before EVERY decision block, render that piece's **complete script** from `script_data` as readable markdown directly above it — alle Hooks, das volle Skript (`body`), CTA, Caption, Hashtags, Ziel, Dreh-Notizen. A one-line preview is NOT enough. If `script_data` is missing/empty, say so honestly („dieses Piece hat noch keinen Skript-Text") instead of showing an empty approval.
+
+Then the select-block for that piece:
 
 ```
-„Abendroutine mit 3 Produkten" (Lena) — Hook: „Diese 3 Produkte …" · Ziel: 🚀 Reichweite
+## Abendroutine mit 3 Produkten (Lena · Ziel: 🚀 Reichweite)
+
+**Hook:** Diese 3 Produkte reichen wirklich
+**Alternative Hooks:** …
+**Skript:**
+<voller Skript-Text aus script_data.body>
+**CTA:** …
+**Caption:** …
+**Hashtags:** #…
 
 1) ✅ Freigeben  → Stage „done"
 2) ↩︎ Zurück in Skript lassen (nochmal überarbeiten)
@@ -69,7 +80,8 @@ State the real outcome: N freigegeben, M noch offen, K verworfen. Offer the next
 ## Done means
 
 - `tf_health` 200; avatar chosen.
-- `stage=script` pieces listed (or honest "none"); previews only from real `script_data`.
+- `stage=script` pieces listed (or honest "none"); content only from real `script_data`.
+- **Every decision block had the piece's complete script rendered directly above it** — no approval on unseen text.
 - User choices applied: approve → `PATCH stage=done`; reject → keep or (confirmed) `DELETE`.
 - Read-back confirms transitions; real counts reported.
 

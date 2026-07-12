@@ -105,7 +105,7 @@ Für eine Marken-Änderung entsprechend: `tf_request { "method": "GET", "endpoin
 
 Only if the changed fields are actually present in the response → regenerate the Cockpit so the Avatare tab reflects the change: follow the `cockpit` skill's snapshot procedure (fetch via `tf_request`, write the snapshot JSON, run `cockpit.ts --data <snapshot.json> <workspace_root>`).
 
-Present the regenerated Cockpit as the Live Artifact.
+Present the regenerated Cockpit as the Live Artifact — canonical procedure incl. chat fallback: `${CLAUDE_PLUGIN_ROOT}/reference/artifact-presentation.md`.
 
 ---
 

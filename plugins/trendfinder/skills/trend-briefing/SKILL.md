@@ -75,7 +75,7 @@ Der Generator inlinet den Snapshot in eine selbst-enthaltene HTML-Datei und gibt
 
 ## Step 2 — Present as Live Artifact
 
-Präsentiere die generierte HTML-Datei als **Live Artifact** (persistenter Cowork-Tab, wieder öffenbar und aktualisierbar) — **nicht** nur als Dateipfad.
+Präsentiere die generierte HTML-Datei als **Live Artifact** nach dem kanonischen Verfahren in `${CLAUDE_PLUGIN_ROOT}/reference/artifact-presentation.md` (Datei verifizieren → stabiler Pfad → präsentieren → **Fallback in den Chat, wenn das Panel nicht lädt**) — **nicht** nur als Dateipfad.
 
 Lies den absoluten Pfad aus der letzten stdout-Zeile des Generators.
 

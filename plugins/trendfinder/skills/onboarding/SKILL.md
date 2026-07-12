@@ -293,6 +293,8 @@ Cockpit generieren, damit der Nutzer selbst im Cold-Start-Zustand auf dem Artifa
 if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts --data <snapshot.json> <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts --data <snapshot.json> <workspace_root>; fi
 ```
 
+Das Artifact nach dem kanonischen Verfahren präsentieren (inkl. Chat-Fallback, wenn das Panel nicht lädt): `${CLAUDE_PLUGIN_ROOT}/reference/artifact-presentation.md`.
+
 Eine frische Niche hat noch keine Trends — ehrlich sagen:
 
 > "Eingerichtet ✅ — dein Cockpit ist da. Noch keine Trends drin: die erscheinen nach deinem ersten Scrape."

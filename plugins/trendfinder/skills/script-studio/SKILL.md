@@ -128,9 +128,19 @@ Two different avatars MUST yield visibly different hooks/scripts for the same tr
 
 ---
 
-## Step 4.5 — Persist the script on the content board
+## Step 5 — Deliver in chat (BEFORE saving, BEFORE any select-block)
 
-The script you just wrote is native text — now store it as a `content_piece` so it shows on the shared board (frontend + Cockpit). **This is a PATCH of `script_data` + a stage bump — never the backend `generate-script` route.**
+Output the hooks + script + caption as clean, copyable **markdown directly in the chat** (no generator needed — this is native text). Lead with which avatar + which trend + which Ziel it's for (z. B. „Skript für Lena · Trend: Evening Routines · Ziel: 🛒 Verkauf").
+
+**Hard rule — the user must SEE the final script:** the complete script (alle Hooks, das volle Skript mit Beats, CTA, Caption, Hashtags) MUSS im Chat stehen, **bevor** irgendein Auswahlblock kommt (Freigabe, Next Steps, „speichern?"). Niemals nur Titel + Optionen zeigen — niemand gibt ein Skript frei, das er nie gesehen hat. Das gilt auch, wenn dieser Skill aus `journey` oder `content-plan` heraus läuft.
+
+Optionally, if the user wants to keep a file copy, offer to save it to `{workspace}/.trendfinder/scripts/<persona_id>-<trend-slug>.md`.
+
+---
+
+## Step 6 — Persist the script on the content board
+
+The script the user just saw is native text — now store it as a `content_piece` so it shows on the shared board (frontend + Cockpit; the Cockpit Content tab renders `script_data` in full). **This is a PATCH of `script_data` + a stage bump — never the backend `generate-script` route.**
 
 First, is there already an `idea` piece for this? Look:
 
@@ -162,15 +172,7 @@ tf_request { "method": "PATCH", "endpoint": "/api/content-pieces/<piece_id>",
 
 Interpret (`result.status`): **200** saved · **404** foreign/unknown piece (re-resolve) · **422** invalid stage.
 
-**Read-back (honesty rule):** the PATCH returns the updated piece — confirm `stage == "script"` and `script_data.hook` is present before telling the user it's saved. If the save failed, deliver the script in chat anyway and say persistence didn't succeed — never claim it's on the board if the API didn't confirm.
-
----
-
-## Step 5 — Deliver
-
-Output the hooks + script + caption as clean, copyable **markdown directly in the chat** (no generator needed — this is native text). Lead with which avatar + which trend + which Ziel it's for (z. B. „Skript für Lena · Trend: Evening Routines · Ziel: 🛒 Verkauf").
-
-Optionally, if the user wants to keep it, offer to save it to `{workspace}/.trendfinder/scripts/<persona_id>-<trend-slug>.md`.
+**Read-back (honesty rule):** the PATCH returns the updated piece — confirm `stage == "script"` and `script_data.hook` is present before telling the user it's saved. If the save failed, say persistence didn't succeed — the script is already visible in chat (Step 5), so nothing is lost; never claim it's on the board if the API didn't confirm.
 
 ---
 
@@ -195,9 +197,10 @@ Optionally, if the user wants to keep it, offer to save it to `{workspace}/.tren
 - Trends ranked against the avatar's DNA with per-trend reasons, labelled as native judgment.
 - Ziel geklärt (aus der Anfrage übernommen oder mit ⭐-Empfehlung erfragt); Struktur + CTA folgen dem Primärziel; Ziel im Output benannt.
 - Hooks + a full short-video script + caption written in the avatar's voice for the chosen trend.
+- **The complete final script was visible in chat (copyable markdown) BEFORE any select-block and before persisting** — the user never approves unseen text.
 - Script persisted as a content piece via `PATCH /api/content-pieces/{id}` (`script_data` set, `stage:"script"`); read-back confirmed. Backend `generate-script` route NOT used.
-- If persistence failed, the script was still delivered in chat and the failure was stated honestly.
-- Delivered as copyable markdown; optionally saved under `.trendfinder/`.
+- If persistence failed, the failure was stated honestly (script already delivered in chat).
+- Optionally saved under `.trendfinder/`.
 - No `?persona_id=` sent, no Apify call, no key printed.
 
 ---

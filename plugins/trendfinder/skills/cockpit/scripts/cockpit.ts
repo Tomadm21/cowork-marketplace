@@ -28,7 +28,11 @@
  *
  * "personas" carries the ENRICHED persona detail objects (full DNA), not the
  * slim {id, persona_id, display_name} list items — the Avatare tab renders
- * persona_profile / tone_of_voice / content_pillars.
+ * the FULL DNA (persona_profile / tone_of_voice / content_pillars / interests /
+ * origin_story / system_prompt) expandable per card; the Content tab renders
+ * each piece's full script_data (hook, beats, CTA, caption, hashtags, notes)
+ * expandable per row. The Cockpit is the frontend replacement: everything the
+ * tenant produces must be readable here, not just counted.
  *
  * Output: <workspace_root>/.trendfinder/cockpit.html
  * Last stdout line = absolute path to the written file.
@@ -96,6 +100,7 @@ interface Persona {
   system_prompt?: unknown;
   interests?: unknown;
   origin_story?: unknown;
+  potential_development?: unknown;
   dna?: unknown;
   persona_dna?: unknown;
   description?: unknown;
@@ -109,6 +114,7 @@ interface ContentPiece {
   pillar?: string;
   format?: string;
   persona_id?: number | string;
+  script_data?: unknown;
   [k: string]: unknown;
 }
 
@@ -220,6 +226,128 @@ function personaDna(p: Persona): string {
   }
   const s = out.join(" · ");
   return s.length > 240 ? s.slice(0, 237) + "…" : s;
+}
+
+// ── full-detail renderers (Skripte + DNA im Volltext, aufklappbar) ────────────
+
+const ZIEL_LABEL: Record<string, string> = {
+  reichweite: "🚀 Reichweite",
+  engagement: "💬 Engagement",
+  verkauf: "🛒 Verkauf",
+  follower: "➕ Follower",
+  vertrauen: "🤝 Vertrauen",
+};
+
+const DNA_KEY_LABEL: Record<string, string> = {
+  name: "Name",
+  age: "Alter",
+  background: "Hintergrund",
+  location: "Ort",
+  appearance: "Aussehen",
+  personality: "Persönlichkeit",
+  style: "Stil",
+  tone: "Ton",
+  energy: "Energie",
+  language: "Sprache",
+  avoid_words: "Vermeiden",
+  example_openers: "Beispiel-Opener",
+};
+
+function labeledField(label: string, valueHtml: string): string {
+  if (!valueHtml) return "";
+  return `<div class="sd-field"><div class="sd-label">${esc(label)}</div><div class="sd-value">${valueHtml}</div></div>`;
+}
+
+/** Generic pretty renderer for DNA/script values: string → pre-wrap text,
+ *  array of objects → list (name/description aware), array → tag badges,
+ *  object → key/value lines. Everything escaped. */
+function valueHtml(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+    const s = String(v).trim();
+    return s ? `<span class="pre">${esc(s)}</span>` : "";
+  }
+  if (Array.isArray(v)) {
+    if (v.length === 0) return "";
+    const allObjects = v.every((x) => x && typeof x === "object" && !Array.isArray(x));
+    if (allObjects) {
+      const items = (v as Array<Record<string, unknown>>).map((o) => {
+        const name = o.name != null ? String(o.name) : "";
+        const rest = Object.entries(o)
+          .filter(([k, val]) => k !== "name" && val != null && String(val).trim() !== "")
+          .map(([k, val]) =>
+            typeof val === "string" || typeof val === "number"
+              ? (k === "description" ? String(val) : `${DNA_KEY_LABEL[k] ?? k}: ${String(val)}`)
+              : `${DNA_KEY_LABEL[k] ?? k}: ${JSON.stringify(val)}`
+          )
+          .join(" · ");
+        return `<li>${name ? `<strong>${esc(name)}</strong>` : ""}${name && rest ? " — " : ""}${esc(rest)}</li>`;
+      });
+      return `<ul class="sd-list">${items.join("")}</ul>`;
+    }
+    return `<div class="sd-tags">${v
+      .map((x) => `<span class="meta-tag">${esc(typeof x === "string" ? x : JSON.stringify(x))}</span>`)
+      .join("")}</div>`;
+  }
+  if (typeof v === "object") {
+    const rows = Object.entries(v as Record<string, unknown>)
+      .filter(([, val]) => val != null && (typeof val !== "string" || val.trim() !== ""))
+      .map(([k, val]) => `<div><span class="sd-k">${esc(DNA_KEY_LABEL[k] ?? k)}:</span> ${valueHtml(val)}</div>`);
+    return rows.length ? `<div class="sd-kv">${rows.join("")}</div>` : "";
+  }
+  return "";
+}
+
+/** Full script text from a piece's script_data — every field the plugin
+ *  persists (script-studio Step 4.5), rendered readably and escaped. */
+function scriptDataHtml(sd: Record<string, unknown>): string {
+  const parts: string[] = [];
+  parts.push(labeledField("Hook", valueHtml(sd.hook)));
+  const mainHook = typeof sd.hook === "string" ? sd.hook : null;
+  const altHooks = Array.isArray(sd.hooks)
+    ? (sd.hooks as unknown[]).map((h) => String(h)).filter((h) => h.trim() !== "" && h !== mainHook)
+    : [];
+  if (altHooks.length) {
+    parts.push(
+      labeledField(
+        "Alternative Hooks",
+        `<ul class="sd-list">${altHooks.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>`
+      )
+    );
+  }
+  parts.push(labeledField("Skript", valueHtml(sd.body)));
+  parts.push(labeledField("CTA", valueHtml(sd.cta)));
+  parts.push(labeledField("Caption", valueHtml(sd.caption)));
+  if (Array.isArray(sd.hashtags) && sd.hashtags.length) {
+    parts.push(
+      labeledField(
+        "Hashtags",
+        `<div class="sd-tags">${(sd.hashtags as unknown[])
+          .map((h) => `<span class="meta-tag">#${esc(String(h).replace(/^#/, ""))}</span>`)
+          .join("")}</div>`
+      )
+    );
+  }
+  parts.push(labeledField("Dreh-Notizen", valueHtml(sd.visual_notes)));
+  parts.push(labeledField("Audio", valueHtml(sd.audio)));
+  return parts.filter(Boolean).join("");
+}
+
+/** Full avatar DNA — all fields the API carries (contract § Avatare), untruncated. */
+function personaDnaFullHtml(p: Persona): string {
+  const sections: Array<[string, unknown]> = [
+    ["Profil", p.persona_profile],
+    ["Ton", p.tone_of_voice],
+    ["Content-Pillars", p.content_pillars],
+    ["Interessen", p.interests],
+    ["Origin-Story", p.origin_story],
+    ["Entwicklung", p.potential_development],
+    ["System-Prompt (Schreibstimme)", p.system_prompt],
+  ];
+  return sections
+    .map(([label, v]) => labeledField(label, valueHtml(v)))
+    .filter(Boolean)
+    .join("");
 }
 
 /** lifecycle from the trends API is an object {stage, age_days, days_since_peak};
@@ -397,10 +525,19 @@ function buildHtml(
           .map((p) => {
             const name = String(p.display_name ?? p.name ?? "Unbekannter Avatar");
             const dna = personaDna(p);
+            const full = personaDnaFullHtml(p);
+            const dnaBlock = full
+              ? `<details class="dna-details">
+                  <summary>${dna ? esc(dna) : "DNA anzeigen"} <span class="chev">▸ volle DNA</span></summary>
+                  <div class="dna-full">${full}</div>
+                </details>`
+              : dna
+                ? `<div class="avatar-dna">${esc(dna)}</div>`
+                : "";
             return `<div class="avatar-card">
               <div class="avatar-name">${esc(name)}</div>
               <div class="avatar-brand">${esc(brandName(bd.brand))}</div>
-              ${dna ? `<div class="avatar-dna">${esc(dna)}</div>` : ""}
+              ${dnaBlock}
             </div>`;
           })
           .join("");
@@ -446,10 +583,28 @@ function buildHtml(
               .get(st)!
               .map((piece) => {
                 const title = String(piece.title ?? "Ohne Titel");
-                const meta = [piece.pillar, piece.format].filter(Boolean).map((x) => esc(String(x)));
+                const sd =
+                  piece.script_data && typeof piece.script_data === "object" && !Array.isArray(piece.script_data)
+                    ? (piece.script_data as Record<string, unknown>)
+                    : null;
+                const ziel = sd?.ziel ? (ZIEL_LABEL[String(sd.ziel).toLowerCase()] ?? String(sd.ziel)) : null;
+                const meta = [piece.pillar, piece.format, ziel].filter(Boolean).map((x) => esc(String(x)));
+                const metaHtml = meta.length
+                  ? `<div class="content-meta">${meta.map((m) => `<span class="meta-tag">${m}</span>`).join("")}</div>`
+                  : "";
+                const fullScript = sd ? scriptDataHtml(sd) : "";
+                if (fullScript) {
+                  return `<details class="content-row">
+                    <summary>
+                      <div class="content-title">${esc(title)} <span class="chev">▸ Skript ansehen</span></div>
+                      ${metaHtml}
+                    </summary>
+                    <div class="script-full">${fullScript}</div>
+                  </details>`;
+                }
                 return `<div class="content-row">
                   <div class="content-title">${esc(title)}</div>
-                  ${meta.length ? `<div class="content-meta">${meta.map((m) => `<span class="meta-tag">${m}</span>`).join("")}</div>` : ""}
+                  ${metaHtml}
                 </div>`;
               })
               .join("");
@@ -558,6 +713,22 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
 .content-row{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:10px 14px}
 .content-title{font-size:14px;font-weight:500;margin-bottom:4px}
 .content-meta{display:flex;flex-wrap:wrap;gap:6px}
+details.content-row>summary,details.dna-details>summary{cursor:pointer;list-style:none}
+details.content-row>summary::-webkit-details-marker,details.dna-details>summary::-webkit-details-marker{display:none}
+.chev{font-size:11.5px;font-weight:400;color:var(--ac);white-space:nowrap}
+details[open]>summary .chev{opacity:.55}
+.script-full,.dna-full{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--bd);margin-top:10px;padding-top:12px}
+.sd-label{font-size:11px;font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.sd-value{font-size:13.5px;color:#2a2f36;line-height:1.6}
+.pre{white-space:pre-wrap;word-break:break-word}
+.sd-list{margin:0;padding-left:18px}
+.sd-list li{margin:3px 0}
+.sd-tags{display:flex;flex-wrap:wrap;gap:6px}
+.sd-kv{display:flex;flex-direction:column;gap:3px}
+.sd-k{color:var(--mu);font-weight:500}
+details.dna-details{margin-top:6px}
+details.dna-details>summary{font-size:13px;color:#3a3f47;line-height:1.55;border-top:1px solid var(--bd);padding-top:8px;word-break:break-word}
+.avatar-grid .avatar-card:has(details[open]){grid-column:1/-1}
 </style>
 </head>
 <body><div class="wrap">

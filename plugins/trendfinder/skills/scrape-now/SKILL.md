@@ -197,7 +197,7 @@ tf_request { "method": "GET", "endpoint": "/api/trends/<niche_id>" }
 
 - Poll up to **6 times with ~10s between tries** (≈60s total). Between tries, wait before re-polling.
 - **As soon as the response is a non-empty cluster list** → stop polling and regenerate the artifact: follow the `cockpit` skill's snapshot procedure (fetch via `tf_request`, write the snapshot JSON, run `cockpit.ts --data <snapshot.json> <workspace_root>`).
-  Present the regenerated Cockpit as the Live Artifact and name the top 1–2 trends from the data the generator actually wrote.
+  Present the regenerated Cockpit as the Live Artifact (canonical procedure incl. chat fallback: `${CLAUDE_PLUGIN_ROOT}/reference/artifact-presentation.md`) and name the top 1–2 trends from the data the generator actually wrote.
   - **Relevance check:** look at the new clusters' `dominant_hashtags`. If the top clusters are clearly off-topic vs. the niche (e.g. `techtok`/`gaming`/`setup` for a personal-development niche — none of the niche's own tags appear) → say so honestly instead of celebrating: „Die gefundenen Trends passen nicht zu deiner Nische — die Hashtags waren vermutlich zu breit/englisch. Empfehlung: verfeinern und neu scrapen." Then propose better tags. See `${CLAUDE_PLUGIN_ROOT}/reference/niche-hashtags.md`.
 - **If still empty after all 6 tries** → do NOT claim trends exist. Say honestly:
   > "Nach dem Scrape sind noch keine Trends entstanden. Das kann zwei Gründe haben: (1) zu wenige Videos über der Virality-Schwelle, um Cluster zu bilden, oder (2) das Clustering läuft noch. Probier in ein paar Minuten erneut ‚zeig mir die Trends', oder scrape mit höherem Limit für mehr Datenpunkte."
