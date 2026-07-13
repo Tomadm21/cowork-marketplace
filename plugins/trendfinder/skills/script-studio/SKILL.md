@@ -109,8 +109,9 @@ Und was ist das Ziel des Skripts?
 For the chosen trend, write **natively in the avatar's voice** (drive the voice from `system_prompt` + `tone_of_voice` — match `tone`, `energy`, `language`, respect `avoid_words`, echo `example_openers` style):
 
 1. **3–5 hooks** (first 1–2 seconds) — anchored on the trend's `hook_type` and `hook_examples`, but rewritten in the avatar's words and biased toward the Ziel (see table).
-2. **One full short-video script** — structured: Hook → 2–4 Beats (the value/story) → CTA, shaped by the Ziel table below. Reference the trend's `visual_style` and `dominant_audio_type` as shooting notes. Keep it to a realistic 20–45s.
-3. **Caption + hashtags** — a caption in the avatar's voice + a tight hashtag set drawn from the trend's `dominant_hashtags` and the avatar's pillars (🛒 Verkauf: wenige, spezifische Tags + Angebot in der Caption; 🚀 Reichweite: breitere Trend-Tags).
+2. **Der Sprechtext — das eigentliche Skript.** Der komplette, wortwörtliche Monolog, den der Avatar spricht: vom ersten Wort (dem gewählten Hook) bis zum letzten Wort (dem gesprochenen CTA), als EIN sauberer Fließtext. Diesen Text fügt der Nutzer 1:1 in ein AI-Avatar-Video-Tool (HeyGen, Synthesia, …) oder eine TTS ein — deshalb: **keine Labels** („Hook:", „Beat 1:"), **keine Regieanweisungen oder Klammern**, keine Emojis, keine Hashtags; Zahlen, über die ein TTS stolpern kann, ausschreiben („drei Produkte" statt „3 Produkte"); natürliche gesprochene Sätze in der Stimme des Avatars. Länge realistisch: 20–45 s ≈ **50–110 gesprochene Wörter** (deutsch) — nenne die geschätzte Sprechdauer.
+3. **Struktur-Breakdown (für den Dreh)** — Hook → 2–4 Beats (the value/story) → CTA **mit** Labels und Regieanweisungen, shaped by the Ziel table below. Reference the trend's `visual_style` and `dominant_audio_type` as shooting notes. Der Breakdown erklärt den Sprechtext (was wann im Bild passiert) — er ersetzt ihn nicht.
+4. **Caption + hashtags** — a caption in the avatar's voice + a tight hashtag set drawn from the trend's `dominant_hashtags` and the avatar's pillars (🛒 Verkauf: wenige, spezifische Tags + Angebot in der Caption; 🚀 Reichweite: breitere Trend-Tags).
 
 **Das Ziel steuert Struktur + CTA — die Stimme kommt immer vom Avatar** (das Ziel ändert nie `tone_of_voice` oder `avoid_words`; genau EIN CTA pro Skript, vom Primärziel bestimmt):
 
@@ -130,9 +131,9 @@ Two different avatars MUST yield visibly different hooks/scripts for the same tr
 
 ## Step 5 — Deliver in chat (BEFORE saving, BEFORE any select-block)
 
-Output the hooks + script + caption as clean, copyable **markdown directly in the chat** (no generator needed — this is native text). Lead with which avatar + which trend + which Ziel it's for (z. B. „Skript für Lena · Trend: Evening Routines · Ziel: 🛒 Verkauf").
+Output as clean, copyable **markdown directly in the chat** (no generator needed — this is native text). Lead with which avatar + which trend + which Ziel it's for (z. B. „Skript für Lena · Trend: Evening Routines · Ziel: 🛒 Verkauf"). **Der Sprechtext kommt zuerst**, in einem eigenen fenced Code-Block (```…```) mit der geschätzten Sprechdauer — so kann der Nutzer ihn mit einem Klick kopieren und direkt in sein AI-Avatar-Video-Tool einfügen. Danach der Struktur-Breakdown, die alternativen Hooks und Caption + Hashtags.
 
-**Hard rule — the user must SEE the final script:** the complete script (alle Hooks, das volle Skript mit Beats, CTA, Caption, Hashtags) MUSS im Chat stehen, **bevor** irgendein Auswahlblock kommt (Freigabe, Next Steps, „speichern?"). Niemals nur Titel + Optionen zeigen — niemand gibt ein Skript frei, das er nie gesehen hat. Das gilt auch, wenn dieser Skill aus `journey` oder `content-plan` heraus läuft.
+**Hard rule — the user must SEE the final script:** Sprechtext + Breakdown + Caption MÜSSEN im Chat stehen, **bevor** irgendein Auswahlblock kommt (Freigabe, Next Steps, „speichern?"). Niemals nur Titel + Optionen zeigen — niemand gibt ein Skript frei, das er nie gesehen hat. Das gilt auch, wenn dieser Skill aus `journey` oder `content-plan` heraus läuft.
 
 Optionally, if the user wants to keep a file copy, offer to save it to `{workspace}/.trendfinder/scripts/<persona_id>-<trend-slug>.md`.
 
@@ -161,7 +162,8 @@ Then persist the script and advance the stage:
 
 ```
 tf_request { "method": "PATCH", "endpoint": "/api/content-pieces/<piece_id>",
-             "body": { "script_data": { "hook": "<chosen hook>", "hooks": ["..."], "body": "<beats>",
+             "body": { "script_data": { "speech_text": "<der komplette Sprechtext, wortwörtlich>",
+                                        "hook": "<chosen hook>", "hooks": ["..."], "body": "<beats>",
                                         "cta": "<cta>", "caption": "<caption>", "hashtags": ["..."],
                                         "ziel": "<reichweite|engagement|verkauf|follower|vertrauen>",
                                         "visual_notes": "<shooting notes>", "audio": "<audio type>" },
@@ -172,7 +174,7 @@ tf_request { "method": "PATCH", "endpoint": "/api/content-pieces/<piece_id>",
 
 Interpret (`result.status`): **200** saved · **404** foreign/unknown piece (re-resolve) · **422** invalid stage.
 
-**Read-back (honesty rule):** the PATCH returns the updated piece — confirm `stage == "script"` and `script_data.hook` is present before telling the user it's saved. If the save failed, say persistence didn't succeed — the script is already visible in chat (Step 5), so nothing is lost; never claim it's on the board if the API didn't confirm.
+**Read-back (honesty rule):** the PATCH returns the updated piece — confirm `stage == "script"` and that `script_data.speech_text` and `script_data.hook` are present before telling the user it's saved. If the save failed, say persistence didn't succeed — the script is already visible in chat (Step 5), so nothing is lost; never claim it's on the board if the API didn't confirm.
 
 **Cockpit refresh (PFLICHT nach erfolgreichem Save):** regenerate + re-present the Cockpit so the open tab actually shows the new script — incremental procedure (only the `content_pieces` key needs refetching): `${CLAUDE_PLUGIN_ROOT}/reference/artifact-presentation.md` § „Cockpit aktuell halten". Never say „im Cockpit sichtbar" without having regenerated it in this turn.
 
@@ -198,9 +200,9 @@ Interpret (`result.status`): **200** saved · **404** foreign/unknown piece (re-
 - Niche trends fetched (without persona_id); empty → honest cold-start + route to scrape-now.
 - Trends ranked against the avatar's DNA with per-trend reasons, labelled as native judgment.
 - Ziel geklärt (aus der Anfrage übernommen oder mit ⭐-Empfehlung erfragt); Struktur + CTA folgen dem Primärziel; Ziel im Output benannt.
-- Hooks + a full short-video script + caption written in the avatar's voice for the chosen trend.
-- **The complete final script was visible in chat (copyable markdown) BEFORE any select-block and before persisting** — the user never approves unseen text.
-- Script persisted as a content piece via `PATCH /api/content-pieces/{id}` (`script_data` set, `stage:"script"`); read-back confirmed. Backend `generate-script` route NOT used.
+- Hooks + **Sprechtext** (wortwörtlicher Monolog, TTS-/AI-Avatar-tauglich: keine Labels, keine Regieanweisungen, Sprechdauer genannt) + Struktur-Breakdown + Caption written in the avatar's voice for the chosen trend.
+- **The complete final script (Sprechtext zuerst, als kopierbarer Code-Block) was visible in chat BEFORE any select-block and before persisting** — the user never approves unseen text.
+- Script persisted as a content piece via `PATCH /api/content-pieces/{id}` (`script_data` incl. `speech_text` set, `stage:"script"`); read-back confirmed. Backend `generate-script` route NOT used.
 - If persistence failed, the failure was stated honestly (script already delivered in chat).
 - Optionally saved under `.trendfinder/`.
 - No `?persona_id=` sent, no Apify call, no key printed.

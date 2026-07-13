@@ -327,9 +327,18 @@ function valueHtml(v: unknown): string {
 }
 
 /** Full script text from a piece's script_data — every field the plugin
- *  persists (script-studio Step 4.5), rendered readably and escaped. */
+ *  persists (script-studio), rendered readably and escaped. speech_text is
+ *  the primary artifact (the verbatim monologue an AI-avatar-video tool
+ *  consumes) and renders FIRST, copyable. */
 function scriptDataHtml(sd: Record<string, unknown>): string {
   const parts: string[] = [];
+  if (typeof sd.speech_text === "string" && sd.speech_text.trim() !== "") {
+    parts.push(`<div class="sd-field">
+      <div class="sd-label">🎙️ Sprechtext — direkt in ein AI-Avatar-Video-Tool einfügbar
+        <button class="copy-btn" onclick="copySpeech(this)">Kopieren</button></div>
+      <div class="sd-value speech-block"><span class="pre">${esc(sd.speech_text.trim())}</span></div>
+    </div>`);
+  }
   parts.push(labeledField("Hook", valueHtml(sd.hook)));
   const mainHook = typeof sd.hook === "string" ? sd.hook : null;
   const altHooks = Array.isArray(sd.hooks)
@@ -769,6 +778,9 @@ details[open]>summary .chev{opacity:.55}
 details.dna-details{margin-top:6px}
 details.dna-details>summary{font-size:13px;color:#3a3f47;line-height:1.55;border-top:1px solid var(--bd);padding-top:8px;word-break:break-word}
 .avatar-grid .avatar-card:has(details[open]){grid-column:1/-1}
+.speech-block{background:#fff;border:1px solid #c4b5fd;border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.65}
+.copy-btn{float:right;appearance:none;border:1px solid var(--bd);background:#fff;border-radius:6px;padding:2px 10px;font:inherit;font-size:11.5px;color:var(--ac);cursor:pointer;text-transform:none;letter-spacing:0}
+.copy-btn:hover{border-color:var(--ac)}
 </style>
 </head>
 <body><div class="wrap">
@@ -813,6 +825,28 @@ function showTab(name) {
   var order = { trends: 0, avatare: 1, content: 2 };
   var idx = order[name] != null ? order[name] : 0;
   if (tabs[idx]) tabs[idx].classList.add('on');
+}
+function copySpeech(btn) {
+  var block = btn.closest('.sd-field').querySelector('.speech-block');
+  var text = block ? block.innerText : '';
+  function done(ok) {
+    btn.textContent = ok ? 'Kopiert ✓' : 'Manuell markieren';
+    setTimeout(function () { btn.textContent = 'Kopieren'; }, 2000);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { done(true); }, function () { selectBlock(block); done(false); });
+  } else {
+    selectBlock(block);
+    done(false);
+  }
+}
+function selectBlock(el) {
+  if (!el) return;
+  var r = document.createRange();
+  r.selectNodeContents(el);
+  var s = window.getSelection();
+  s.removeAllRanges();
+  s.addRange(r);
 }
 </script>
 </body></html>`;

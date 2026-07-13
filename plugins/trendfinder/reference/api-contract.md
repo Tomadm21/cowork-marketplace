@@ -123,10 +123,10 @@ A **content piece** is one idea/script row shared with the frontend content boar
 
 Lifecycle the plugin drives:
 1. **Idea** — `POST /api/personas/{persona_id}/content-pieces` with `{title, pillar?, format?, hook_type?, trend_cluster_id?, stage:"idea"}` (content-plan step). Claude proposes the ideas; the backend just stores them.
-2. **Script** — after writing hooks + script natively (script-studio), `PATCH /api/content-pieces/{id}` with `{script_data:{hook, body, cta, hooks?, caption?, hashtags?, ...}, stage:"script"}`. Read the piece back to confirm `script_data` landed.
+2. **Script** — after writing hooks + script natively (script-studio), `PATCH /api/content-pieces/{id}` with `{script_data:{speech_text, hook, body, cta, hooks?, caption?, hashtags?, ...}, stage:"script"}`. Read the piece back to confirm `script_data` landed.
 3. **Freigabe/Review** — `PATCH /api/content-pieces/{id}` with `{stage:"done"}` on approval; reject stays at `script` (optionally `DELETE` to discard).
 
-**`script_data` is a free-form JSON object** — the plugin owns its shape. A reasonable, frontend-compatible shape: `{"hook": "...", "hooks": ["..."], "body": "...", "cta": "...", "caption": "...", "hashtags": ["..."], "ziel": "reichweite|engagement|verkauf|follower|vertrauen", "visual_notes": "...", "audio": "..."}`. Keep it consistent across pieces.
+**`script_data` is a free-form JSON object** — the plugin owns its shape. The canonical shape (since v0.15.0): `{"speech_text": "...", "hook": "...", "hooks": ["..."], "body": "...", "cta": "...", "caption": "...", "hashtags": ["..."], "ziel": "reichweite|engagement|verkauf|follower|vertrauen", "visual_notes": "...", "audio": "..."}`. Keep it consistent across pieces. **`speech_text` is REQUIRED for every new script**: the complete verbatim monologue the avatar speaks (hook through spoken CTA), TTS-/AI-avatar-video-ready — no labels, no stage directions, no emojis/hashtags. `body` is the labelled shoot breakdown (beats + directions); it explains `speech_text`, it does not replace it. Older pieces may lack `speech_text` — treat that as "Sprechtext fehlt noch", not as an error.
 
 **Ops-only routes the plugin must NOT call** (they spend backend LLM budget; a tenant key gets `403`): `POST /api/personas/{id}/content-pieces/generate`, `POST /api/content-pieces/{id}/generate-script`, `POST /api/content-pieces/{id}/regenerate-section`, `POST /api/content-pieces/{id}/translate`. Synthesis is native in Claude.
 

@@ -32,17 +32,21 @@ tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pi
 
 ## Step 3 — Show the FULL script, then approve / reject (select-block)
 
-**Hard rule — niemand gibt frei, was er nicht gesehen hat:** before EVERY decision block, render that piece's **complete script** from `script_data` as readable markdown directly above it — alle Hooks, das volle Skript (`body`), CTA, Caption, Hashtags, Ziel, Dreh-Notizen. A one-line preview is NOT enough. If `script_data` is missing/empty, say so honestly („dieses Piece hat noch keinen Skript-Text") instead of showing an empty approval.
+**Hard rule — niemand gibt frei, was er nicht gesehen hat:** before EVERY decision block, render that piece's **complete script** from `script_data` as readable markdown directly above it — **zuerst der `speech_text`** (der wortwörtliche Sprechtext fürs AI-Avatar-Video, als fenced Code-Block zum Kopieren), dann alle Hooks, der Struktur-Breakdown (`body`), CTA, Caption, Hashtags, Ziel, Dreh-Notizen. A one-line preview is NOT enough. If `script_data` is missing/empty, say so honestly („dieses Piece hat noch keinen Skript-Text") instead of showing an empty approval. Fehlt nur `speech_text` (älteres Piece): ehrlich sagen und als Option anbieten, ihn via `script-studio` nachzurüsten, bevor freigegeben wird.
 
 Then the select-block for that piece (rendered via AskUserQuestion — die 3 Optionen unten sind der Inhalt, nicht Chat-Text):
 
 ```
 ## Abendroutine mit 3 Produkten (Lena · Ziel: 🚀 Reichweite)
 
+**🎙️ Sprechtext (≈ 30 s — direkt ins AI-Avatar-Tool):**
+```
+<script_data.speech_text wortwörtlich>
+```
 **Hook:** Diese 3 Produkte reichen wirklich
 **Alternative Hooks:** …
-**Skript:**
-<voller Skript-Text aus script_data.body>
+**Struktur-Breakdown (Dreh):**
+<script_data.body>
 **CTA:** …
 **Caption:** …
 **Hashtags:** #…

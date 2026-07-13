@@ -7,7 +7,7 @@ description: Zeig das Trendfinder-Cockpit als Live Artifact — einen Echtzeit-S
 
 Generiere den Workspace-Snapshot als **Cowork Live Artifact**: eine selbst-enthaltene HTML-Seite mit allen Niches, Trend-Clustern, Velocity-Daten, Avataren und dem empfohlenen nächsten Schritt. Stand:-Zeitstempel zeigt den Generierungszeitpunkt — kein Streaming, kein Live-Push.
 
-**Das Cockpit ist der Frontend-Ersatz:** Der Content-Tab zeigt jedes Skript im **Volltext** (Hook, Beats, CTA, Caption, Hashtags, Dreh-Notizen — aufklappbar pro Piece), der Avatare-Tab die **volle DNA** (Profil, Ton, Pillars, Interessen, Origin-Story, System-Prompt — aufklappbar pro Karte). Der Nutzer muss für nichts davon in die Web-App.
+**Das Cockpit ist der Frontend-Ersatz:** Der Content-Tab zeigt jedes Skript im **Volltext** — zuerst der **🎙️ Sprechtext** (kopierbar, direkt fürs AI-Avatar-Video-Tool), dann Hook, Beats, CTA, Caption, Hashtags, Dreh-Notizen (aufklappbar pro Piece). Der Avatare-Tab zeigt die **volle DNA** (Profil, Ton, Pillars, Interessen, Origin-Story, System-Prompt — aufklappbar pro Karte), der Trends-Tab volle Cluster-Details. Der Nutzer muss für nichts davon in die Web-App.
 
 ---
 

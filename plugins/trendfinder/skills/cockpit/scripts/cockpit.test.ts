@@ -81,6 +81,8 @@ const SNAPSHOT = {
         script_data: {
           hook: 'Diese 3 Produkte <script>alert(1)</script> reichen wirklich',
           hooks: ["Hör auf, 10 Produkte zu benutzen", "Deine Kopfhaut braucht nur das hier"],
+          speech_text:
+            "Diese drei Produkte reichen wirklich. Ich habe jahrelang zehn Schichten aufgetragen und mich gewundert, warum meine Haut gereizt war. Heute nutze ich abends genau drei Dinge. Einen milden Reiniger, ein Serum mit Niacinamid und eine Barriere-Creme. Nach zwei Wochen war meine Haut ruhiger als je zuvor. Speicher dir das für deine nächste Abendroutine.",
           body: "Beat 1: Problem zeigen.\nBeat 2: Die 3 Produkte im Einsatz.\nBeat 3: Ergebnis nach 2 Wochen.",
           cta: "Speicher dir das für deine nächste Abendroutine",
           caption: "Weniger ist mehr — deine Abendroutine in 3 Schritten",
@@ -120,6 +122,18 @@ describe("Artifact-Pfad: sichtbar, nicht in Dot-Ordner", () => {
 });
 
 describe("Content-Tab: Skripte im Volltext", () => {
+  test("Sprechtext (AI-Avatar-Video) steht vollständig und VOR dem Struktur-Breakdown", () => {
+    expect(html).toContain("Sprechtext");
+    expect(html).toContain(
+      "Diese drei Produkte reichen wirklich. Ich habe jahrelang zehn Schichten aufgetragen"
+    );
+    expect(html).toContain("Speicher dir das für deine nächste Abendroutine.");
+    // Der Sprechtext ist das primäre Artefakt — er kommt vor den Beats.
+    expect(html.indexOf("Diese drei Produkte reichen wirklich.")).toBeLessThan(
+      html.indexOf("Beat 2: Die 3 Produkte im Einsatz.")
+    );
+  });
+
   test("Haupt-Hook, Beats, CTA, Caption stehen vollständig im HTML", () => {
     expect(html).toContain("reichen wirklich");
     expect(html).toContain("Beat 2: Die 3 Produkte im Einsatz.");
