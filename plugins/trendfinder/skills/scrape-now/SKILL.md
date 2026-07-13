@@ -33,7 +33,7 @@ Fetch the tenant's niche list:
 tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
-Present the niches as a numbered list. Ask the user to choose:
+Present the niches as an interactive select-block (AskUserQuestion tool — Mechanik: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik). Option content:
 
 ```
 Für welche Niche soll der Scrape laufen?
@@ -54,7 +54,7 @@ Welche Plattform?
 2) Instagram
 ```
 
-Then ask for the results limit. **The limit applies PER HASHTAG, not in total** — both actors (`resultsPerPage` for TikTok, `resultsLimit` for Instagram) fetch up to the limit for EACH hashtag in the niche config. Resolve the hashtag count `H` for the chosen platform from the Step-1 niche config response (`tiktok_hashtags` / `instagram_hashtags`) and show the real total:
+Then ask for the results limit (interactive select-block, same Mechanik). **The limit applies PER HASHTAG, not in total** — both actors (`resultsPerPage` for TikTok, `resultsLimit` for Instagram) fetch up to the limit for EACH hashtag in the niche config. Resolve the hashtag count `H` for the chosen platform from the Step-1 niche config response (`tiktok_hashtags` / `instagram_hashtags`) and show the real total:
 
 ```
 Wie viele Ergebnisse pro Hashtag? (deine Niche hat {H} {Platform}-Hashtags)

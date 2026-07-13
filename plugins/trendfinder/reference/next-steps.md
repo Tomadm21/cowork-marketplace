@@ -1,10 +1,24 @@
 # Next-Steps-Auswahlblock (Pflicht am Ende jeder Antwort)
 
-Jede Trendfinder-Skill-Antwort endet mit einem **interaktiven Auswahlblock** — den selektierbaren Options-UI-Blöcken, die Cowork rendert. Der Nutzer kommt mit *einer Auswahl* weiter, ohne zu tippen.
+Jede Trendfinder-Skill-Antwort endet mit einem **interaktiven Auswahlblock**. Der Nutzer kommt mit *einem Klick* weiter, ohne zu tippen.
 
-## So generierst du den Block
+## Auswahl-Mechanik (gilt für ALLE Auswahlen in Trendfinder-Skills)
 
-Präsentiere am Ende deiner Antwort eine **Auswahl** mit allen im aktuellen Zustand sinnvollen nächsten Aktionen (Liste unten) und markiere **genau EINE** als ⭐ Empfehlung — passend zu dem, was du gerade getan hast. Der Nutzer wählt eine Option aus; danach führst du diese Aktion (bzw. den zugehörigen Skill) aus.
+Der Auswahlblock ist ein Aufruf des interaktiven Frage-Tools (**`AskUserQuestion`**), das Cowork als klickbare Options-UI rendert — **NICHT** eine nummerierte Textliste im Chat. Eine Textliste zwingt den Nutzer zu tippen und ist ein Fehler, außer das Tool existiert im Environment nicht (nur dann: nummerierte Liste als Fallback).
+
+Das gilt nicht nur für den Next-Steps-Block, sondern für **jede** Nutzer-Auswahl in jedem Trendfinder-Skill: Avatar-Wahl, Nischen-Wahl, Trend-Wahl, Ziel-Wahl, Limit-Wahl, Freigeben/Zurück/Verwerfen.
+
+Regeln für den Tool-Aufruf:
+
+- **Maximal 4 Optionen pro Frage** (Tool-Limit; ein Freitext-„Other" ergänzt Cowork automatisch — es ersetzt die ✏️-Escape-Option). Bei mehr Kandidaten: die 4 sinnvollsten zeigen, der Rest ist über Freitext erreichbar — das sagst du im Fragetext dazu.
+- Die ⭐-Empfehlung ist **Option 1** und ihr Label endet mit „(Empfohlen)".
+- Jede Option bekommt eine 1-zeilige `description` (was passiert bei Klick / warum sinnvoll).
+- Zusammengehörige Fragen (z. B. Trend + Ziel in script-studio) in **einen** Tool-Aufruf mit mehreren Fragen packen — kein Hin und Her.
+- Die nummerierten Beispiel-Blöcke in den Skill-Dateien zeigen den **Inhalt** der Optionen — gerendert werden sie IMMER über das Tool, nicht als Text abgetippt.
+
+## So generierst du den Next-Steps-Block
+
+Präsentiere am Ende deiner Antwort die im aktuellen Zustand sinnvollsten nächsten Aktionen (Liste unten, max. 4) als `AskUserQuestion`-Aufruf und markiere **genau EINE** als ⭐ Empfehlung — passend zu dem, was du gerade getan hast. Der Nutzer wählt eine Option aus; danach führst du diese Aktion (bzw. den zugehörigen Skill) aus.
 
 ## Die Optionen (alles, was man mit Trendfinder machen kann)
 

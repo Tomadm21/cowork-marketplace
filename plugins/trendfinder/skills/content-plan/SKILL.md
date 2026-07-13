@@ -18,7 +18,7 @@ tf_request { "method": "GET", "endpoint": "/api/brands" }
 tf_request { "method": "GET", "endpoint": "/api/brands/<brand_id>/personas" }
 ```
 
-Present avatars as a numbered list (Cowork renders it clickable):
+Present avatars as an interactive select-block (AskUserQuestion tool — Mechanik: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik). Option content:
 
 ```
 Für welchen Avatar soll ich Ideen planen?
@@ -68,6 +68,8 @@ Ideen für Lena (K-Beauty) — meine Einschätzung aus DNA + aktuellen Trends, k
 
 Ground every reason in an actual DNA field or trend — never fabricate a pillar to justify an idea; "kein starkes DNA-Signal" is a valid reason to drop one.
 
+Render the multi-select via AskUserQuestion with `multiSelect: true`; bei mehr als 4 Ideen auf zwei Fragen im selben Tool-Aufruf verteilen (je max. 4 Optionen) — keine getippten Nummern.
+
 ## Step 4 — Persist the chosen ideas as content pieces
 
 For EACH selected idea, POST it:
@@ -81,6 +83,8 @@ tf_request { "method": "POST", "endpoint": "/api/personas/<persona_id>/content-p
 Interpret (`result.status`): **201** created (keep the returned `id`) · **404** persona not this tenant's (re-resolve the avatar) · **422** bad field (fix `title`/`stage`). Omit `trend_cluster_id` entirely for DNA-only ideas — do not send `null` guesses of other fields.
 
 **Read-back (honesty rule):** after saving, `tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pieces?stage=idea" }` and confirm the new titles are there. Report exactly how many ideas were saved — never claim more than the API confirmed.
+
+**Cockpit refresh (PFLICHT nach ≥1 gespeicherter Idee):** regenerate + re-present the Cockpit (incremental: only `content_pieces["<persona_id>"]` refetchen) — procedure: `${CLAUDE_PLUGIN_ROOT}/reference/artifact-presentation.md` § „Cockpit aktuell halten".
 
 ## Step 5 — Deliver + hand off
 

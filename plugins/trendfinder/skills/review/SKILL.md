@@ -18,7 +18,7 @@ tf_request { "method": "GET", "endpoint": "/api/brands" }
 tf_request { "method": "GET", "endpoint": "/api/brands/<brand_id>/personas" }
 ```
 
-Numbered list to choose (clickable). No avatars → route to `onboarding`.
+Interactive select-block to choose (AskUserQuestion tool — Mechanik: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik). No avatars → route to `onboarding`.
 
 ## Step 2 — List scripts awaiting approval
 
@@ -34,7 +34,7 @@ tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pi
 
 **Hard rule — niemand gibt frei, was er nicht gesehen hat:** before EVERY decision block, render that piece's **complete script** from `script_data` as readable markdown directly above it — alle Hooks, das volle Skript (`body`), CTA, Caption, Hashtags, Ziel, Dreh-Notizen. A one-line preview is NOT enough. If `script_data` is missing/empty, say so honestly („dieses Piece hat noch keinen Skript-Text") instead of showing an empty approval.
 
-Then the select-block for that piece:
+Then the select-block for that piece (rendered via AskUserQuestion — die 3 Optionen unten sind der Inhalt, nicht Chat-Text):
 
 ```
 ## Abendroutine mit 3 Produkten (Lena · Ziel: 🚀 Reichweite)
@@ -65,6 +65,8 @@ Then the select-block for that piece:
   **204** deleted · **404** foreign/unknown. Only delete after an explicit user confirm.
 
 **Read-back (honesty rule):** after approvals, `tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pieces?stage=done" }` (or re-list `stage=script`) and report the real counts — how many approved, how many still waiting. Never claim an approval the API didn't confirm.
+
+**Cockpit refresh (PFLICHT, wenn mindestens eine Stage-Änderung/Löschung passiert ist):** regenerate + re-present the Cockpit (incremental: only `content_pieces["<persona_id>"]` refetchen) — procedure: `${CLAUDE_PLUGIN_ROOT}/reference/artifact-presentation.md` § „Cockpit aktuell halten".
 
 ## Step 4 — Summary
 

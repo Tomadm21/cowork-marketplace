@@ -33,8 +33,8 @@ tf_request { "method": "GET", "endpoint": "/api/personas/<persona_id>/content-pi
 **Mehrere Avatare / Niches (Tie-Break):**
 
 - **Genau 1 Avatar und ≤1 Niche** → direkt weiter mit der Leiter in Step 2.
-- **Mehrere Avatare** → zuerst per nummeriertem Auswahl-Block fragen, für welchen Avatar die Journey laufen soll (Name + Marke zeigen, wie in `content-plan` Step 1). Die Leiter in Step 2 läuft dann NUR für den gewählten Avatar.
-- **Mehrere Niches beim gewählten Avatar** → dieselbe Regel: nummeriert fragen, dann nur diese Niche prüfen.
+- **Mehrere Avatare** → zuerst per interaktivem Auswahlblock (AskUserQuestion-Tool — Mechanik: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik) fragen, für welchen Avatar die Journey laufen soll (Name + Marke zeigen, wie in `content-plan` Step 1). Die Leiter in Step 2 läuft dann NUR für den gewählten Avatar.
+- **Mehrere Niches beim gewählten Avatar** → dieselbe Regel: per Auswahlblock fragen, dann nur diese Niche prüfen.
 - Niemals still den "ersten" Avatar/die "erste" Niche raten — eine falsche ⭐-Empfehlung (z. B. Content-Plan für Avatar A, während Avatar B im Review steht) ist schlimmer als eine kurze Rückfrage. Die Auswahl-Frage ist selbst ein Klick-Block, also bleibt der Flow geführt.
 
 ## Step 2 — Map state → the one ⭐ next step

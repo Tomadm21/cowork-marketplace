@@ -139,7 +139,7 @@ If the user has already named a niche, resolve it against this list. If the name
 
 > "Die Niche „{user_input}" ist nicht auf deinem Account. Deine verfügbaren Niches:"
 
-Present the tenant's niches as a numbered list and ask:
+Present the tenant's niches as an interactive select-block (AskUserQuestion tool — Mechanik: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik). Option content:
 
 ```
 Für welche Niche soll der Zeitplan laufen?
@@ -197,7 +197,7 @@ Then go to Step 3 (read-back confirmation).
 
 ## Step 2b — Change frequency
 
-Show existing schedules if more than one; ask which to update (numbered list). Then ask for the new interval using the same phrase table as Step 2a.
+Show existing schedules if more than one; ask which to update (interactive select-block). Then ask for the new interval using the same phrase table as Step 2a.
 
 Patch:
 

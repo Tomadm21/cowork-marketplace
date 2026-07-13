@@ -23,7 +23,8 @@
  *     "warnings": ["<Hinweis>", …]
  *   }
  *
- * Output: <workspace_root>/.trendfinder/briefing.html
+ * Output: <workspace_root>/Trend-Briefing.html (visible on purpose —
+ * dot-folders are hidden in the Cowork file panel).
  * Last stdout line = absolute path to the written file.
  */
 
@@ -493,11 +494,12 @@ async function main() {
   // ── Build + write HTML ────────────────────────────────────────────────────
   const html = buildHtml(stand, targetNiche, trends, velocity, warnings);
 
-  const outDir = path.join(ws, ".trendfinder");
-  const outPath = path.join(outDir, "briefing.html");
+  // VISIBLE path in the workspace root — Cowork's file panel hides dot-folders,
+  // so an HTML inside .trendfinder/ can neither be seen nor manually opened
+  // when the artifact panel fails to render.
+  const outPath = path.join(ws, "Trend-Briefing.html");
 
   try {
-    fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(outPath, html, "utf8");
   } catch (e) {
     process.stderr.write(

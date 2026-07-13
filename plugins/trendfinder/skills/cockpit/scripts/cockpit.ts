@@ -34,7 +34,8 @@
  * expandable per row. The Cockpit is the frontend replacement: everything the
  * tenant produces must be readable here, not just counted.
  *
- * Output: <workspace_root>/.trendfinder/cockpit.html
+ * Output: <workspace_root>/Trendfinder-Cockpit.html (visible on purpose —
+ * dot-folders are hidden in the Cowork file panel).
  * Last stdout line = absolute path to the written file.
  */
 
@@ -58,6 +59,13 @@ interface TrendCluster {
   trend_score?: unknown;
   video_count?: unknown;
   lifecycle?: unknown;
+  description?: unknown;
+  hook_type?: unknown;
+  hook_examples?: unknown;
+  visual_style?: unknown;
+  dominant_hashtags?: unknown;
+  dominant_audio_type?: unknown;
+  avg_engagement_rate?: unknown;
   [k: string]: unknown;
 }
 
@@ -258,6 +266,26 @@ function labeledField(label: string, valueHtml: string): string {
   return `<div class="sd-field"><div class="sd-label">${esc(label)}</div><div class="sd-value">${valueHtml}</div></div>`;
 }
 
+/** Array → #hashtag badges (leading # normalised). Empty/non-array → "". */
+function hashtagTags(v: unknown): string {
+  if (!Array.isArray(v) || v.length === 0) return "";
+  return `<div class="sd-tags">${(v as unknown[])
+    .map((h) => `<span class="meta-tag">#${esc(String(h).replace(/^#/, ""))}</span>`)
+    .join("")}</div>`;
+}
+
+/** Array of strings → <ul>. Empty/non-array → "". */
+function bulletList(v: unknown): string {
+  if (!Array.isArray(v) || v.length === 0) return "";
+  return `<ul class="sd-list">${(v as unknown[]).map((x) => `<li>${esc(String(x))}</li>`).join("")}</ul>`;
+}
+
+/** Engagement rate comes as a fraction (0.083) → "8,3 %". */
+function engagementPercent(v: unknown): string | null {
+  if (typeof v !== "number" || !isFinite(v)) return null;
+  return (v * 100).toFixed(1).replace(".", ",") + " %";
+}
+
 /** Generic pretty renderer for DNA/script values: string → pre-wrap text,
  *  array of objects → list (name/description aware), array → tag badges,
  *  object → key/value lines. Everything escaped. */
@@ -308,28 +336,29 @@ function scriptDataHtml(sd: Record<string, unknown>): string {
     ? (sd.hooks as unknown[]).map((h) => String(h)).filter((h) => h.trim() !== "" && h !== mainHook)
     : [];
   if (altHooks.length) {
-    parts.push(
-      labeledField(
-        "Alternative Hooks",
-        `<ul class="sd-list">${altHooks.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>`
-      )
-    );
+    parts.push(labeledField("Alternative Hooks", bulletList(altHooks)));
   }
   parts.push(labeledField("Skript", valueHtml(sd.body)));
   parts.push(labeledField("CTA", valueHtml(sd.cta)));
   parts.push(labeledField("Caption", valueHtml(sd.caption)));
-  if (Array.isArray(sd.hashtags) && sd.hashtags.length) {
-    parts.push(
-      labeledField(
-        "Hashtags",
-        `<div class="sd-tags">${(sd.hashtags as unknown[])
-          .map((h) => `<span class="meta-tag">#${esc(String(h).replace(/^#/, ""))}</span>`)
-          .join("")}</div>`
-      )
-    );
-  }
+  parts.push(labeledField("Hashtags", hashtagTags(sd.hashtags)));
   parts.push(labeledField("Dreh-Notizen", valueHtml(sd.visual_notes)));
   parts.push(labeledField("Audio", valueHtml(sd.audio)));
+  return parts.filter(Boolean).join("");
+}
+
+/** Full trend-cluster detail (everything the trends API carries beyond the
+ *  headline) — rendered expandable per trend row. */
+function trendDetailHtml(t: TrendCluster): string {
+  const parts: string[] = [];
+  parts.push(labeledField("Beschreibung", valueHtml(t.description)));
+  parts.push(labeledField("Hook-Typ", valueHtml(t.hook_type)));
+  parts.push(labeledField("Hook-Beispiele", bulletList(t.hook_examples)));
+  parts.push(labeledField("Visual-Style", valueHtml(t.visual_style)));
+  parts.push(labeledField("Dominante Hashtags", hashtagTags(t.dominant_hashtags)));
+  parts.push(labeledField("Audio", valueHtml(t.dominant_audio_type)));
+  const eng = engagementPercent(t.avg_engagement_rate);
+  if (eng) parts.push(labeledField("Ø Engagement", `<span class="pre">${esc(eng)}</span>`));
   return parts.filter(Boolean).join("");
 }
 
@@ -490,12 +519,23 @@ function buildHtml(
             if (lifecycle !== null) extras.push(`Lifecycle: ${esc(lifecycle)}`);
             if (velocity !== null) extras.push(`Velocity: ${esc(velocity)}`);
 
-            return `<div class="trend-row">
-              <div class="trend-title">${esc(title)}</div>
-              <div class="trend-meta">
+            const metaHtml = `<div class="trend-meta">
                 <span class="score-badge">Score ${esc(score)}</span>
                 ${extras.map((x) => `<span class="meta-tag">${x}</span>`).join("")}
-              </div>
+              </div>`;
+            const detail = trendDetailHtml(t);
+            if (detail) {
+              return `<details class="trend-row">
+                <summary>
+                  <div class="trend-title">${esc(title)} <span class="chev">▸ Details</span></div>
+                  ${metaHtml}
+                </summary>
+                <div class="script-full">${detail}</div>
+              </details>`;
+            }
+            return `<div class="trend-row">
+              <div class="trend-title">${esc(title)}</div>
+              ${metaHtml}
             </div>`;
           })
           .join("");
@@ -713,8 +753,8 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
 .content-row{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:10px 14px}
 .content-title{font-size:14px;font-weight:500;margin-bottom:4px}
 .content-meta{display:flex;flex-wrap:wrap;gap:6px}
-details.content-row>summary,details.dna-details>summary{cursor:pointer;list-style:none}
-details.content-row>summary::-webkit-details-marker,details.dna-details>summary::-webkit-details-marker{display:none}
+details.content-row>summary,details.dna-details>summary,details.trend-row>summary{cursor:pointer;list-style:none}
+details.content-row>summary::-webkit-details-marker,details.dna-details>summary::-webkit-details-marker,details.trend-row>summary::-webkit-details-marker{display:none}
 .chev{font-size:11.5px;font-weight:400;color:var(--ac);white-space:nowrap}
 details[open]>summary .chev{opacity:.55}
 .script-full,.dna-full{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--bd);margin-top:10px;padding-top:12px}
@@ -866,11 +906,12 @@ async function main() {
   // ── Build + write HTML ────────────────────────────────────────────────────
   const html = buildHtml(stand, nicheData, brandData, schedules, personaContent, warnings);
 
-  const outDir = path.join(ws, ".trendfinder");
-  const outPath = path.join(outDir, "cockpit.html");
+  // VISIBLE path in the workspace root — Cowork's file panel hides dot-folders,
+  // so an HTML inside .trendfinder/ can neither be seen nor manually opened
+  // when the artifact panel fails to render.
+  const outPath = path.join(ws, "Trendfinder-Cockpit.html");
 
   try {
-    fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(outPath, html, "utf8");
   } catch (e) {
     process.stderr.write(

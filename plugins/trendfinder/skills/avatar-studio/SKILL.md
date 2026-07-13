@@ -45,7 +45,7 @@ tf_request { "method": "GET", "endpoint": "/api/brands/<brand_id>/personas" }
 
 Then route to the `onboarding` skill.
 
-Otherwise, present what already exists, then offer the action as a numbered list (Cowork has no buttons — always give numbered options + a free-text escape):
+Otherwise, present what already exists, then offer the action as an interactive select-block (AskUserQuestion tool — Mechanik: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik; das Freitext-„Other" des Tools ersetzt die ✏️-Escape-Zeile). Option content:
 
 ```
 Du hast aktuell diese Avatare:

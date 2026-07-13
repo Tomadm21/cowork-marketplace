@@ -42,7 +42,7 @@ tf_request { "method": "GET", "endpoint": "/api/niches/config" }
 ```
 
 - Hat der Nutzer eine Nische genannt: gegen diese Liste auflösen. Taucht der genannte Slug NICHT in der Liste auf → stopp, zeige die echten verfügbaren Niches (Nummern-Liste) und frag — niemals mit einem nicht-eigenen Slug weitermachen.
-- Keine Nische genannt: bei genau einer eigenen Niche diese verwenden; sonst die erste eigene Nische (Default wie bisher) oder bei Unklarheit kurz nummeriert fragen.
+- Keine Nische genannt: bei genau einer eigenen Niche diese verwenden; sonst die erste eigene Nische (Default wie bisher) oder bei Unklarheit kurz per interaktivem Auswahlblock fragen (AskUserQuestion — `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik).
 - Liefert die Liste **keine** Niches → route zum `onboarding` Skill für die Nische-Anlage. Kein Snapshot.
 - Bei `status: 401` → Zugang kaputt: route zu `onboarding`.
 
@@ -63,7 +63,7 @@ Velocity ist optional — schlägt nur dieser Abruf fehl, weiter ohne, mit Hinwe
 if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts --data <snapshot.json> <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/trend-briefing/scripts/briefing.ts --data <snapshot.json> <workspace_root>; fi
 ```
 
-Der Generator inlinet den Snapshot in eine selbst-enthaltene HTML-Datei und gibt als **letzte stdout-Zeile** den absoluten Pfad zur geschriebenen Datei aus (Standard: `<workspace_root>/.trendfinder/briefing.html`).
+Der Generator inlinet den Snapshot in eine selbst-enthaltene HTML-Datei und gibt als **letzte stdout-Zeile** den absoluten Pfad zur geschriebenen Datei aus (Standard: `<workspace_root>/Trend-Briefing.html` — bewusst sichtbar im Workspace-Root, Dot-Ordner sind im Cowork-Dateipanel unsichtbar).
 
 **Best-effort-Verhalten:** Der Generator bricht nie mit einem Fehler ab, wenn Trends fehlen — ein frischer Tenant ohne Scrape-Daten bekommt einen action-first Cold-Start-Zustand.
 
@@ -97,7 +97,7 @@ Gib danach eine **native Briefing-Narration** im Chat — 3–5 Sätze, in der S
 - Leere Zustände benennen die nächste Aktion: "Noch keine Trends — starte zuerst einen Scrape."
 - Erfinde keine Trend-Zahlen oder Hook-Beispiele. Berichte ausschließlich, was der Generator in die HTML-Datei geschrieben hat.
 - Scores und Velocity sind relative Signale innerhalb des Datensatzes dieser Nische — nicht absoluter Wahrheitsanspruch über globale Trends. Sag "im Datensatz" nicht "im Internet".
-- Für eine Aktualisierung diesen Skill einfach erneut ausführen — das überschreibt `briefing.html`.
+- Für eine Aktualisierung diesen Skill einfach erneut ausführen — das überschreibt `Trend-Briefing.html`.
 
 ---
 

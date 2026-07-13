@@ -14,6 +14,8 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/api-contract.md` before starting — it is
 
 **Default path (this skill):** Zugang → Apify-Connector → Avatar (Marke + Persona + DNA) → Niche(s) mit KI-abgeleiteten Themen → Cockpit. Zugang und Apify-Connector laufen nur beim allerersten Mal (Step 0 erkennt das automatisch und überspringt sie sonst). On-demand-Scrapes (du sagst „jetzt scrapen") laufen über den Apify-Connector.
 
+**Auswahl-Mechanik:** Überall, wo dieser Skill „nummeriert anbieten/auswählen lassen" sagt, ist das der **Options-Inhalt** — gerendert wird jede Auswahl als interaktiver Auswahlblock über das AskUserQuestion-Tool (klickbar, kein Tippen): `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik.
+
 **Optional, später:** unattended 24/7 scraping on a schedule. Das braucht einen Backend-Apify-Token und einen Zeitplan — jederzeit einrichtbar über den `scheduler`-Skill. Siehe die kurze „24/7-Automatik (optional)"-Notiz weiter unten. Bewusst NICHT Teil der Ersteinrichtung.
 
 ---

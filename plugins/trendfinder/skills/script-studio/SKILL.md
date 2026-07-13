@@ -28,7 +28,7 @@ tf_request { "method": "GET", "endpoint": "/api/brands" }
 tf_request { "method": "GET", "endpoint": "/api/brands/<brand_id>/personas" }
 ```
 
-Present the avatars as a numbered list and let the user choose (Cowork has no buttons):
+Present the avatars as an interactive select-block (AskUserQuestion tool — Mechanik: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik). Option content:
 
 ```
 Für welchen Avatar soll ich Content schreiben?
@@ -52,7 +52,7 @@ Hold onto `persona_profile`, `tone_of_voice`, `content_pillars`, `interests`, `o
 
 ## Step 2 — Pull the current trends (no persona_id)
 
-Resolve the niche from the tenant's niche list — **only ever use a `niche_id` returned by `GET /api/niches/config`, never a guessed or assumed slug** (a wrong slug returns 0 trends — the exact failure we are avoiding; the brand name is NOT automatically a niche_id). If the tenant has more than one niche, ask which one (numbered list); if exactly one, use it. Then fetch trends — **do not pass `persona_id`** (the backend's cosine ranking works, but this skill's fit reasons must come from the native DNA matching in Step 3, not a backend score):
+Resolve the niche from the tenant's niche list — **only ever use a `niche_id` returned by `GET /api/niches/config`, never a guessed or assumed slug** (a wrong slug returns 0 trends — the exact failure we are avoiding; the brand name is NOT automatically a niche_id). If the tenant has more than one niche, ask which one (interactive select-block); if exactly one, use it. Then fetch trends — **do not pass `persona_id`** (the backend's cosine ranking works, but this skill's fit reasons must come from the native DNA matching in Step 3, not a backend score):
 
 ```
 tf_request { "method": "GET", "endpoint": "/api/niches/config" }
@@ -99,7 +99,7 @@ Und was ist das Ziel des Skripts?
 **Ziel-Regeln:**
 
 - Nennt die Anfrage das Ziel schon („Verkaufsskript", „soll viral gehen", „will mehr Kommentare") → Frage überspringen, Ziel übernehmen und im Output benennen.
-- Sonst die Ziel-Frage mit stellen (wie oben, im selben Block wie die Trend-Wahl — kein extra Hin und Her) und genau **eine** ⭐-Empfehlung markieren, in einer Zeile begründet aus echten Daten: Avatar-DNA (produktnahe Pillars → 🛒 Verkauf) oder Trend-`lifecycle` (emerging/rising → 🚀 Reichweite; peak/declining eher 💬/🤝). Antwortet der Nutzer „egal" → ⭐-Empfehlung nehmen und das sagen.
+- Sonst die Ziel-Frage mit stellen — Trend-Wahl + Ziel-Wahl als **ein** AskUserQuestion-Aufruf mit zwei Fragen (kein extra Hin und Her; Mechanik: `${CLAUDE_PLUGIN_ROOT}/reference/next-steps.md` § Auswahl-Mechanik. Die 5 Ziele passen nicht ins 4-Optionen-Limit: zeige die 4 kontextuell plausibelsten, das fehlende Ziel ist über Freitext erreichbar und wird im Fragetext genannt). Genau **eine** ⭐-Empfehlung markieren, in einer Zeile begründet aus echten Daten: Avatar-DNA (produktnahe Pillars → 🛒 Verkauf) oder Trend-`lifecycle` (emerging/rising → 🚀 Reichweite; peak/declining eher 💬/🤝). Antwortet der Nutzer „egal" → ⭐-Empfehlung nehmen und das sagen.
 - Mischwünsche sind ok („Verkauf, aber unterhaltsam") — es gibt trotzdem genau **ein Primärziel**, und das bestimmt den CTA.
 
 ---
@@ -173,6 +173,8 @@ tf_request { "method": "PATCH", "endpoint": "/api/content-pieces/<piece_id>",
 Interpret (`result.status`): **200** saved · **404** foreign/unknown piece (re-resolve) · **422** invalid stage.
 
 **Read-back (honesty rule):** the PATCH returns the updated piece — confirm `stage == "script"` and `script_data.hook` is present before telling the user it's saved. If the save failed, say persistence didn't succeed — the script is already visible in chat (Step 5), so nothing is lost; never claim it's on the board if the API didn't confirm.
+
+**Cockpit refresh (PFLICHT nach erfolgreichem Save):** regenerate + re-present the Cockpit so the open tab actually shows the new script — incremental procedure (only the `content_pieces` key needs refetching): `${CLAUDE_PLUGIN_ROOT}/reference/artifact-presentation.md` § „Cockpit aktuell halten". Never say „im Cockpit sichtbar" without having regenerated it in this turn.
 
 ---
 

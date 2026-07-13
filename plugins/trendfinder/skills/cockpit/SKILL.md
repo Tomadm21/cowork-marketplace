@@ -51,7 +51,7 @@ Der Generator ist **netzwerkfrei**: er rendert aus einem Snapshot, den du vorher
 if command -v bun >/dev/null 2>&1; then bun ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts --data <snapshot.json> <workspace_root>; else node --experimental-strip-types ${CLAUDE_PLUGIN_ROOT}/skills/cockpit/scripts/cockpit.ts --data <snapshot.json> <workspace_root>; fi
 ```
 
-Der Generator inlinet den Snapshot in eine selbst-enthaltene HTML-Datei und gibt als **letzte stdout-Zeile** den absoluten Pfad zur geschriebenen Datei aus (Standard: `<workspace_root>/.trendfinder/cockpit.html`).
+Der Generator inlinet den Snapshot in eine selbst-enthaltene HTML-Datei und gibt als **letzte stdout-Zeile** den absoluten Pfad zur geschriebenen Datei aus (Standard: `<workspace_root>/Trendfinder-Cockpit.html` — bewusst sichtbar im Workspace-Root, Dot-Ordner sind im Cowork-Dateipanel unsichtbar).
 
 **Best-effort-Verhalten:** Der Generator bricht nie mit einem Fehler ab, wenn Daten fehlen oder leer sind — ein frischer Tenant ohne Scrape-Daten bekommt einen action-first Cold-Start-Zustand statt eines Fehlers.
 
@@ -78,7 +78,7 @@ Gib danach eine In-Chat-Zusammenfassung in der Sprache des Nutzers — sie muss 
 - Das Cockpit ist ein regenerierter Snapshot — kein Live-Stream. Der Stand:-Zeitstempel im Artifact zeigt, wann es generiert wurde.
 - Leere Zustände benennen die nächste Aktion, nicht einen Fehler: "Noch keine Trends — nach dem ersten Scrape-Run erscheinen sie hier."
 - Erfinde keine Trend-Zahlen in der Chat-Zusammenfassung. Berichte ausschließlich, was der Generator in die HTML-Datei geschrieben hat. Wenn der Generator 0 Trends zurückgegeben hat, sag das offen.
-- Für eine manuelle Aktualisierung diesen Skill einfach erneut ausführen — das überschreibt `cockpit.html` und präsentiert das neue Artifact.
+- Für eine manuelle Aktualisierung diesen Skill einfach erneut ausführen — das überschreibt `Trendfinder-Cockpit.html` und präsentiert das neue Artifact.
 
 ---
 

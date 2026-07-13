@@ -22,7 +22,20 @@ const SNAPSHOT = {
   niches: [{ niche_id: "lena-beauty", display_name: "Lena Beauty" }],
   trends: {
     "lena-beauty": [
-      { cluster_id: 1, trend_label: "Evening Skincare Routines", trend_score: 0.91, video_count: 12 },
+      {
+        cluster_id: 1,
+        trend_label: "Evening Skincare Routines",
+        trend_score: 0.91,
+        video_count: 12,
+        description: "Ruhige Abendroutinen mit Fokus auf Barriere-Pflege dominieren das Cluster",
+        hook_type: "How-To",
+        hook_examples: ["POV: deine Abendroutine in 60 Sekunden", "Das mache ich jeden Abend vor dem Schlafen"],
+        visual_style: "warmes Badezimmerlicht, Nahaufnahmen",
+        dominant_hashtags: ["skincareroutine", "eveningroutine"],
+        dominant_audio_type: "voiceover",
+        avg_engagement_rate: 0.083,
+        lifecycle: { stage: "rising" },
+      },
     ],
   },
   velocity: {},
@@ -85,15 +98,25 @@ const SNAPSHOT = {
 };
 
 let html = "";
+let outPath = "";
+let ws = "";
 
 beforeAll(() => {
-  const ws = fs.mkdtempSync(path.join(os.tmpdir(), "cockpit-test-"));
+  ws = fs.mkdtempSync(path.join(os.tmpdir(), "cockpit-test-"));
   const snapPath = path.join(ws, "snapshot.json");
   fs.writeFileSync(snapPath, JSON.stringify(SNAPSHOT), "utf8");
   const r = Bun.spawnSync(["bun", SCRIPT, "--data", snapPath, ws]);
   expect(r.exitCode).toBe(0);
-  const outPath = r.stdout.toString().trim().split("\n").pop()!;
+  outPath = r.stdout.toString().trim().split("\n").pop()!;
   html = fs.readFileSync(outPath, "utf8");
+});
+
+describe("Artifact-Pfad: sichtbar, nicht in Dot-Ordner", () => {
+  test("HTML liegt als Trendfinder-Cockpit.html direkt im Workspace-Root", () => {
+    expect(path.basename(outPath)).toBe("Trendfinder-Cockpit.html");
+    expect(path.dirname(outPath)).toBe(path.resolve(ws));
+    expect(outPath).not.toContain("/.trendfinder/");
+  });
 });
 
 describe("Content-Tab: Skripte im Volltext", () => {
@@ -134,6 +157,22 @@ describe("Avatare-Tab: volle DNA", () => {
     expect(html).toContain("Wundermittel");
     expect(html).toContain("Schritt-für-Schritt-Routinen am Abend");
     expect(html).toContain("Du schreibst als Lena: nahbar, evidenzbasiert, nie marktschreierisch.");
+  });
+});
+
+describe("Trends-Tab: volle Cluster-Details", () => {
+  test("Beschreibung, Hook-Typ, Hook-Beispiele, Visual-Style sichtbar", () => {
+    expect(html).toContain("Ruhige Abendroutinen mit Fokus auf Barriere-Pflege dominieren das Cluster");
+    expect(html).toContain("How-To");
+    expect(html).toContain("POV: deine Abendroutine in 60 Sekunden");
+    expect(html).toContain("warmes Badezimmerlicht, Nahaufnahmen");
+  });
+
+  test("dominante Hashtags, Audio-Typ, Engagement-Rate sichtbar", () => {
+    expect(html).toContain("#skincareroutine");
+    expect(html).toContain("#eveningroutine");
+    expect(html).toContain("voiceover");
+    expect(html).toMatch(/8[.,]3\s?%/);
   });
 });
 
