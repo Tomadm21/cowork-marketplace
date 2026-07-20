@@ -8,8 +8,8 @@
     {
       "name": "command-center",
       "source": "./plugins/command-center",
-      "description": "Turn any firm into a Cowork-automated operation. Drop any mix of files into one shared inbox; the intake skill auto-detects each file's type, routes it to the right process (receipt filing, photo sorting incl. report-scan archiving, daily reports, invoicing), asks only the unavoidable questions, and opens one interactive review board to collect approvals and save them in a single click. Onboard the firm once — every process inherits the context. Invoicing supports an optional Montagebau/Service-Report preset (separate Montage-/Fahrt-Sätze, independent Sa/So-Zuschlag, per-vehicle Geräte-Abrechnung).",
-      "version": "0.14.1",
+      "description": "Turn any firm into a Cowork-automated operation. Drop any mix of files into one shared inbox; the intake skill auto-detects each file's type, routes it to the right process (receipt filing, photo sorting incl. report-scan archiving, daily reports, invoicing), asks only the unavoidable questions, parks receipts directly in their filing targets (checked in the folder afterwards — unclear ones land in a Kontrolle folder, no approval gate), and opens one interactive review board for everything else. Onboard the firm once — every process inherits the context. Invoicing supports an optional Montagebau/Service-Report preset (separate Montage-/Fahrt-Sätze, independent Sa/So-Zuschlag, per-vehicle Geräte-Abrechnung).",
+      "version": "0.15.0",
       "author": {
         "name": "Tom Adomeit / Phil Konnemann"
       },

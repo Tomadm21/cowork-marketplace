@@ -5,7 +5,7 @@ description: Sequential, process-by-process review of prepared Command Center wo
 
 # Review-Board — ein Prozess nach dem anderen
 
-Alles wird **gemeinsam** vorbereitet (intake), aber **nacheinander** freigegeben: Belege, dann Fotos, dann Tagesbericht … Pro Posten eine **vollständige, editierbare** Karte und **darunter** die nativen Datei-Boxen (📄 Ergebnis + 📎 Quelle), die direkt in Coworks rechter Sidebar öffnen. Read `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md` + `${CLAUDE_PLUGIN_ROOT}/reference/chat-review.md`.
+Alles wird **gemeinsam** vorbereitet (intake), aber **nacheinander** freigegeben: Fotos, dann Tagesbericht, dann Rechnungen … Belege tauchen hier normalerweise **nicht** mehr auf — sie sind per Direktablage schon geparkt (Kontrolle im Ordner, `skills/receipt-filing/reference/rules.md`); nur mit `"ablage": "review"` reviewt das Board auch Belege. Pro Posten eine **vollständige, editierbare** Karte und **darunter** die nativen Datei-Boxen (📄 Ergebnis + 📎 Quelle), die direkt in Coworks rechter Sidebar öffnen. Read `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md` + `${CLAUDE_PLUGIN_ROOT}/reference/chat-review.md`.
 
 ## Step 1 — Offene Posten laden + Reihenfolge
 ```
@@ -22,7 +22,7 @@ python3 <workspace_root>/_firma/apply.py <workspace_root> approve-safe
 (speichert alle `sicher`-Posten über alle offenen Queues; `prüfen`/`folgenreich` bleiben). Den Rest dann Prozess für Prozess prüfen.
 
 ### Bescheid geben
-Beim Einstieg (direkt nach intake) eine knappe Klartext-Nachricht: was insgesamt vorbereitet wurde (z. B. „3 Belege, 4 Fotos, 1 Tagesbericht — fertig vorbereitet") und dass ihr **Prozess für Prozess** durchgeht. Dann mit dem ersten Prozess starten. (Eine echte Push-Benachrichtigung gibt es nicht; diese Chat-Nachricht ist der Hinweis.)
+Beim Einstieg (direkt nach intake) eine knappe Klartext-Nachricht: was schon direkt abgelegt wurde und was zur Freigabe liegt (z. B. „3 Belege abgelegt (1 in Kontrolle) · 4 Fotos, 1 Tagesbericht — fertig vorbereitet") und dass ihr die offenen Posten **Prozess für Prozess** durchgeht. Dann mit dem ersten Prozess starten. (Eine echte Push-Benachrichtigung gibt es nicht; diese Chat-Nachricht ist der Hinweis.)
 
 ## Step 3 — Ergebnis-Vorschaudatei je Posten des AKTUELLEN Prozesses
 Nur für den aktuellen Prozess: pro Posten die Output-Vorschau unter `_firma/_review/_preview/` erzeugen (Vorschau-Ort, nicht final), damit die **Ergebnis**-Box eine echte, korrekt benannte Datei hat: daily-report → DOCX (+optional PDF); receipt-filing → korrekt benannte/aufbereitete Datei (JPEG-„PDF" → echtes PDF); invoicing → XLSX. **Quelle** = `source` aus `_eingang/`.

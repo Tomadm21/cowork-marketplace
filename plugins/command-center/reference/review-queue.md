@@ -2,7 +2,11 @@
 
 A **review queue** is the handoff layer between a prepared workflow run and the workspace.
 When a process finishes its analysis it writes one JSON file; nothing is copied or moved until
-a human explicitly approves. The dashboard (Live Artifact) shows only the **count** of open items
+a human explicitly approves — with **one declared exception**: `receipt-filing` runs in
+**Direktablage** mode (v0.15, default) execute their own queue immediately via `approve-run`;
+the queue is then the audit record + engine input, not a waiting state, and control happens in
+the target folders (see `skills/receipt-filing/reference/rules.md` §Direktablage & Kontrolle).
+The dashboard (Live Artifact) shows only the **count** of open items
 (since v0.9.2 it never lists them); the actual review — approve, edit, re-run, reject — happens
 in **chat** (review-board skill / `reference/chat-review.md`).
 Only the apply engine ever touches workspace files — skills write (and patch) queues, the engine
@@ -256,9 +260,11 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> lis
 | Process / skill | Write queue files to `_firma/_review/`; **patch actions on edit / re-run**; update `rechecked`; append signals |
 | Apply engine | Read queues; copy files; append journal; move empty queues to `_erledigt/` |
 | Dashboard | **Read-only** — count open queues (statistics artifact); trigger nothing |
-| Chat (on the user's word) | Trigger engine commands (`approve` / `approve-run` / `reject` / `approve-safe` / `manual-confirm`) and queue patches as an explicit human action — never automatic |
+| Chat (on the user's word) | Trigger engine commands (`approve` / `approve-run` / `reject` / `approve-safe` / `manual-confirm`) and queue patches as an explicit human action |
+| receipt-filing (Direktablage) | The **only** process allowed to call `approve-run` on its **own, just-written** queue without a chat trigger — copy-only parking, `prüfen` items target the Kontrolle folder; disabled via `"ablage": "review"` |
 
-**Applying is always a deliberate human action.** No skill, hook, dashboard, or background cron may call
-`approve` or `approve-safe` without a user-initiated trigger in chat. The queue is the firewall
-between analysis and workspace mutation. Editing or re-running only changes the proposal in the
-queue — it never moves files; the move happens only on `approve`.
+**Applying is a deliberate human action — except receipt-filing Direktablage.** No other skill, hook,
+dashboard, or background cron may call `approve` or `approve-safe` without a user-initiated trigger
+in chat; and no process may auto-apply a queue it did not itself write in the same run. The queue is
+the firewall between analysis and workspace mutation. Editing or re-running only changes the proposal
+in the queue — it never moves files; the move happens only on `approve`.

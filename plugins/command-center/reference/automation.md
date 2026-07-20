@@ -19,17 +19,17 @@ Das ist **kein** serverseitiger 24/7-Cron. Für echte unbeaufsichtigte Automatio
 
 Verspricht der Firma nie unbeaufsichtigte 24/7-Automation vom normalen Laptop.
 
-> **Engine:** Dateien bewegt am Ende ausschließlich die kanonische Workspace-Engine `_firma/apply.py` (reines Python3, vom Onboarding installiert, md5-idempotent + atomar). Der Sammel-Task **bereitet nur vor** und ruft sie nie.
+> **Engine:** Dateien bewegt am Ende ausschließlich die kanonische Workspace-Engine `_firma/apply.py` (reines Python3, vom Onboarding installiert, md5-idempotent + atomar). Der Sammel-Task **bereitet vor** — und ruft die Engine nur für den einen Direktablage-Prozess **receipt-filing** (kopierende Beleg-Ablage, siehe unten); für alles andere nie.
 
 ## Das Modell: EIN stündlicher Sammel-Task
 
-Statt eines Tasks pro Prozess legt das Command Center **einen** stündlichen Sammel-Task an („Collector"). Er schaut in alle aktiven Eingänge, bereitet neue Arbeit vor und legt sie zur Freigabe — **bewegt aber nichts**.
+Statt eines Tasks pro Prozess legt das Command Center **einen** stündlichen Sammel-Task an („Collector"). Er schaut in alle aktiven Eingänge, bereitet neue Arbeit vor und legt sie zur Freigabe — **Belege parkt er direkt in den Zielordnern** (Direktablage, kontrolliert wird im Ordner), alles andere bewegt er nicht.
 
 Jeder Lauf:
 1. scannt den **gemeinsamen Eingang** `_eingang/` (rekursiv); die **intake**-Skill klassifiziert jede neue Datei nach Inhalt und routet sie an den richtigen Prozess (per-Prozess-Unterordner `_eingang/<prozess>/` werden weiter als explizites Ziel erkannt),
 2. überspringt alles, was schon gesehen / vorbereitet / abgelegt wurde (Dedupe, siehe unten),
-3. lässt für jeden Prozess mit neuem Input den Skill im **Loop-/Sammel-Modus** laufen — bündelt alle neuen Dateien in **eine** Review-Queue pro Prozess,
-4. schreibt Activity-Log `status: prepared`,
+3. lässt für jeden Prozess mit neuem Input den Skill im **Loop-/Sammel-Modus** laufen — bündelt alle neuen Dateien in **eine** Review-Queue pro Prozess; die Beleg-Queue wird sofort über die Engine ausgeführt (Direktablage),
+4. schreibt Activity-Log — Belege `status: done`, alle anderen Prozesse `status: prepared`,
 5. ist nichts Neues da: **sofort beenden** (billig — kaum Verbrauch).
 
 ### Dedupe-/Watermark-Vertrag
@@ -41,24 +41,26 @@ Damit der stündliche Lauf nichts doppelt vorbereitet, gilt eine Quelldatei als 
 
 Nach dem Vorbereiten ergänzt der Skill die neuen Quellpfade in `seen-<prozess>.json` (JSON-Array; Datei/Ordner anlegen, falls fehlend). Best-effort, nie blockierend. Details im jeweiligen `skills/<prozess>/SKILL.md` → „Loop- / Sammel-Modus".
 
-## Die nicht verhandelbare Regel: automatisch ≠ unbeaufsichtigt schreiben
+## Die nicht verhandelbare Regel: automatisch ≠ unbeaufsichtigt folgenreich schreiben
 
 Command-Center-Prozesse nutzen Vision/LLM-Extraktion — nicht deterministisch. Ein geplanter Lauf:
-- **bereitet** die Arbeit vor und **landet im Review-Zustand** (eine vorgeschlagene Rechnung, ein vorgeschlagener Satz Umbenennungen),
-- **committet nie** folgenreiche Schreibvorgänge (Dateien verschieben/umbenennen, eine Rechnung finalisieren, irgendetwas senden),
-- wartet auf deine Freigabe.
+- **bereitet** die Arbeit vor und **landet im Review-Zustand** (eine vorgeschlagene Rechnung, ein vorgeschlagener Satz Foto-Umbenennungen),
+- **committet nie** folgenreiche Schreibvorgänge (Originale verschieben/löschen, eine Rechnung finalisieren, buchen, zahlen, irgendetwas senden),
+- wartet für diese Prozesse auf deine Freigabe.
 
-„Automatisch" heißt „die Vorbereitung ist für dich erledigt", nicht „während du weg warst, ist etwas Unumkehrbares passiert".
+**Einzige Ausnahme — Beleg-Direktablage (`receipt-filing`):** ein geplanter Lauf darf Belege **kopierend** ablegen, ausschließlich über die Engine `_firma/apply.py` (Journal, md5, kollisionssicher). Das ist umkehrbar per Definition: das Original bleibt in `_eingang/`, die Kopie lässt sich im Ordner umbenennen/verschieben; Unklares landet im Kontrolle-Ordner statt in den Zielen. Buchen, Zahlen, Senden, Löschen bleiben auch hier ausgeschlossen. (Rückfall auf das alte Verhalten: `"ablage": "review"` in `config/receipt-filing.json`.)
+
+„Automatisch" heißt „die Vorbereitung ist für dich erledigt — Belege sind schon geparkt", nicht „während du weg warst, ist etwas Unumkehrbares passiert".
 
 ## Freigabe passiert im Chat — nicht im Dashboard
 
-Das Dashboard (`skills/dashboard/`) ist **reine Übersicht**: es zeigt, was lief, wie viel Zeit gespart wurde und wie viele Posten warten — löst aber **nichts** aus. **Annehmen, Bearbeiten, Nochmal-Rechnen und Ablehnen machst du im Chat.** Sag „**zeig offene Freigaben**". Vollständiger Ablauf: `reference/chat-review.md`. Nur die Apply-Engine (`_firma/apply.py`, kanonisch) bewegt am Ende Dateien — ausgelöst durch dein Wort im Chat, nie durch Task oder Dashboard.
+Das Dashboard (`skills/dashboard/`) ist **reine Übersicht**: es zeigt, was lief, wie viel Zeit gespart wurde und wie viele Posten warten — löst aber **nichts** aus. **Annehmen, Bearbeiten, Nochmal-Rechnen und Ablehnen machst du im Chat.** Sag „**zeig offene Freigaben**". Vollständiger Ablauf: `reference/chat-review.md`. Nur die Apply-Engine (`_firma/apply.py`, kanonisch) bewegt am Ende Dateien — für Fotos, Berichte und Rechnungen ausgelöst durch dein Wort im Chat, für Belege durch die Direktablage des Laufs selbst; nie durch das Dashboard.
 
 ## Der Sammel-Task: genauer Prompt
 
 `/command-center:setup` bietet an, diesen Task anzulegen (stündlich, Cron `0 * * * *`). Der Prompt ist selbst-enthalten (jeder Lauf startet ohne Gedächtnis):
 
-> *„Command-Center-Sammellauf. Scanne den gemeinsamen Eingang `_eingang/` (rekursiv) im Workspace `<WORKSPACE_ROOT>`. Verarbeite nur Dateien, die noch NICHT in `_firma/_review/`, `_firma/_journal/` oder einer `_firma/_state/seen-<prozess>.json` stehen. Lass die intake-Skill im Loop-/Sammel-Modus laufen: klassifiziere jede neue Datei nach Inhalt (Beleg, Foto, Tagesbericht, Stundenzettel), erkenne Dubletten, route an den richtigen Prozess, bündle pro Prozess in EINE Review-Queue und schreibe Activity-Log `status: prepared`. Stelle KEINE Rückfragen; fehlt einem Foto Baustelle/Datum, lege die Aktion mit tier prüfen an. Bewege, buche, finalisiere oder sende NICHTS. Ist nichts Neues da, beende sofort. Wenn etwas vorbereitet wurde, gib mir eine kurze Notiz: ‚X neue Posten liegen zur Freigabe — sag zeig offene Freigaben.'"*
+> *„Command-Center-Sammellauf. Scanne den gemeinsamen Eingang `_eingang/` (rekursiv) im Workspace `<WORKSPACE_ROOT>`. Verarbeite nur Dateien, die noch NICHT in `_firma/_review/`, `_firma/_journal/` oder einer `_firma/_state/seen-<prozess>.json` stehen. Lass die intake-Skill im Loop-/Sammel-Modus laufen: klassifiziere jede neue Datei nach Inhalt (Beleg, Foto, Tagesbericht, Stundenzettel), erkenne Dubletten, route an den richtigen Prozess, bündle pro Prozess in EINE Review-Queue. Belege laufen als Direktablage: Beleg-Queue sofort mit `python3 _firma/apply.py <WORKSPACE_ROOT> approve-run <runid>` ausführen (nur kopieren; unklare Belege zielen auf den Kontrolle-Ordner) und Activity-Log `status: done` schreiben; für alle anderen Prozesse `status: prepared`. Stelle KEINE Rückfragen; fehlt einem Foto Baustelle/Datum, lege die Aktion mit tier prüfen an. Verschiebe oder lösche NIE Originale; buche, finalisiere oder sende NICHTS. Ist nichts Neues da, beende sofort. Wenn etwas passiert ist, gib mir eine kurze Notiz: ‚X Belege abgelegt (Y in Kontrolle) · Z Posten liegen zur Freigabe — sag zeig offene Freigaben.'"*
 
 `<WORKSPACE_ROOT>` füllt setup mit dem echten absoluten Pfad.
 
@@ -66,7 +68,7 @@ Das Dashboard (`skills/dashboard/`) ist **reine Übersicht**: es zeigt, was lief
 
 | Task | Takt | Was der Lauf tut (dann Freigabe im Chat) |
 |---|---|---|
-| **Sammel-Task** (alle vier) | **stündlich** `0 * * * *` | neue Inputs erkennen, vorbereiten, in Review-Queues bündeln |
+| **Sammel-Task** (alle vier) | **stündlich** `0 * * * *` | neue Inputs erkennen; Belege direkt ablegen (Kontrolle im Ordner); Rest vorbereiten und in Review-Queues bündeln |
 
 Einzelne Prozesse seltener gewünscht? Du kannst zusätzlich pro Prozess einen eigenen Task mit anderem Cron anlegen (z. B. `invoicing` wöchentlich montags). Der Standard ist der **eine** stündliche Sammel-Task — ein Zeitplan, den du im Blick behältst.
 

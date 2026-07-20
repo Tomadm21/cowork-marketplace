@@ -55,6 +55,8 @@ See `reference/architecture.md` for the design rationale and the Phase-2 path (p
 
 ## Status
 
+**v0.15.0 — receipt-filing: Direktablage statt Freigabe-Gate.** Belege werden im selben Lauf geparkt statt zur Freigabe gestoppt: der Skill schreibt die Queue (Audit + Engine-Input, `runid` mit Zeit-Suffix) und führt sie **sofort** über `_firma/apply.py approve-run` aus. `sicher` → direkt in alle Routing-Ziele; `prüfen` (unbekannter Lieferant, unscharfer Betrag, unklares Routing) → in den **Kontrolle-Ordner** (Config-Key `kontrolle`, Default `_ausgang/belege/Kontrolle`) mit Zeile in `Kontrolle-Notizen.md` und vermuteten Endzielen in `values.ziel_vermutung`. Kontrolliert wird **im Ordner** (umbenennen/verschieben; „Beleg X passt → ablegen" legt aus der Kontrolle nach). Gilt auch im stündlichen Sammellauf — die Nicht-verhandelbar-Regel in `reference/automation.md` und der Review-Queue-Vertrag tragen die präzise Ausnahme (nur kopieren, nur Engine, Originale bleiben, nie buchen/zahlen/senden); Activity-Log `status: done`, Intake-Dedupe über `filed-md5.json` bleibt intakt. Rückfall auf das alte Verhalten: `"ablage": "review"` in `config/receipt-filing.json`. Review-Board/intake entsprechend angepasst (Board startet i. d. R. mit Fotos).
+
 **v0.14.1 — photo-sorting: kein stiller Katalog-Fallback im Bericht-Betrieb.** Ist eine `bericht_quelle` konfiguriert und der Bautagesbericht zum Stapel nicht auffindbar, wird gefragt (bzw. im Sammel-Modus als `prüfen` mit Rückfrage eingereiht) statt still mit Katalog-Namen zu benennen — Bericht-Benennung ist dann garantiert die einzige Namensquelle.
 
 **v0.14.0 — photo-sorting: treffsicherer zuordnen + aus Korrekturen lernen (Follow-up zum KW-24-Praxistest, 20.07.2026).** Vier Mechanismen in `skills/photo-sorting/`:
