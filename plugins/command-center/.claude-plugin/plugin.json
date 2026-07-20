@@ -1,6 +1,6 @@
 {
   "name": "command-center",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Turn any firm into a Cowork-automated operation. Drop any mix of files into one shared inbox; the intake skill auto-detects each file's type, routes it to the right process (receipt filing, photo sorting, daily reports, invoicing), asks only the unavoidable questions, and opens one interactive review board to collect approvals and save them in a single click. Onboard the firm once — every process inherits the context. Invoicing supports an optional Montagebau/Service-Report preset (separate Montage-/Fahrt-Sätze, independent Sa/So-Zuschlag, per-vehicle Geräte-Abrechnung) for firms billing skilled-trade work from handwritten service reports.",
   "author": {
     "name": "Tom Adomeit / Phil Konnemann",

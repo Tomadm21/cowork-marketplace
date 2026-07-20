@@ -23,11 +23,40 @@ Default: `<datum>_<site-slug>_<taetigkeit>_<lfd:02d>.<ext>`. `lfd` is a per-day,
 
 ## Site & activity matching
 - Site: match filename/image cues against `stammdaten/projekte.json` (`match` keyword → `name` + `ordner_name`). No register → ask.
-- Activity — Quellen in dieser Reihenfolge:
-  1. **Bautagesbericht zuerst** (wenn vorhanden): suche den Bericht zu Projekt + Datum/KW — in `_ausgang/berichte/` (eigene daily-report-Ausgabe) und im konfigurierten `bericht_quelle`-Ordner. Extrahiere die **wörtlichen** Tätigkeits-Formulierungen pro Tag und bilde daraus Slugs (z. B. „Säulen und Dachstützen rundherum eingeschnitten" → `Saeulen-eingeschnitten`, „Lastplattendruckversuch durchgeführt" → `Lastplattendruckversuch`). Wörtlich bleiben — daran hängt der Bezug zur Abrechnung/Dokumentation.
-  2. Katalog: pick from the firm's configured activity list.
-  3. Bild lesen (Vision) / fragen.
-  Nicht zu generisch: „Pflasterarbeiten" für alles ist unzureichend, wenn der Bericht Spezifischeres hergibt.
+
+### Tätigkeiten: Bautagesbericht = geschlossene Wortliste (Kernregel)
+
+Existiert zum Projekt + Zeitraum des Foto-Stapels ein Bautagesbericht (suchen in `_ausgang/berichte/` — eigene daily-report-Ausgabe — und im konfigurierten `bericht_quelle`-Ordner), ist dessen Abschnitt „Ausgeführte Arbeiten"/„Beschreibung der Arbeiten" die **einzige** erlaubte Namensquelle für Tätigkeiten. Katalog, freie Vision-Benennung und Foto-Datum sind dann keine Namensquellen. Daran hängt der Bezug zur Abrechnung/Dokumentation: die Bild-Doku muss die Arbeiten des Berichts 1:1 wiedergeben. Ablauf zwingend in dieser Reihenfolge, VOR dem ersten Foto:
+
+**A — Wochenliste bauen.**
+1. Jede Tageszeile an Kommas in einzelne Tätigkeiten zerlegen — eine Zeile enthält oft 2–3 Arbeiten.
+2. Fortschritts-Erwähnungen derselben Arbeit über mehrere Tage („begonnen" / „fortgeführt" / „abgeschlossen" / „fertiggestellt") zu EINER Tätigkeit zusammenfassen; Tagesspanne merken.
+3. Namensform bilden: Mengen, Maße und Fortschritts-Marker streichen („6", „4 x", „(60 × 60 cm)", „nach Abschluss der Arbeiten", „begonnen") — **alle übrigen Wörter exakt wie im Bericht** (Substantiv UND Verb). Grammatische Umstellung auf die Partizipform ist erlaubt, solange nur Berichtswörter verwendet werden; nie ein Wort durch ein Synonym ersetzen.
+4. Die Wochenliste (Tätigkeit + Tag/Spanne) gehört sichtbar in die Review-Ausgabe.
+
+Beispiel (eine Woche, drei Berichtszeilen):
+
+| Berichtszeile(n) | → Tätigkeit (Namensform) |
+|---|---|
+| Di: „6 E-Park Platten (60 × 60 cm) verlegt, 4 x Radstopper eingebaut, Arbeitsbereich nach Abschluss der Arbeiten gereinigt" | „E-Park Platten verlegt" · „Radstopper eingebaut" · „Arbeitsbereich gereinigt" — DREI Tätigkeiten |
+| Mi: „Mit dem Einbau der Bremsschwellen begonnen" + Do: „Einbau der Bremsschwellen abgeschlossen" | „Bremsschwellen eingebaut" — EINE Tätigkeit, Spanne Mi–Do |
+| Do: „Mit dem Setzen der Warnpoller begonnen" + Fr: „Warnpoller fertiggestellt" | „Warnpoller gesetzt" — Spanne Do–Fr |
+
+**B — Jedes Foto genau EINER Listen-Tätigkeit zuordnen. Bildinhalt entscheidet, nie das Datum.**
+- Per Vision bestimmen, was das Foto zeigt; dazu die Bericht-Tätigkeiten inhaltlich verstehen (was sieht man bei „Radstopper eingebaut" vs. „Bremsschwellen eingebaut"?), dann die passende Listen-Tätigkeit wählen.
+- **Dominanz-Regel für unscharfe Fotos:** Baustellenfotos passen oft nicht sauber auf eine Aufgabe (Übersicht, Zwischenstand, viel Umfeld). Dann: das dominanteste Merkmal des Bildes bestimmen (was füllt das Bild, worauf ist fokussiert?) und die Listen-Tätigkeit wählen, zu der es **am ehesten** passt. Die Liste ist kurz — „am ehesten" genügt; kein Foto bekommt einen Namen außerhalb der Liste.
+- **Foto-Datum/Uhrzeit ist KEIN Zuordnungskriterium.** Handys senden gesammelt; ein Donnerstags-Foto zeigt oft Dienstags-Arbeit. Das Datum kommt erst NACH der inhaltlichen Zuordnung ins Spiel (Schritt C).
+- Zeigen zwei Listen-Tätigkeiten visuell Ähnliches (z. B. zwei Sorten länglicher Betonelemente): Kontext-Merkmale entscheiden — Lage, Größe, Einbausituation, Umfeld. Bleibt es mehrdeutig → tier `prüfen`, nicht raten.
+- Passt ein Foto zu KEINER Tätigkeit der Woche (fremdes Gewerk, reine Anlieferung) → `fallback`-Tätigkeit + tier `prüfen`. Niemals einen Namen erfinden.
+
+**C — Datum aus dem Bericht.** Dateinamen-Datum = Berichtstag der zugeordneten Tätigkeit: Liegt das Foto-Datum innerhalb der Tagesspanne → Foto-Tag behalten; sonst der nächstliegende Tag der Spanne. Widerspruch ohne klare Auflösung → `prüfen`.
+
+**D — Abdeckungs-Check.** Nach der Zuordnung jede Berichts-Tätigkeit ohne ein einziges Foto in der Review ausweisen („Keine Fotos zu: …") — Doku-Lücken sichtbar machen, denn alle Arbeiten des Berichts sollen in der Bild-Doku auftauchen.
+
+### Ohne Bericht (Fallback-Reihenfolge)
+1. Katalog: pick from the firm's configured activity list.
+2. Bild lesen (Vision) / fragen.
+Nicht zu generisch: „Pflasterarbeiten" für alles ist unzureichend, wenn erkennbar Spezifischeres passiert.
 
 ## Target path
 Default `_ausgang/bilder`. If the firm mirrors into project folders, use `<base>/<kunde>/<ordner_name>/<bilder_subfolder>` from config.
@@ -53,6 +82,9 @@ Auf Zuruf („lose Bilder einsortieren") oder wenn beim Ablegen Dateien direkt i
 - **EXIF blind vertrauen** — WhatsApp strippt EXIF; das Datum MUSS dann aus dem Dateinamen kommen.
 - **Bericht-Header blind vertrauen** — zeigt der Bericht-Kopf „KW 19", die Tagesdaten innen gehören aber zu KW 20, ist meist der Header der Tippfehler. Tagesdaten gewinnen; als `prüfen` markieren, Dateien nicht vorschnell „korrigieren".
 - **Tätigkeit zu generisch** — die spezifische Bericht-Formulierung schlägt den Sammelbegriff.
+- **Synonym statt Berichtswort** — „E-Auto Platte verlegt", wenn der Bericht „E-Park Platten verlegt" sagt; „Radstopper **verlegt**", wenn der Bericht „Radstopper **eingebaut**" sagt (echter Fall aus dem Praxistest). Substantiv UND Verb kommen aus dem Bericht — nie ein Wort durch ein vermeintlich passenderes ersetzen.
+- **Katalog oder freie Benennung trotz vorhandenem Bericht** — der Katalog gilt nur, wenn zum Stapel kein Bericht existiert.
+- **Tätigkeit aus dem Wochentag des Fotos ableiten** — zugeordnet wird über den Bildinhalt (Dominanz-Regel), nie über Datum/Uhrzeit der Datei.
 
 ## Onboarding (run once per firm)
 **Ask per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`** (detect-first, numbered options + ✏️ + ⏭️, path-picker). Collect into `_firma/config/photo-sorting.json`:
@@ -77,6 +109,6 @@ A neutral construction set the firm can adopt and edit; spaces become `-` in fil
 Baustelleneinrichtung · Verkehrsabsicherung · Materialanlieferung · Geraete-Maschineneinsatz · Aufraeumen · Oberbodenabtrag · Auskoffern · Aushub-Fundament · Kabelgraben-herstellen · Baugrube-herstellen · Aushub-seitlich-lagern · Schotter-seitlich-lagern · Regenwasserleitung-legen · Kabel-verlegen · Kabel-absanden · Leitungen-verfuellen · Baugrube-anfuellen · Fundament-herstellen · Fundament-setzen · Poller-setzen · Markierungsplatten-legen · Schotter-einbauen · Splitt-einbauen · Sand-einbauen · Planum-herstellen · Splitt-abziehen · Verdichten · Borde-setzen · Pflastern · Einschlaemmen · Anfahrpfosten-anschneiden · Trafolieferung · Trafosetzung · Asphalt-stemmen · Lastplattendruckversuch · Restarbeiten · Feinreinigung · Endzustand
 
 ## Confidence-Kalibrierung & Lernschleife (v0.7.0)
-- **`sicher`** nur, wenn: Baustelle in `stammdaten/projekte.json` zugeordnet, Datum sicher (EXIF oder eindeutig aus Dateiname), Tätigkeit aus dem Katalog mit hoher Sicherheit, Zielordner eindeutig.
-- **`prüfen`** sonst — fehlendes EXIF-Datum, unklare Baustelle, geratene Tätigkeit (`Uebersicht`-Fallback).
+- **`sicher`** nur, wenn: Baustelle in `stammdaten/projekte.json` zugeordnet, Datum sicher (Berichtstag der Tätigkeit, EXIF oder eindeutig aus Dateiname), Tätigkeit eindeutig aus der Bericht-Wochenliste (bzw. aus dem Katalog, wenn kein Bericht existiert), Zielordner eindeutig.
+- **`prüfen`** sonst — fehlendes EXIF-Datum, unklare Baustelle, mehrdeutige oder erzwungene Zuordnung (`Uebersicht`-Fallback, visuell ähnliche Listen-Tätigkeiten ohne Kontext-Entscheid).
 - **Neue Baustelle** (nicht in `projekte.json`): `prüfen` **und** `fact:baustelle-<slug>`-Signal mit `severity:"folgenreich"`. Nach Freigabe Übernahme in Stammdaten anbieten (Lernschleife).
