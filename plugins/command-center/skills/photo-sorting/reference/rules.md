@@ -64,7 +64,10 @@ Existiert `stammdaten/bildwoerterbuch.json` (siehe `reference/bildwoerterbuch.md
 
 **D — Abdeckungs-Check.** Nach der Zuordnung jede Berichts-Tätigkeit ohne ein einziges Foto in der Review ausweisen („Keine Fotos zu: …") — Doku-Lücken sichtbar machen, denn alle Arbeiten des Berichts sollen in der Bild-Doku auftauchen.
 
-### Ohne Bericht (Fallback-Reihenfolge)
+### Kein Bericht gefunden — erst fragen, nie still ausweichen
+Ist eine `bericht_quelle` konfiguriert (Bericht-Betrieb), ist der Katalog **kein** automatischer Fallback: Fehlt der Bericht zum Projekt + Zeitraum, zuerst fragen — *„Ich finde keinen Bautagesbericht zu ‹Projekt/KW› in ‹Ordner› — liegt er woanders, soll ich auf ihn warten, oder ausnahmsweise ohne Bericht benennen?"* Im unbeaufsichtigten Sammel-Modus: Posten mit tier `prüfen` und dieser Rückfrage als `reason` einreihen (Tätigkeit = `fallback` als sichtbarer Platzhalter) — die Freigabe bleibt ohnehin gesperrt, bis jemand entscheidet. So bekommt nie ein Stapel stillschweigend Katalog-Namen, obwohl die Firma Bericht-Benennung erwartet.
+
+### Ohne Bericht-Betrieb (keine `bericht_quelle` konfiguriert) — Fallback-Reihenfolge
 1. Katalog: pick from the firm's configured activity list.
 2. Bild lesen (Vision) / fragen.
 Nicht zu generisch: „Pflasterarbeiten" für alles ist unzureichend, wenn erkennbar Spezifischeres passiert.

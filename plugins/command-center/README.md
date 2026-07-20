@@ -55,6 +55,8 @@ See `reference/architecture.md` for the design rationale and the Phase-2 path (p
 
 ## Status
 
+**v0.14.1 — photo-sorting: kein stiller Katalog-Fallback im Bericht-Betrieb.** Ist eine `bericht_quelle` konfiguriert und der Bautagesbericht zum Stapel nicht auffindbar, wird gefragt (bzw. im Sammel-Modus als `prüfen` mit Rückfrage eingereiht) statt still mit Katalog-Namen zu benennen — Bericht-Benennung ist dann garantiert die einzige Namensquelle.
+
 **v0.14.0 — photo-sorting: treffsicherer zuordnen + aus Korrekturen lernen (Follow-up zum KW-24-Praxistest, 20.07.2026).** Vier Mechanismen in `skills/photo-sorting/`:
 1. **Steckbrief + Indizien-Abgleich** (`rules.md` §B0/§B): Vor dem ersten Foto wird je Bericht-Tätigkeit notiert, woran man sie erkennt (Objekt, Werkzeug-Indizien wie Steinknacker→zuschneiden / Wasserwaage→setzen, Zustand in-Arbeit vs. fertig); pro Foto werden erst die Indizien benannt, dann gegen die Steckbriefe gehalten — „aktive Arbeit schlägt Endzustand".
 2. **Bildwörterbuch + Lernschleife** (`reference/bildwoerterbuch.md`, `stammdaten/bildwoerterbuch.json`): firmenspezifische Unterscheidungsmerkmale + Referenzfotos, gespeist aus Review-Korrekturen UND dem neuen **Nachlauf-Abgleich** (Journal-Ziele vs. Ist-Dateinamen — nachträgliche Umbenennungen der Firma werden als stille Korrektur erkannt, nie zurückkorrigiert). Jeder Eintrag geht durch die Freigabe; kein Modell-Training, sondern gepflegte Stammdaten.
