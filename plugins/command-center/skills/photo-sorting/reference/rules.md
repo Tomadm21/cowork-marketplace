@@ -42,12 +42,23 @@ Beispiel (eine Woche, drei Berichtszeilen):
 | Mi: „Mit dem Einbau der Bremsschwellen begonnen" + Do: „Einbau der Bremsschwellen abgeschlossen" | „Bremsschwellen eingebaut" — EINE Tätigkeit, Spanne Mi–Do |
 | Do: „Mit dem Setzen der Warnpoller begonnen" + Fr: „Warnpoller fertiggestellt" | „Warnpoller gesetzt" — Spanne Do–Fr |
 
+**B0 — Steckbriefe bauen (nach der Wochenliste, VOR dem ersten Foto).** Zu jeder Listen-Tätigkeit kurz notieren, woran man sie auf einem Foto erkennt — das erzwingt, die Bericht-Tätigkeiten inhaltlich zu verstehen, bevor Bilder angesehen werden:
+- **Objekt:** Wie sieht das Bauteil aus (Form, Größe, typische Einbausituation)? Was unterscheidet es von ähnlichen Listen-Tätigkeiten (Radstopper vs. Bremsschwelle)?
+- **Werkzeug-Indizien:** Steinknacker/Trennschneider → zuschneiden · Wasserwaage/Richtwaage am Bauteil → setzen/ausrichten · Bohr-/Stemmhammer an offener Stelle → Ausbesserung · Besen/Kehrmaschine → reinigen · frische Vergussmasse/offene Fuge → gerade gesetzt.
+- **Zustand:** Woran erkennt man „in Arbeit" (offene Bettung, Splitt, liegendes Werkzeug, Person arbeitet) vs. „fertig" (verfugt, gereinigt, Umfeld geschlossen)?
+Existiert `stammdaten/bildwoerterbuch.json` (siehe `reference/bildwoerterbuch.md`), dessen Einträge in die Steckbriefe übernehmen und die hinterlegten **Referenzfotos ansehen** — sie schlagen generisches Bauwissen, weil sie zeigen, wie die Begriffe BEI DIESER FIRMA aussehen.
+
 **B — Jedes Foto genau EINER Listen-Tätigkeit zuordnen. Bildinhalt entscheidet, nie das Datum.**
-- Per Vision bestimmen, was das Foto zeigt; dazu die Bericht-Tätigkeiten inhaltlich verstehen (was sieht man bei „Radstopper eingebaut" vs. „Bremsschwellen eingebaut"?), dann die passende Listen-Tätigkeit wählen.
+- **Indizien statt Bauchgefühl:** Pro Foto erst benennen, WAS zu sehen ist (Objekte, Werkzeuge, Arbeitsphase, Umfeld) — dann gegen die Steckbriefe halten. Die Tätigkeit mit den meisten belegten Indizien gewinnt; die Begründung nennt die Indizien, nicht nur das Ergebnis.
+- **Aktive Arbeit schlägt Endzustand:** Ein Steinknacker AN der Bremsschwelle heißt „Pflastersteine … zugeschnitten", nicht „Bremsschwellen eingebaut" — die Tätigkeit ist das, was auf dem Foto PASSIERT. Zeigt das Foto nur einen fertigen Zustand, gilt die Tätigkeit, die diesen Zustand herstellt.
 - **Dominanz-Regel für unscharfe Fotos:** Baustellenfotos passen oft nicht sauber auf eine Aufgabe (Übersicht, Zwischenstand, viel Umfeld). Dann: das dominanteste Merkmal des Bildes bestimmen (was füllt das Bild, worauf ist fokussiert?) und die Listen-Tätigkeit wählen, zu der es **am ehesten** passt. Die Liste ist kurz — „am ehesten" genügt; kein Foto bekommt einen Namen außerhalb der Liste.
 - **Foto-Datum/Uhrzeit ist KEIN Zuordnungskriterium.** Handys senden gesammelt; ein Donnerstags-Foto zeigt oft Dienstags-Arbeit. Das Datum kommt erst NACH der inhaltlichen Zuordnung ins Spiel (Schritt C).
-- Zeigen zwei Listen-Tätigkeiten visuell Ähnliches (z. B. zwei Sorten länglicher Betonelemente): Kontext-Merkmale entscheiden — Lage, Größe, Einbausituation, Umfeld. Bleibt es mehrdeutig → tier `prüfen`, nicht raten.
+- Zeigen zwei Listen-Tätigkeiten visuell Ähnliches (z. B. zwei Sorten länglicher Betonelemente): Kontext-Merkmale entscheiden — Lage, Größe, Einbausituation, Umfeld; danach das Bildwörterbuch. Bleibt es mehrdeutig → tier `prüfen`, nicht raten — und die Frage an die Firma so stellen, dass die Antwort als Wörterbuch-Eintrag wiederverwendbar ist („Woran erkennt man bei euch X vs. Y?").
 - Passt ein Foto zu KEINER Tätigkeit der Woche (fremdes Gewerk, reine Anlieferung) → `fallback`-Tätigkeit + tier `prüfen`. Niemals einen Namen erfinden.
+
+**B2 — Serien-Regel (WhatsApp-Bursts).** Aufnahmen, deren Zeitstempel nur Sekunden auseinanderliegen und die dasselbe Motiv zeigen, bilden eine **Serie**: den Serien-Anker voll durchprüfen (B0/B-Ablauf), die übrigen erben Zuordnung + Tier. Jedes Serienmitglied trotzdem kurz ansehen — ein Motivwechsel bricht die Serie (neuer Anker). Das macht 20 Poller-Bilder konsistent statt 20-mal einzeln entschieden.
+
+**B3 — Dubletten-Hinweis.** Nahezu identische Aufnahmen (gleiches Motiv, gleiche Perspektive, Sekunden auseinander) in der Review als Gruppe ausweisen („Nr. 4–8: praktisch identisch"). Es wird NICHTS weggelassen oder gelöscht — die Firma entscheidet selbst, ob sie alle braucht.
 
 **C — Datum aus dem Bericht.** Dateinamen-Datum = Berichtstag der zugeordneten Tätigkeit: Liegt das Foto-Datum innerhalb der Tagesspanne → Foto-Tag behalten; sonst der nächstliegende Tag der Spanne. Widerspruch ohne klare Auflösung → `prüfen`.
 
@@ -85,6 +96,8 @@ Auf Zuruf („lose Bilder einsortieren") oder wenn beim Ablegen Dateien direkt i
 - **Synonym statt Berichtswort** — „E-Auto Platte verlegt", wenn der Bericht „E-Park Platten verlegt" sagt; „Radstopper **verlegt**", wenn der Bericht „Radstopper **eingebaut**" sagt (echter Fall aus dem Praxistest). Substantiv UND Verb kommen aus dem Bericht — nie ein Wort durch ein vermeintlich passenderes ersetzen.
 - **Katalog oder freie Benennung trotz vorhandenem Bericht** — der Katalog gilt nur, wenn zum Stapel kein Bericht existiert.
 - **Tätigkeit aus dem Wochentag des Fotos ableiten** — zugeordnet wird über den Bildinhalt (Dominanz-Regel), nie über Datum/Uhrzeit der Datei.
+- **Endzustand mit laufender Arbeit verwechseln** — Werkzeug im Einsatz zeigt die Tätigkeit, die gerade passiert (Steinknacker an der Schwelle = zuschneiden, nicht Schwellen-Einbau); nur reine Zustandsbilder bekommen die herstellende Tätigkeit.
+- **Nachträgliche Umbenennungen der Firma ignorieren** — sie sind das wertvollste Lernsignal (Nachlauf-Abgleich in `reference/bildwoerterbuch.md`), keine Störung.
 
 ## Onboarding (run once per firm)
 **Ask per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`** (detect-first, numbered options + ✏️ + ⏭️, path-picker). Collect into `_firma/config/photo-sorting.json`:
@@ -111,4 +124,5 @@ Baustelleneinrichtung · Verkehrsabsicherung · Materialanlieferung · Geraete-M
 ## Confidence-Kalibrierung & Lernschleife (v0.7.0)
 - **`sicher`** nur, wenn: Baustelle in `stammdaten/projekte.json` zugeordnet, Datum sicher (Berichtstag der Tätigkeit, EXIF oder eindeutig aus Dateiname), Tätigkeit eindeutig aus der Bericht-Wochenliste (bzw. aus dem Katalog, wenn kein Bericht existiert), Zielordner eindeutig.
 - **`prüfen`** sonst — fehlendes EXIF-Datum, unklare Baustelle, mehrdeutige oder erzwungene Zuordnung (`Uebersicht`-Fallback, visuell ähnliche Listen-Tätigkeiten ohne Kontext-Entscheid).
+- **Verwechslungspaare** (zwei visuell ähnliche Listen-Tätigkeiten) gelten erst als eindeutig, wenn ein Kontext-Merkmal ODER ein Bildwörterbuch-Eintrag die Unterscheidung belegt — sonst `prüfen`. Serienmitglieder erben das Tier ihres Ankers.
 - **Neue Baustelle** (nicht in `projekte.json`): `prüfen` **und** `fact:baustelle-<slug>`-Signal mit `severity:"folgenreich"`. Nach Freigabe Übernahme in Stammdaten anbieten (Lernschleife).
