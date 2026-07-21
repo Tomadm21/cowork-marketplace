@@ -58,7 +58,18 @@ Existiert `stammdaten/bildwoerterbuch.json` (siehe `reference/bildwoerterbuch.md
 
 **B2 — Serien-Regel (WhatsApp-Bursts).** Aufnahmen, deren Zeitstempel nur Sekunden auseinanderliegen und die dasselbe Motiv zeigen, bilden eine **Serie**: den Serien-Anker voll durchprüfen (B0/B-Ablauf), die übrigen erben Zuordnung + Tier. Jedes Serienmitglied trotzdem kurz ansehen — ein Motivwechsel bricht die Serie (neuer Anker). Das macht 20 Poller-Bilder konsistent statt 20-mal einzeln entschieden.
 
-**B3 — Dubletten-Hinweis.** Nahezu identische Aufnahmen (gleiches Motiv, gleiche Perspektive, Sekunden auseinander) in der Review als Gruppe ausweisen („Nr. 4–8: praktisch identisch"). Es wird NICHTS weggelassen oder gelöscht — die Firma entscheidet selbst, ob sie alle braucht.
+**B3 — Dubletten-Hinweis.** Nahezu identische Aufnahmen (gleiches Motiv, gleiche Perspektive, Sekunden auseinander) in der Review als Gruppe ausweisen („Nr. 4–8: praktisch identisch"). Gelöscht wird nie — Dubletten-Gruppen fließen in die Auswahl (B4) ein: aus einer Gruppe wird höchstens eine Aufnahme gewählt.
+
+**B4 — Auswahl: höchstens 5 Bilder je Tätigkeit (Arbeiter fotografieren zu viel).** Die Zuordnung (B–B3) läuft über ALLE Fotos des Stapels — jedes Bild wird angesehen und bekommt seine Tätigkeit. Ausgegeben (= zu Aktionen) werden danach aber je Listen-Tätigkeit nur die **besten `max_bilder_je_taetigkeit`** (Default **5**). Rangfolge der Auswahl:
+1. **Sichere Zuordnung zuerst.** Gewählt werden Bilder, deren Indizien die Tätigkeit klar belegen (tier `sicher`). Ein `prüfen`-Bild kommt nur in die Auswahl, wenn die Tätigkeit sonst ohne Foto bliebe (Abdeckung, Schritt D).
+2. **Aussagekraft.** Die ausgeführte Arbeit ist das dominante Motiv: nah genug, scharf, Arbeit im Vollzug oder klares Ergebnis. Übersichts-/Umfeldbilder nur, wenn nichts Besseres da ist.
+3. **Vielfalt statt Wiederholung.** Verschiedene Perspektiven/Phasen (z. B. in Arbeit + fertiges Ergebnis) schlagen fünf fast identische Aufnahmen; aus einer Serie (B2) oder Dubletten-Gruppe (B3) höchstens eine, maximal zwei bei echtem Mehrwert.
+
+Dazu gilt:
+- **Nie künstlich auffüllen.** Gibt es nur drei sichere Treffer, werden drei ausgegeben — der Deckel ist ein Maximum, keine Sollzahl.
+- **Mindestens eins je Tätigkeit** (wenn überhaupt ein Kandidat existiert): notfalls das am ehesten passende Bild als `prüfen`.
+- **Nicht gewählte Bilder** bleiben unangetastet in der Quelle (nichts wird gelöscht). In der Review je Tätigkeit die Quote nennen („Warnpoller gesetzt: 5 von 27 gewählt") — auf Zuruf wird nachgelegt oder getauscht („nimm von X zwei mehr", „tausch Nr. 3 gegen Nr. 17"). In die Merkliste `seen-photo-sorting.json` kommen auch die nicht gewählten Pfade, sonst reiht der nächste Sammellauf sie erneut ein.
+- **Config:** `max_bilder_je_taetigkeit` in `config/photo-sorting.json` — Default `5`, `0` = kein Deckel (alle zugeordneten Bilder ausgeben). Gilt nur für Baustellenfotos (Modus A); Bericht-Scans (Modus B) und Bestands-Einsortierung (Modus C) sind Dokumente bzw. Bestand und werden nie gedeckelt.
 
 **C — Datum aus dem Bericht.** Dateinamen-Datum = Berichtstag der zugeordneten Tätigkeit: Liegt das Foto-Datum innerhalb der Tagesspanne → Foto-Tag behalten; sonst der nächstliegende Tag der Spanne. Widerspruch ohne klare Auflösung → `prüfen`.
 
@@ -101,6 +112,8 @@ Auf Zuruf („lose Bilder einsortieren") oder wenn beim Ablegen Dateien direkt i
 - **Tätigkeit aus dem Wochentag des Fotos ableiten** — zugeordnet wird über den Bildinhalt (Dominanz-Regel), nie über Datum/Uhrzeit der Datei.
 - **Endzustand mit laufender Arbeit verwechseln** — Werkzeug im Einsatz zeigt die Tätigkeit, die gerade passiert (Steinknacker an der Schwelle = zuschneiden, nicht Schwellen-Einbau); nur reine Zustandsbilder bekommen die herstellende Tätigkeit.
 - **Nachträgliche Umbenennungen der Firma ignorieren** — sie sind das wertvollste Lernsignal (Nachlauf-Abgleich in `reference/bildwoerterbuch.md`), keine Störung.
+- **Den 5er-Deckel als Sollzahl behandeln** — B4 ist ein Maximum: nie unsichere Bilder nachschieben, nur um auf 5 zu kommen; lieber 3 sichere als 5 mit Wackelkandidaten.
+- **Erst auswählen, dann zuordnen** — die Auswahl (B4) setzt die vollständige Zuordnung ALLER Bilder voraus; wer nur die ersten 5 pro Tätigkeit ansieht, wählt nicht die besten, sondern die zufällig ersten.
 
 ## Onboarding (run once per firm)
 **Ask per `${CLAUDE_PLUGIN_ROOT}/reference/onboarding-ux.md`** (detect-first, numbered options + ✏️ + ⏭️, path-picker). Collect into `_firma/config/photo-sorting.json`:
@@ -115,6 +128,7 @@ Auf Zuruf („lose Bilder einsortieren") oder wenn beim Ablegen Dateien direkt i
 7. **Bericht-Quelle** `bericht_quelle` 🔍 — Ordner mit fertigen Bautagesberichten (für den Tätigkeits-Abgleich). Default `_ausgang/berichte` (die eigene daily-report-Ausgabe); zusätzlich per Path-Picker den Berichtsordner der Firma erfassen · ⏭️.
 8. **KW-Unterordner** `kw_subfolder` — default `aus` · `an` (+ `kw_folder_prefix`, Default `"KW "` mit Leerzeichen) · ✏️.
 9. **Bericht-Scans (Modus B)** `bericht_scans` — „Sollen abfotografierte/gescannte Montage-/Serviceberichte mit umbenannt und archiviert werden?" — default `aus` · `an` → Sub-Onboarding nach `reference/bericht-scans.md` §Onboarding (Zielordner, BV-Kurzformen, Monteur-Schreibweisen → `stammdaten/monteure.json`).
+10. **Bilder-Deckel** `max_bilder_je_taetigkeit` — höchstens so viele Bilder je Bericht-Tätigkeit ausgeben (§B4). Default `5` · `0` = kein Deckel · ✏️. Kein Onboarding-Zwang — fehlt der Key, gilt 5.
 
 (Sites come from `stammdaten/projekte.json` — propose its entries; offer to create it if absent.)
 Then set `photo-sorting` under `cc:processes` to `onboarded`.

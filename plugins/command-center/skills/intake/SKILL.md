@@ -59,7 +59,7 @@ Stelle diese Fragen **einmal**, bevor die Verarbeitung läuft — nicht pro Date
 ## Step 4 — Verarbeite je Gruppe mit dem zuständigen Prozess
 Für jede Zielgruppe die Regeln des jeweiligen Prozess-Skills anwenden (deren `reference/rules.md`):
 - `receipt-filing` → Namensschema + Ablage-Entscheidungsbaum, je Beleg eine Aktion.
-- `photo-sorting` → `<datum>_<baustelle>_<taetigkeit>_<lfd>` — Tätigkeit wörtlich aus dem Bautagesbericht, wenn einer zu Projekt+KW existiert, sonst Katalog; je Foto eine Aktion. **Modus B** (Bericht-Scans) → `JJJJ KWnn BV V.Nachname …` nach `skills/photo-sorting/reference/bericht-scans.md`, je Scan eine Aktion (`values`: `jahr, kw, bv, monteure, suffix`).
+- `photo-sorting` → `<datum>_<baustelle>_<taetigkeit>_<lfd>` — Tätigkeit wörtlich aus dem Bautagesbericht, wenn einer zu Projekt+KW existiert, sonst Katalog. ALLE Fotos sichten + zuordnen, dann **Auswahl-Regel** (`skills/photo-sorting/reference/rules.md` §B4): je Tätigkeit nur die besten max. 5 (`max_bilder_je_taetigkeit`) als Aktionen; nicht Gewählte nur in die seen-Liste, Quote in der Review nennen. **Modus B** (Bericht-Scans) → `JJJJ KWnn BV V.Nachname …` nach `skills/photo-sorting/reference/bericht-scans.md`, je Scan eine Aktion, nie gedeckelt (`values`: `jahr, kw, bv, monteure, suffix`).
 - `daily-report` → Vorlage füllen (nur Vorarbeiter, 17:00-Cap), je Bericht eine Aktion.
 - `invoicing` → Pro-forma über das Pflicht-Skript, je Rechnung eine Aktion.
 
