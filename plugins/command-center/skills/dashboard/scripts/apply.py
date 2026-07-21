@@ -9,6 +9,10 @@ applies approvals (apply.ts is a read-only lister). Idempotent + atomic + contai
 - containment: sources/relative targets/filenames must stay inside the
   workspace; absolute targets only if configured in _firma/config/*.json
   (output_paths) — anything else errors or falls back to _ausgang/<process>;
+- write-root allow-list: relative targets must start under _ausgang/ or a
+  folder the firm configured under a path field in _firma/config/*.json;
+  a bare config KEY as target ("buchhaltung") is skipped instead of silently
+  creating folders in the workspace root (observed 2026-07-21);
 - verified writes: chunked copy to <name>.part, fsync, byte-size check, then
   atomic rename — a partial copy never sits under the final name;
 - source binding: an action carrying source_md5 is applied only while the
@@ -214,6 +218,47 @@ def allowed_abs_dirs(root):
             pass
     return out
 
+PATH_KEYS = {"ablage_ordner", "output_base", "base_path", "kontrolle",
+             "buchhaltung_base", "bericht_quelle", "output_roots", "output_paths"}
+PATH_KEY_SUFFIXES = ("_base", "_path", "_paths", "_ordner", "_quelle", "_roots")
+
+def _collect_path_values(x, out):
+    """Collect only values that sit under a path-ish config key — firm names,
+    naming patterns and free-text prose must never become write roots."""
+    if isinstance(x, dict):
+        for k, v in x.items():
+            kl = str(k).lower()
+            if kl in PATH_KEYS or kl.endswith(PATH_KEY_SUFFIXES):
+                _collect_strings(v, out)
+            else:
+                _collect_path_values(v, out)
+    elif isinstance(x, list):
+        for v in x:
+            _collect_path_values(v, out)
+
+def allowed_rel_roots(root):
+    """Relative write roots. _ausgang/ is always allowed; beyond that, exactly
+    the folders the firm configured under a path field (…_ordner, …_base,
+    …_path, kontrolle, output_roots) in _firma/config/*.json — grown folder
+    structures stay reachable that way. _firma/ and _eingang/ are never write
+    roots, even if a config mentions them."""
+    roots = {"_ausgang"}
+    for fp in glob.glob(os.path.join(root, "_firma", "config", "*.json")):
+        try:
+            vals = []
+            _collect_path_values(json.load(open(fp, encoding="utf-8-sig")), vals)
+        except Exception:
+            continue
+        for v in vals:
+            if not isinstance(v, str) or not v.strip() or os.path.isabs(v) or "{" in v:
+                continue
+            t = norm_dir(v)
+            first = t.split("/", 1)[0]
+            if first in ("_firma", "_eingang", "", ".", ".."):
+                continue
+            roots.add(t)
+    return roots
+
 def load_journal_index(P):
     """One pass over all journal files -> set of (runid, id, norm target-dir).
 
@@ -260,9 +305,12 @@ def record_filed_md5(P, m):
         json.dump(data, open(tmp, "w", encoding="utf-8"))
         os.replace(tmp, fp)
 
-def resolve_target_dir(root, target, allowed_abs):
-    """Returns (dir, status): status "ok" | "fallback" | "unsafe".
-    - relative: must stay inside the workspace (no ../ escape) — else unsafe
+def resolve_target_dir(root, target, allowed_abs, allowed_rel=None):
+    """Returns (dir, status): status "ok" | "fallback" | "unsafe" | "unallowed".
+    - relative: must stay inside the workspace (no ../ escape) — else unsafe —
+      and, when allowed_rel is given, start under an allowed write root
+      (_ausgang/ or a folder configured in _firma/config/*.json). A bare
+      config KEY as target ("buchhaltung") is exactly what "unallowed" catches.
     - absolute (e.g. connected N:/S:): must exist AND be under a dir the firm
       configured in _firma/config/*.json (output_paths). An unconfigured or
       disconnected absolute path falls back to _ausgang/<process> (visible,
@@ -276,6 +324,10 @@ def resolve_target_dir(root, target, allowed_abs):
     tdir = os.path.join(root, target)
     if not inside(root, tdir):
         return tdir, "unsafe"
+    if allowed_rel is not None:
+        t = norm_dir(target)
+        if not any(t == r or t.startswith(r + "/") for r in allowed_rel):
+            return tdir, "unallowed"
     return tdir, "ok"
 
 def collision_safe(dest):
@@ -287,7 +339,7 @@ def collision_safe(dest):
         i += 1
     return "%s_%d%s" % (base, i, ext)
 
-def apply_action(root, P, q, a, dry, allowed_abs, jidx):
+def apply_action(root, P, q, a, dry, allowed_abs, jidx, allowed_rel=None):
     # confirmation gate BEFORE any file work: an unanswered Pflicht-Bestätigung
     # means the card's data is incomplete — applying it would file a
     # plausible-looking but wrong value (the exact error class this fixes)
@@ -325,10 +377,14 @@ def apply_action(root, P, q, a, dry, allowed_abs, jidx):
         return [{"status": "error", "detail": "unsicherer Dateiname: " + repr(fname)}]
     results = []
     for target in a.get("targets", []):
-        tdir, st = resolve_target_dir(root, target, allowed_abs)
+        tdir, st = resolve_target_dir(root, target, allowed_abs, allowed_rel)
         if st == "unsafe":
             results.append({"status": "skipped-unsafe", "target": target,
                             "detail": "Ziel verlässt den Workspace — nicht kopiert, Posten bleibt offen"})
+            continue
+        if st == "unallowed":
+            results.append({"status": "skipped-unallowed-target", "target": target,
+                            "detail": "Ziel ist kein erlaubter Ausgabe-Ordner (erlaubt: _ausgang/… oder ein in _firma/config/*.json als Pfad eingetragener Ordner). targets müssen Pfade sein, keine Config-Schlüssel wie »buchhaltung« — nicht kopiert, Posten bleibt offen"})
             continue
         if st == "fallback":
             # external drive not connected / absolute dir not configured
@@ -392,7 +448,7 @@ def apply_action(root, P, q, a, dry, allowed_abs, jidx):
 def action_done(res):
     """An action may leave the queue only if nothing failed AND at least one
     target was actually delivered (copied / identical / already journaled)."""
-    if any(r["status"].startswith(("error", "skipped-unsafe")) for r in res):
+    if any(r["status"].startswith(("error", "skipped-unsafe", "skipped-unallowed")) for r in res):
         return False
     return any(r["status"] in ("copied", "copied-manually", "skipped-identical", "already-journaled") for r in res)
 
@@ -441,7 +497,7 @@ def cmd_approve(P, root, runid, aid, dry):
     a = next((x for x in q.get("actions", []) if str(x.get("id")) == str(aid)), None)
     if not a:
         print(json.dumps({"ok": False, "error": "action nicht gefunden", "queue_warnings": qwarns})); return
-    res = apply_action(root, P, q, a, dry, allowed_abs_dirs(root), load_journal_index(P))
+    res = apply_action(root, P, q, a, dry, allowed_abs_dirs(root), load_journal_index(P), allowed_rel_roots(root))
     if not dry and action_done(res):
         remove_action_atomic(q, a.get("id"))
         archive_if_empty(P, q)
@@ -458,13 +514,14 @@ def cmd_approve_run(P, root, runid, ids, dry):
         print(json.dumps({"ok": False, "error": "runid nicht gefunden: " + runid, "queue_warnings": qwarns})); return
     wanted = set(str(i) for i in ids) if ids else None
     allowed = allowed_abs_dirs(root)
+    allowed_rel = allowed_rel_roots(root)
     jidx = load_journal_index(P)
     applied, all_ok, matched = [], True, 0
     for a in list(q.get("actions", [])):
         if wanted is not None and str(a.get("id")) not in wanted:
             continue
         matched += 1
-        res = apply_action(root, P, q, a, dry, allowed, jidx)
+        res = apply_action(root, P, q, a, dry, allowed, jidx, allowed_rel)
         applied.append({"runid": runid, "id": a.get("id"), "results": res})
         done = action_done(res)
         all_ok = all_ok and (done or dry)
@@ -497,12 +554,13 @@ def cmd_reject(P, runid, aid, dry):
 def cmd_approve_safe(P, root, dry):
     qs, qwarns = load_queues(P); applied = []
     allowed = allowed_abs_dirs(root)
+    allowed_rel = allowed_rel_roots(root)
     jidx = load_journal_index(P)
     all_ok = True
     for q in qs:
         for a in list(q.get("actions", [])):
             if eff_tier(a) == "sicher":
-                res = apply_action(root, P, q, a, dry, allowed, jidx)
+                res = apply_action(root, P, q, a, dry, allowed, jidx, allowed_rel)
                 applied.append({"runid": q.get("runid"), "id": a.get("id"), "results": res})
                 done = action_done(res)
                 all_ok = all_ok and (done or dry)

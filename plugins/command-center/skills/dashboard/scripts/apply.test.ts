@@ -143,6 +143,12 @@ describe("collisionSafe", () => {
 
 beforeEach(() => {
   ws = fs.mkdtempSync(path.join(os.tmpdir(), "ws-test-"));
+  // TARGET_REL sits outside _ausgang/ — like a grown folder structure in the
+  // real world it must be declared as a write root in a config path field
+  // (the relative-target allow-list rejects undeclared roots since v0.18)
+  const cfgDir = path.join(ws, "_firma", "config");
+  fs.mkdirSync(cfgDir, { recursive: true });
+  fs.writeFileSync(path.join(cfgDir, "test-roots.json"), JSON.stringify({ output_roots: ["001 Galant/Buchhaltung"] }), "utf8");
 });
 afterEach(() => {
   fs.rmSync(ws, { recursive: true, force: true });
@@ -404,14 +410,14 @@ describe("apply.py approve/reject/approve-safe", () => {
   test("multiple targets → delivered to every one", async () => {
     const actions = [{
       id: 1, verb: "kopieren", tier: "sicher", reason: "ok",
-      source: SOURCE_REL, filename: FILENAME, targets: ["dest-a", "dest-b"], values: {},
+      source: SOURCE_REL, filename: FILENAME, targets: ["_ausgang/dest-a", "_ausgang/dest-b"], values: {},
     }];
     writeQueue(RUNID_A, actions);
     seedSourceFile(SOURCE_REL);
     const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
     expect(statuses(JSON.parse(stdout))).toEqual(["copied", "copied"]);
-    expect(fs.existsSync(path.join(ws, "dest-a", FILENAME))).toBe(true);
-    expect(fs.existsSync(path.join(ws, "dest-b", FILENAME))).toBe(true);
+    expect(fs.existsSync(path.join(ws, "_ausgang", "dest-a", FILENAME))).toBe(true);
+    expect(fs.existsSync(path.join(ws, "_ausgang", "dest-b", FILENAME))).toBe(true);
   });
 
   test("approve-safe: only plain tier sicher is bulk-approved", async () => {
@@ -466,8 +472,8 @@ describe("apply.py approve/reject/approve-safe", () => {
   });
 
   test("cross-queue isolation: approve in queue A leaves queue B untouched", async () => {
-    writeQueue(RUNID_A, [{ id: 1, verb: "kopieren", tier: "sicher", reason: "a", source: SOURCE_REL, filename: "file-a.pdf", targets: ["dest-a"], values: {} }]);
-    writeQueue(RUNID_B, [{ id: 2, verb: "kopieren", tier: "sicher", reason: "b", source: SOURCE_REL, filename: "file-b.pdf", targets: ["dest-b"], values: {} }]);
+    writeQueue(RUNID_A, [{ id: 1, verb: "kopieren", tier: "sicher", reason: "a", source: SOURCE_REL, filename: "file-a.pdf", targets: ["_ausgang/dest-a"], values: {} }]);
+    writeQueue(RUNID_B, [{ id: 2, verb: "kopieren", tier: "sicher", reason: "b", source: SOURCE_REL, filename: "file-b.pdf", targets: ["_ausgang/dest-b"], values: {} }]);
     seedSourceFile(SOURCE_REL);
     const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
     expect(JSON.parse(stdout).ok).toBe(true);
@@ -569,5 +575,92 @@ describe("apply.py containment", () => {
     expect(statuses(result)).toEqual(["copied"]);
     expect(fs.existsSync(path.join(absDir, "f.pdf"))).toBe(true);
     fs.rmSync(absDir, { recursive: true, force: true });
+  });
+});
+
+// ── apply.py — relative target allow-list (the 2026-07-21 root-folder incident:
+//    a queue carried config KEYS like "buchhaltung" as targets and the engine
+//    silently created those folders in the workspace root) ─────────────────────
+
+describe("apply.py relative target allow-list", () => {
+  function writeCfg(name: string, obj: object) {
+    const cfgDir = path.join(ws, "_firma", "config");
+    fs.mkdirSync(cfgDir, { recursive: true });
+    fs.writeFileSync(path.join(cfgDir, name), JSON.stringify(obj), "utf8");
+  }
+
+  test("config key as target (root-folder incident) → skipped-unallowed-target, no folder created, action stays", async () => {
+    writeCfg("receipt-filing.json", { targets: { buchhaltung: { base_path: "_ausgang/belege" } } });
+    writeQueue(RUNID_A, [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+      source: SOURCE_REL, filename: "f.pdf", targets: ["buchhaltung"], values: {},
+    }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(false);
+    expect(statuses(result)).toEqual(["skipped-unallowed-target"]);
+    expect(result.results[0].detail).toContain("Config-Schlüssel");
+    expect(fs.existsSync(path.join(ws, "buchhaltung"))).toBe(false);
+    const q = JSON.parse(fs.readFileSync(path.join(reviewDir(), `${RUNID_A}.json`), "utf8"));
+    expect(q.actions.length).toBe(1); // stays open for the human to see
+  });
+
+  test("target under _ausgang → allowed without any config", async () => {
+    fs.rmSync(path.join(ws, "_firma", "config"), { recursive: true, force: true });
+    writeQueue(RUNID_A, [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+      source: SOURCE_REL, filename: "f.pdf", targets: ["_ausgang/belege"], values: {},
+    }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(statuses(result)).toEqual(["copied"]);
+    expect(fs.existsSync(path.join(ws, "_ausgang", "belege", "f.pdf"))).toBe(true);
+  });
+
+  test("relative root declared in a config path field → allowed (grown folder structures)", async () => {
+    writeCfg("receipt-filing.json", { targets: { buchhaltung: { base_path: "001 Galant/Buchhaltung" } } });
+    writeQueue(RUNID_A, [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+      source: SOURCE_REL, filename: "f.pdf", targets: ["001 Galant/Buchhaltung/2026"], values: {},
+    }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(true);
+    expect(statuses(result)).toEqual(["copied"]);
+    expect(fs.existsSync(path.join(ws, "001 Galant", "Buchhaltung", "2026", "f.pdf"))).toBe(true);
+  });
+
+  test("_eingang and _firma are never write roots, even when a config lists them", async () => {
+    writeCfg("receipt-filing.json", { ablage_ordner: "_eingang", kontrolle: "_firma/evil" });
+    for (const target of ["_eingang/receipt-filing", "_firma/evil"]) {
+      writeQueue(RUNID_A, [{
+        id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+        source: SOURCE_REL, filename: "f.pdf", targets: [target], values: {},
+      }]);
+      seedSourceFile(SOURCE_REL);
+      const { stdout } = await runPy(ws, "approve", RUNID_A, "1");
+      const result = JSON.parse(stdout);
+      expect(result.ok).toBe(false);
+      expect(statuses(result)).toEqual(["skipped-unallowed-target"]);
+    }
+    expect(fs.existsSync(path.join(ws, "_firma", "evil"))).toBe(false);
+    expect(fs.existsSync(path.join(ws, "_eingang", "receipt-filing", "f.pdf"))).toBe(false);
+  });
+
+  test("approve-safe honors the allow-list too", async () => {
+    writeQueue(RUNID_A, [{
+      id: 1, verb: "kopieren", tier: "sicher", reason: "x",
+      source: SOURCE_REL, filename: "f.pdf", targets: ["lager"], values: {},
+    }]);
+    seedSourceFile(SOURCE_REL);
+    const { stdout } = await runPy(ws, "approve-safe");
+    const result = JSON.parse(stdout);
+    expect(result.ok).toBe(false);
+    expect(statuses(result.applied[0])).toEqual(["skipped-unallowed-target"]);
+    expect(fs.existsSync(path.join(ws, "lager"))).toBe(false);
   });
 });
