@@ -48,7 +48,7 @@ Command-Center-Prozesse nutzen Vision/LLM-Extraktion — nicht deterministisch. 
 - **committet nie** folgenreiche Schreibvorgänge (Originale verschieben/löschen, eine Rechnung finalisieren, buchen, zahlen, irgendetwas senden),
 - wartet für diese Prozesse auf deine Freigabe.
 
-**Einzige Ausnahme — Beleg-Direktablage (`receipt-filing`):** ein geplanter Lauf darf Belege **kopierend** ablegen, ausschließlich über die Engine `_firma/apply.py` (Journal, md5, kollisionssicher). Das ist umkehrbar per Definition: das Original bleibt in `_eingang/`, die Kopie lässt sich im Ordner umbenennen/verschieben; Unklares landet im Kontrolle-Ordner statt in den Zielen. Buchen, Zahlen, Senden, Löschen bleiben auch hier ausgeschlossen. (Rückfall auf das alte Verhalten: `"ablage": "review"` in `config/receipt-filing.json`.)
+**Einzige Ausnahme — Beleg-Direktablage (`receipt-filing`):** ein geplanter Lauf darf Belege **kopierend** ablegen, ausschließlich über die Engine `_firma/apply.py` (Journal, md5, kollisionssicher). Das ist umkehrbar per Definition: das Original bleibt in `_eingang/`, die Kopie lässt sich im Ordner umbenennen/verschieben; abgelegt wird flach in den EINEN Ablage-Ordner (nie neue Unterordner), Unklares mit `PRÜFEN - `-Namenspräfix. Buchen, Zahlen, Senden, Löschen bleiben auch hier ausgeschlossen. (Rückfall auf das alte Verhalten: `"ablage": "review"` in `config/receipt-filing.json`.)
 
 „Automatisch" heißt „die Vorbereitung ist für dich erledigt — Belege sind schon geparkt", nicht „während du weg warst, ist etwas Unumkehrbares passiert".
 
@@ -60,7 +60,7 @@ Das Dashboard (`skills/dashboard/`) ist **reine Übersicht**: es zeigt, was lief
 
 `/command-center:setup` bietet an, diesen Task anzulegen (stündlich, Cron `0 * * * *`). Der Prompt ist selbst-enthalten (jeder Lauf startet ohne Gedächtnis):
 
-> *„Command-Center-Sammellauf. Scanne den gemeinsamen Eingang `_eingang/` (rekursiv) im Workspace `<WORKSPACE_ROOT>`. Verarbeite nur Dateien, die noch NICHT in `_firma/_review/`, `_firma/_journal/` oder einer `_firma/_state/seen-<prozess>.json` stehen. Lass die intake-Skill im Loop-/Sammel-Modus laufen: klassifiziere jede neue Datei nach Inhalt (Beleg, Foto, Tagesbericht, Stundenzettel), erkenne Dubletten, route an den richtigen Prozess, bündle pro Prozess in EINE Review-Queue. Belege laufen als Direktablage: Beleg-Queue sofort mit `python3 _firma/apply.py <WORKSPACE_ROOT> approve-run <runid>` ausführen (nur kopieren; unklare Belege zielen auf den Kontrolle-Ordner) und Activity-Log `status: done` schreiben; für alle anderen Prozesse `status: prepared`. Stelle KEINE Rückfragen; fehlt einem Foto Baustelle/Datum, lege die Aktion mit tier prüfen an. Verschiebe oder lösche NIE Originale; buche, finalisiere oder sende NICHTS. Ist nichts Neues da, beende sofort. Wenn etwas passiert ist, gib mir eine kurze Notiz: ‚X Belege abgelegt (Y in Kontrolle) · Z Posten liegen zur Freigabe — sag zeig offene Freigaben.'"*
+> *„Command-Center-Sammellauf. Scanne den gemeinsamen Eingang `_eingang/` (rekursiv) im Workspace `<WORKSPACE_ROOT>`. Verarbeite nur Dateien, die noch NICHT in `_firma/_review/`, `_firma/_journal/` oder einer `_firma/_state/seen-<prozess>.json` stehen. Lass die intake-Skill im Loop-/Sammel-Modus laufen: klassifiziere jede neue Datei nach Inhalt (Beleg, Foto, Tagesbericht, Stundenzettel), erkenne Dubletten, route an den richtigen Prozess, bündle pro Prozess in EINE Review-Queue. Belege laufen als Direktablage: Beleg-Queue sofort mit `python3 _firma/apply.py <WORKSPACE_ROOT> approve-run <runid>` ausführen (nur kopieren, flach in den einen Ablage-Ordner, NIE Unterordner anlegen; unklare Belege mit Namenspräfix PRÜFEN) und Activity-Log `status: done` schreiben; für alle anderen Prozesse `status: prepared`. Stelle KEINE Rückfragen; fehlt einem Foto Baustelle/Datum, lege die Aktion mit tier prüfen an. Verschiebe oder lösche NIE Originale; buche, finalisiere oder sende NICHTS. Ist nichts Neues da, beende sofort. Wenn etwas passiert ist, gib mir eine kurze Notiz: ‚X Belege abgelegt (Y mit PRÜFEN markiert) · Z Posten liegen zur Freigabe — sag zeig offene Freigaben.'"*
 
 `<WORKSPACE_ROOT>` füllt setup mit dem echten absoluten Pfad.
 
@@ -68,7 +68,7 @@ Das Dashboard (`skills/dashboard/`) ist **reine Übersicht**: es zeigt, was lief
 
 | Task | Takt | Was der Lauf tut (dann Freigabe im Chat) |
 |---|---|---|
-| **Sammel-Task** (alle vier) | **stündlich** `0 * * * *` | neue Inputs erkennen; Belege direkt ablegen (Kontrolle im Ordner); Rest vorbereiten und in Review-Queues bündeln |
+| **Sammel-Task** (alle vier) | **stündlich** `0 * * * *` | neue Inputs erkennen; Belege flach direkt ablegen (Kontrolle im Ordner via PRÜFEN-Präfix); Rest vorbereiten und in Review-Queues bündeln |
 
 Einzelne Prozesse seltener gewünscht? Du kannst zusätzlich pro Prozess einen eigenen Task mit anderem Cron anlegen (z. B. `invoicing` wöchentlich montags). Der Standard ist der **eine** stündliche Sammel-Task — ein Zeitplan, den du im Blick behältst.
 

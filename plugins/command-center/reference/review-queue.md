@@ -5,7 +5,7 @@ When a process finishes its analysis it writes one JSON file; nothing is copied 
 a human explicitly approves — with **one declared exception**: `receipt-filing` runs in
 **Direktablage** mode (v0.15, default) execute their own queue immediately via `approve-run`;
 the queue is then the audit record + engine input, not a waiting state, and control happens in
-the target folders (see `skills/receipt-filing/reference/rules.md` §Direktablage & Kontrolle).
+the flat Ablage folder (see `skills/receipt-filing/reference/rules.md` §Direktablage).
 The dashboard (Live Artifact) shows only the **count** of open items
 (since v0.9.2 it never lists them); the actual review — approve, edit, re-run, reject — happens
 in **chat** (review-board skill / `reference/chat-review.md`).
@@ -261,7 +261,7 @@ bun ${CLAUDE_PLUGIN_ROOT}/skills/dashboard/scripts/apply.ts <workspace_root> lis
 | Apply engine | Read queues; copy files; append journal; move empty queues to `_erledigt/` |
 | Dashboard | **Read-only** — count open queues (statistics artifact); trigger nothing |
 | Chat (on the user's word) | Trigger engine commands (`approve` / `approve-run` / `reject` / `approve-safe` / `manual-confirm`) and queue patches as an explicit human action |
-| receipt-filing (Direktablage) | The **only** process allowed to call `approve-run` on its **own, just-written** queue without a chat trigger — copy-only parking, `prüfen` items target the Kontrolle folder; disabled via `"ablage": "review"` |
+| receipt-filing (Direktablage) | The **only** process allowed to call `approve-run` on its **own, just-written** queue without a chat trigger — copy-only parking, flat into the single `ablage_ordner` (`prüfen` items get a `PRÜFEN - ` name prefix; never creates subfolders); disabled via `"ablage": "review"` |
 
 **Applying is a deliberate human action — except receipt-filing Direktablage.** No other skill, hook,
 dashboard, or background cron may call `approve` or `approve-safe` without a user-initiated trigger

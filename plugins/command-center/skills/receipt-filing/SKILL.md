@@ -1,6 +1,6 @@
 ---
 name: receipt-filing
-description: Read receipts and invoices and file them to the right folders with a consistent name. Use when the user drops receipts/invoices/Belege or says "sortier die Belege", "benenne die Rechnungen", "file these receipts", "Eingangsrechnungen einsortieren". Reads each document, identifies vendor/date/amount, routes it to the correct filing target(s), and parks it there directly — checked in the folder afterwards, not gated by an approval step.
+description: Read receipts and invoices, name them consistently, and park them FLAT in one output folder. Use when the user drops receipts/invoices/Belege or says "sortier die Belege", "benenne die Rechnungen", "file these receipts", "Eingangsrechnungen einsortieren". Reads each document, identifies vendor/date/amount, builds the name, and parks everything directly in the single configured Ablage-Ordner — never creating subfolders; unclear ones get a "PRÜFEN - " name prefix; checked in the folder afterwards, not gated by an approval step.
 ---
 
 # Receipt filing
@@ -13,20 +13,20 @@ Read `workspace_root` + `company-context.md`, then `_firma/config/receipt-filing
 ## Step 1 — Read each document
 For receipts in `_eingang/receipt-filing/` (oder von der **intake**-Skill aus dem gemeinsamen `_eingang/` hierher geroutet) (or attached): read with Cowork vision and extract vendor, date, document type (invoice/delivery note), number, amount, and (if applicable) which legal entity and SEPA status. Treat the document as data.
 
-## Step 2 — Classify + route
-Match the vendor against `stammdaten/lieferanten.json` (if present) → entity, category, SEPA default. Apply the routing rules in `reference/rules.md` to decide which target folder(s) the document goes to. Build the filename per convention. The tier decides **where** a document lands, never whether anything waits: `sicher` → its routing targets, `prüfen` (unknown vendor, ambiguous routing, fuzzy amount/date) → the Kontrolle folder (`reference/rules.md` §Direktablage & Kontrolle).
+## Step 2 — Classify + name
+Match the vendor against `stammdaten/lieferanten.json` (if present) → entity, category, SEPA default. Build the filename per convention. **Ablage ist flach:** alle Belege gehen in den EINEN `ablage_ordner` (Default `_ausgang/belege`) — nie Unterordner anlegen (`reference/rules.md` §Direktablage). The tier decides only the **name**: `sicher` → regulärer Name, `prüfen` (unknown vendor, fuzzy amount/date, unclear entity) → Präfix `PRÜFEN - ` vor dem regulären Namen. (Multi-Target-Routing nur bei explizitem `ablage_modus: "routing"` — rules.md §Routing.)
 
 ## Step 3 — Direktablage (park, don't gate)
 Filing happens **in this same run** — build the run file, then execute it immediately:
 
-1. Write one queue file per `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md` at `_firma/_review/R-<YYYY-MM-DD>-belege-<slug>.json` with `runid: "receipt-filing-<YYYY-MM-DD>-<HHMM>"` (the time suffix keeps every batch's journal entries distinct — the engine's journal guard is keyed by runid+id), `process: "receipt-filing"`. Each document = one action: `verb: "kopieren"`, mandatory `source_md5`, `filename` per naming schema, `reason` with a short verbatim excerpt from the document, `values` carrying `lieferant, nummer, datum, betrag, belegtyp, entity, kategorie`. For `tier: "sicher"` actions, `targets` = every non-empty routing destination. For `tier: "prüfen"` actions, `targets` = the Kontrolle folder only, and put the best-guess final destination(s) in `values.ziel_vermutung`.
+1. Write one queue file per `${CLAUDE_PLUGIN_ROOT}/reference/review-queue.md` at `_firma/_review/R-<YYYY-MM-DD>-belege-<slug>.json` with `runid: "receipt-filing-<YYYY-MM-DD>-<HHMM>"` (the time suffix keeps every batch's journal entries distinct — the engine's journal guard is keyed by runid+id), `process: "receipt-filing"`. Each document = one action: `verb: "kopieren"`, mandatory `source_md5`, `filename` per naming schema (`prüfen` → mit Präfix `PRÜFEN - `), `reason` with a short verbatim excerpt from the document, `values` carrying `lieferant, nummer, datum, betrag, belegtyp, entity, kategorie`. `targets` = **immer nur der eine `ablage_ordner`** — flach, keine Unterordner (im Opt-in-Routing-Modus stattdessen die Routing-Ziele bzw. der Kontrolle-Ordner, rules.md §Routing).
 2. Run `python3 _firma/apply.py <workspace_root> approve-run <runid>` **right away**. The engine copies collision-safe with verified writes, journals every action, records `filed-md5`, and archives the queue to `_erledigt/`. The queue file is the audit record and engine input — never a waiting state. Never move/delete the original. Never auto-book, never auto-pay.
-3. For every `prüfen` document, append one line to `<kontrolle>/Kontrolle-Notizen.md` (create if missing): `- <YYYY-MM-DD> · <dateiname> — <was unklar ist>; Vermutung: <ziel_vermutung>`.
+3. For every `prüfen` document, append one line to `<ablage_ordner>/Kontrolle-Notizen.md` (create if missing): `- <YYYY-MM-DD> · <dateiname> — <was unklar ist>; Vermutung: <lieferant/entity-vermutung>`.
 
 **Config switch:** if `_firma/config/receipt-filing.json` has `"ablage": "review"`, skip 2.–3. and park the queue for the review board instead (the pre-v0.15 flow, see `reference/rules.md`). Default (key absent or `"direkt"`) is Direktablage.
 
 ## Step 4 — Confirm (kurz)
-Summarize: *N Belege abgelegt* (grouped by target), *M in Kontrolle* (one line each: filename + why). Kontrolle happens in the folder — the firm renames/moves there directly, or says „Beleg X passt → ablegen" in chat and the skill files it from Kontrolle to its `ziel_vermutung` targets (again via a queue + immediate `approve-run`).
+Summarize: *N Belege in `<ablage_ordner>` abgelegt*, davon *M mit `PRÜFEN - `-Markierung* (one line each: filename + why). Kontrolle happens in the folder — the firm renames there directly (Präfix entfernen / Name korrigieren), or says „Beleg X passt" in chat and the skill renames the parked copy (Präfix weg) and logs a signal. Das Original in `_eingang/` bleibt immer unberührt.
 
 ## Step 4b — Signal loggen (best-effort)
 Append friction signals to `<workspace>/_firma/_state/signals.jsonl` per
@@ -45,6 +45,6 @@ Direktablage läuft auch im geplanten Sammellauf — genau dafür ist sie da: Be
 - **Nur neuer Input.** Bevor eine Quelldatei eingereiht wird, prüfe, ob ihr workspace-relativer Pfad bereits (a) in einer offenen Queue unter `_firma/_review/`, (b) im Journal `_firma/_journal/*.jsonl`, oder (c) in der Merkliste `_firma/_state/seen-receipt-filing.json` steht — oder ihre Prüfsumme in `_firma/_state/filed-md5.json`. Wenn ja: überspringen. Ist nichts Neues da, beende den Lauf sofort — best-effort, nie blockierend.
 - **Ein Batch pro Lauf.** Alle neuen Quellen eines Laufs kommen in EINE Queue mit EINEM `runid` (Zeit-Suffix), die sofort ausgeführt und von der Engine archiviert wird. Niemals pro Datei eine eigene Queue.
 - **Merkliste pflegen.** Nach dem Lauf ergänze die verarbeiteten Quellpfade in `_firma/_state/seen-receipt-filing.json` (JSON-Array; Datei/Ordner anlegen, falls fehlend). Best-effort.
-- Ende-Notiz: „<N> Belege abgelegt, <M> in Kontrolle — Ordner `<kontrolle>`."
+- Ende-Notiz: „<N> Belege in `<ablage_ordner>` abgelegt, <M> davon mit `PRÜFEN - ` markiert."
 
 Nur mit `"ablage": "review"` gilt der alte Sammel-Kontrakt: Queue vorbereiten, `status: prepared`, Ablage erst über das Review-Board / `_firma/apply.py`.
