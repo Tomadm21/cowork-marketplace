@@ -31,3 +31,4 @@ plugins/trendfinder/demo-setup-recording-script.md
 # python bytecode
 __pycache__/
 *.pyc
+.claude/worktrees/
