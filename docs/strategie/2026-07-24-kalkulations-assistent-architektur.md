@@ -62,6 +62,30 @@ Der MVP bleibt bei Schritt 3a — aber Datenmodell und Pipeline sind so geschnit
 Module aus der Tabelle andocken, ohne den Kern umzubauen (alle arbeiten auf demselben
 kanonischen Schema und demselben Preisgedächtnis).
 
+> **Priorisierungslogik — warum Zuschlagsmodul und NU-Preisspiegel erst später kommen:**
+> Der MVP muss genau eine Hypothese beweisen: *Preisvorschläge aus der eigenen Historie sparen
+> dem Kalkulator Stunden, und er vertraut ihnen.* Alles im MVP dient diesem Beweis.
+>
+> **Zuschlagsmodul (BGK/AGK/W&G):** technisch die einfachste Baustelle (deterministische
+> Umlage, 1–2 Wochen) — aber jede Firma hat das schon (Excel-Formel oder AVA); es
+> differenziert nicht und verkauft nichts. Zudem sind Umlageverfahren firmenindividuell
+> (offene/verdeckte/spekulative Umlage) — halbrichtig gerechnete Endpreise würden genau das
+> Vertrauen beschädigen, von dem das Produkt lebt. Deshalb Platz 1 im Ausbaupfad — **und
+> vorziehbar in den MVP**, falls die Phase-0-Gespräche zeigen, dass die Design-Partner
+> überwiegend Excel-Kalkulierer sind, die ohne Endpreise nicht arbeiten können. Das ist eine
+> Vertriebserkenntnis, keine Architekturfrage.
+>
+> **NU-/Lieferanten-Preisspiegel (Detailkalkulation):** kein Feature, sondern ein
+> Mehrparteien-Workflow (Anfragen je Gewerk verschicken, Fristen, Erinnerungen, eingehende
+> Angebote in beliebigen Formaten einlesen, Preisspiegel, Verhandlung) — dessen Wert von
+> antwortenden Dritten abhängt und in einem 3-Monats-Pilot nicht validierbar ist. Die
+> Lohn-Detailkalkulation (Aufwandswert × Mittellohn) braucht Stammdaten, die KMU selten
+> strukturiert haben, und ist die Kernkompetenz jeder AVA-Software — dort greifen wir nicht
+> an, unser Feld ist die firmeneigene Historie. Datenlogisch wird der Preisspiegel außerdem
+> besser, wenn er auf dem fertigen Preisgedächtnis aufsetzt („NU-Angebot liegt 18 % über
+> eurem Alt-Preis für dieselbe Leistung") — der MVP baut erst das Fundament, das dieses
+> Modul wertvoller macht.
+
 ## 3. Gesamtbild
 
 ```mermaid
