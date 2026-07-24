@@ -44,7 +44,7 @@ flowchart TB
         S3[("S3\nOriginaldateien je Mandant")]
         BR["Claude via Amazon Bedrock\n(eu-central-1)"]
     end
-    UI -->|Entra-ID-SSO| API
+    UI -->|eigener Login| API
     API --> PG
     API --> S3
     API --> Q
@@ -61,8 +61,11 @@ Container (App, Worker) auf ECS Fargate reichen bis weit über 100 Kunden.
 
 - **Next.js** (App Router), gehostet mit der API zusammen (kein Vercel — US-Anbieter würde die
   EU-Story verwässern; CloudFront + Fargate).
-- **Login: Microsoft Entra ID (SSO)** als erster Identity Provider — die Zielgruppe lebt in
-  M365; „Mit Microsoft anmelden" senkt die Einstiegshürde massiv. E-Mail/Passwort als Fallback.
+- **Login: eigene, anbieterneutrale Authentifizierung** — E-Mail/Passwort + Passkeys, verwaltet
+  in der eigenen Postgres (z. B. via Auth.js/better-auth oder selbst gehostetem Keycloak). Keine
+  Bindung an einen Identity-Anbieter. SSO wird später als **generische OIDC/SAML-Schnittstelle je
+  Mandant** angeboten (Enterprise-Feature) — daran kann ein Kunde Entra ID, Google oder seinen
+  eigenen IdP hängen, ohne dass das Produkt davon abhängt.
 - **Kern-Screen: die Kalkulations-Workbench.** Eine Tabelle, eine Zeile pro LV-Position:
   | OZ | Kurztext | Menge/Einheit | **Vorschlag (EP)** | **Quelle** | **Stufe** | Aktion |
   - *Quelle* verlinkt die Altposition (Projekt, Jahr, damaliger EP) — ein Klick zeigt den
@@ -168,7 +171,7 @@ Stufe nie *heraufsetzen*, nur bestätigen oder senken.
 
 | Tabelle | Inhalt |
 |---|---|
-| `tenants`, `users` | Mandanten, Nutzer (Entra-ID-Subject), Rollen |
+| `tenants`, `users` | Mandanten, Nutzer (eigene Konten; optionales SSO-Subject je Mandant), Rollen |
 | `projects` | ein LV-Vorgang (Upload → Kalkulation → Export) |
 | `lv_positions` | geparste Positionen des aktuellen LV |
 | `history_positions` | das Preisgedächtnis (kanonisches Schema + Embedding + Volltext-Spalte) |
@@ -198,7 +201,7 @@ Alle Mandanten-Tabellen mit `tenant_id` + RLS-Policy; Originaldateien in
 ## 10. MVP-Schnitt vs. Ausbau
 
 **Im MVP (Monat 1–3):**
-Monolith + Worker, Entra-ID-Login, GAEB-X81/X83-Parser, Historie-Import (X84 + Excel-Assistent),
+Monolith + Worker, eigener Login (E-Mail/Passwort + Passkeys), GAEB-X81/X83-Parser, Historie-Import (X84 + Excel-Assistent),
 Matching-Pipeline mit den drei Stufen, Workbench, Excel-Export, Ereignis-Loop, Mandanten-RLS,
 Löschjob.
 
